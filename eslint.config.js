@@ -34,6 +34,15 @@ module.exports = tseslint.config(
       // It's also good practice to disable the base ESLint 'semi' rule
       // to prevent conflicts, though tseslint.configs.recommended might do this for .ts files.
       'semi': 'off', 
-    }
+      '@typescript-eslint/naming-convention': [
+        'error',
+        {
+          selector: ['variable', 'function'],
+          format: ['snake_case'],
+          leadingUnderscore: 'allow',
+          trailingUnderscore: 'allow',
+        },
+      ],
+    },
   }
 );
