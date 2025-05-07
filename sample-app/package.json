@@ -3,13 +3,20 @@
   "version": "0.1.0",
   "private": true,
   "description": "A sample application within the live-lambda workspace.",
-  "main": "index.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "dev": "echo \"Error: no dev script specified\" && exit 1",
-    "build": "echo \"Error: no build script specified\" && exit 1",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "tsx index.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"Error: no test specified for sample-app package\" && exit 1"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^22.15.15",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
 }
