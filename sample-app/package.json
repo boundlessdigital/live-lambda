@@ -1,0 +1,15 @@
+{
+  "name": "sample-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A sample application within the live-lambda workspace.",
+  "main": "index.js",
+  "scripts": {
+    "dev": "echo \"Error: no dev script specified\" && exit 1",
+    "build": "echo \"Error: no build script specified\" && exit 1",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

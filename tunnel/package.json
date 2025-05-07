@@ -1,0 +1,14 @@
+{
+  "name": "tunnel",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The LiveLambdaTunnel CDK construct package.",
+  "main": "index.js",
+  "scripts": {
+    "build": "echo \"Error: no build script specified\" && exit 1",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["cdk", "aws", "appsync", "lambda", "live"],
+  "author": "",
+  "license": "ISC"
+}
