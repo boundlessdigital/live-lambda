@@ -36,7 +36,7 @@
 ### Phase 1: Core Communication & Local Execution (Proof of Concept)
 *Goal: Establish basic communication between a local process and a simulated AWS environment.*
 
--   [ ] **Step 1.1: Setup Testing Framework for `tunnel` package.**
+-   [x] **Step 1.1: Setup Testing Framework for `tunnel` package.**
     *   **Component:** `tunnel` package.
     *   **Action:** Install and configure a testing framework (e.g., Jest or Vitest).
     *   **Verification:** Run a simple placeholder test to confirm the framework is operational.
