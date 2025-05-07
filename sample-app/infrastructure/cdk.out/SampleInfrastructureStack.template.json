@@ -1,5 +1,16 @@
 {
  "Resources": {
+  "MessageQueue7A3BF959": {
+   "Type": "AWS::SQS::Queue",
+   "Properties": {
+    "VisibilityTimeout": 300
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "SampleInfrastructureStack/MessageQueue/Resource"
+   }
+  },
   "MyUrlLambdaServiceRole8810716E": {
    "Type": "AWS::IAM::Role",
    "Properties": {
@@ -34,6 +45,39 @@
     "aws:cdk:path": "SampleInfrastructureStack/MyUrlLambda/ServiceRole/Resource"
    }
   },
+  "MyUrlLambdaServiceRoleDefaultPolicy200644FD": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "sqs:SendMessage",
+        "sqs:GetQueueAttributes",
+        "sqs:GetQueueUrl"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "MessageQueue7A3BF959",
+         "Arn"
+        ]
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "MyUrlLambdaServiceRoleDefaultPolicy200644FD",
+    "Roles": [
+     {
+      "Ref": "MyUrlLambdaServiceRole8810716E"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SampleInfrastructureStack/MyUrlLambda/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
   "MyUrlLambda947A2956": {
    "Type": "AWS::Lambda::Function",
    "Properties": {
@@ -44,11 +88,14 @@
      "S3Bucket": {
       "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
      },
-     "S3Key": "3f4a8f0015c944f450f890edc89a3f6a710448bb8a331b1aa2c0e7352192a536.zip"
+     "S3Key": "dbf5af774d93e2b43cb590582a399462e2aa143dd076f5f82d8070bf5c596769.zip"
     },
     "Environment": {
      "Variables": {
-      "NODE_OPTIONS": "--enable-source-maps"
+      "NODE_OPTIONS": "--enable-source-maps",
+      "SQS_QUEUE_URL": {
+       "Ref": "MessageQueue7A3BF959"
+      }
      }
     },
     "Handler": "index.handler",
@@ -61,11 +108,12 @@
     "Runtime": "nodejs20.x"
    },
    "DependsOn": [
+    "MyUrlLambdaServiceRoleDefaultPolicy200644FD",
     "MyUrlLambdaServiceRole8810716E"
    ],
    "Metadata": {
     "aws:cdk:path": "SampleInfrastructureStack/MyUrlLambda/Resource",
-    "aws:asset:path": "asset.3f4a8f0015c944f450f890edc89a3f6a710448bb8a331b1aa2c0e7352192a536",
+    "aws:asset:path": "asset.dbf5af774d93e2b43cb590582a399462e2aa143dd076f5f82d8070bf5c596769",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
@@ -73,7 +121,7 @@
   "MyUrlLambdaFunctionUrl42C1236F": {
    "Type": "AWS::Lambda::Url",
    "Properties": {
-    "AuthType": "AWS_IAM",
+    "AuthType": "NONE",
     "TargetFunctionArn": {
      "Fn::GetAtt": [
       "MyUrlLambda947A2956",
@@ -85,10 +133,151 @@
     "aws:cdk:path": "SampleInfrastructureStack/MyUrlLambda/FunctionUrl/Resource"
    }
   },
+  "MyUrlLambdainvokefunctionurlBE8F3864": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunctionUrl",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "MyUrlLambda947A2956",
+      "Arn"
+     ]
+    },
+    "FunctionUrlAuthType": "NONE",
+    "Principal": "*"
+   },
+   "Metadata": {
+    "aws:cdk:path": "SampleInfrastructureStack/MyUrlLambda/invoke-function-url"
+   }
+  },
+  "SqsMessageProcessorLambdaServiceRoleA5ECB266": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SampleInfrastructureStack/SqsMessageProcessorLambda/ServiceRole/Resource"
+   }
+  },
+  "SqsMessageProcessorLambdaServiceRoleDefaultPolicy1B5D5AB1": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "sqs:ReceiveMessage",
+        "sqs:ChangeMessageVisibility",
+        "sqs:GetQueueUrl",
+        "sqs:DeleteMessage",
+        "sqs:GetQueueAttributes"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "MessageQueue7A3BF959",
+         "Arn"
+        ]
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "SqsMessageProcessorLambdaServiceRoleDefaultPolicy1B5D5AB1",
+    "Roles": [
+     {
+      "Ref": "SqsMessageProcessorLambdaServiceRoleA5ECB266"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SampleInfrastructureStack/SqsMessageProcessorLambda/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "SqsMessageProcessorLambdaA898F567": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Architectures": [
+     "arm64"
+    ],
+    "Code": {
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
+     },
+     "S3Key": "72008c25dd422a1b47e43f52b90307723eee82f8273b1ff31b8203045fbf3ece.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "NODE_OPTIONS": "--enable-source-maps"
+     }
+    },
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "SqsMessageProcessorLambdaServiceRoleA5ECB266",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x"
+   },
+   "DependsOn": [
+    "SqsMessageProcessorLambdaServiceRoleDefaultPolicy1B5D5AB1",
+    "SqsMessageProcessorLambdaServiceRoleA5ECB266"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "SampleInfrastructureStack/SqsMessageProcessorLambda/Resource",
+    "aws:asset:path": "asset.72008c25dd422a1b47e43f52b90307723eee82f8273b1ff31b8203045fbf3ece",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "SqsMessageProcessorLambdaSqsEventSourceSampleInfrastructureStackMessageQueue5A6EAEBED3E6CA77": {
+   "Type": "AWS::Lambda::EventSourceMapping",
+   "Properties": {
+    "BatchSize": 10,
+    "EventSourceArn": {
+     "Fn::GetAtt": [
+      "MessageQueue7A3BF959",
+      "Arn"
+     ]
+    },
+    "FunctionName": {
+     "Ref": "SqsMessageProcessorLambdaA898F567"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SampleInfrastructureStack/SqsMessageProcessorLambda/SqsEventSource:SampleInfrastructureStackMessageQueue5A6EAEBE/Resource"
+   }
+  },
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/z2PwQqDMBBEv6X3dVu1lx6r0GMLimdZY5RoTIqb1IP47yVKe3oDA4+ZBOPbFS8nWjgS7Rhp1eBaOhIj0ML1qmlqWqqNbeXA+Nzx8EY4ZQ0omnAtrJaQdyZwA05rYpaO8R4AnGLmxShdRizhsOGad+Yv+YVq1kFTzXrboJBs/Swk7JbSUa9MH+qXd2/vNgiDcODzJ0kwDgcGViqavXFqklgc/AI16rQV3QAAAA=="
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/2WQT2/CMAzFP8vuqTfKLjsONG78WSvOlUkNSpsmpU5AKMp3nxK6XXb6PVvPz7JLWHy8w9sL3rmQbV9odYJQO5S9wDs3ga8M4duTJ7E+myyi0DicWmyMbalj2GVsvJFOWSMUDhAqq/NA5sFqJR+pfKooeNkgMzmGzwTBS1h52ZNbIdMcD2F9Nn+pv+I46RQ040DToJiT4etGxtXWT5K2OI7KXJLhfzdGURHnjsjLa4eX2b33bvQuinQYdPx6K0tYpO90rFQxeePUQFA9+QMmfJpEOgEAAA=="
    },
    "Metadata": {
     "aws:cdk:path": "SampleInfrastructureStack/CDKMetadata/Default"
@@ -103,6 +292,21 @@
     "Fn::GetAtt": [
      "MyUrlLambdaFunctionUrl42C1236F",
      "FunctionUrl"
+    ]
+   }
+  },
+  "MessageQueueUrlCfn": {
+   "Description": "The URL of the SQS message queue",
+   "Value": {
+    "Ref": "MessageQueue7A3BF959"
+   }
+  },
+  "MessageQueueArnCfn": {
+   "Description": "The ARN of the SQS message queue",
+   "Value": {
+    "Fn::GetAtt": [
+     "MessageQueue7A3BF959",
+     "Arn"
     ]
    }
   }

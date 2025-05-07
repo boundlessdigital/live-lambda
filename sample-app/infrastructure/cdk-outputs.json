@@ -1,0 +1,7 @@
+{
+  "SampleInfrastructureStack": {
+    "MessageQueueUrlCfn": "https://sqs.us-east-1.amazonaws.com/942189704687/SampleInfrastructureStack-MessageQueue7A3BF959-CDJoA1BER6fz",
+    "MyUrlLambdaFunctionUrl": "https://nf53vt7uxulche2w6olu7xxtae0fojhp.lambda-url.us-east-1.on.aws/",
+    "MessageQueueArnCfn": "arn:aws:sqs:us-east-1:942189704687:SampleInfrastructureStack-MessageQueue7A3BF959-CDJoA1BER6fz"
+  }
+}

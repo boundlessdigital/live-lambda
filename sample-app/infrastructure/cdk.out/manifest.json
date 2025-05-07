@@ -18,7 +18,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-deploy-role-${AWS::AccountId}-${AWS::Region}",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-cfn-exec-role-${AWS::AccountId}-${AWS::Region}",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}/460ba77feb0a671adc5d2846633e463fd93300a521a8eeb4ee7d32557a22e19a.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}/50fac5251edd8f0938429dc46a48d0f431267e8925463b679f34f81d0eab0d4a.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -34,37 +34,22 @@
         "SampleInfrastructureStack.assets"
       ],
       "metadata": {
-        "/SampleInfrastructureStack": [
+        "/SampleInfrastructureStack/MessageQueue/Resource": [
           {
-            "type": "aws:cdk:warning",
-            "data": "If you are relying on AWS SDK v2 to be present in the Lambda environment already, please explicitly configure a NodeJS runtime of Node 16 or lower. [ack: @aws-cdk/aws-lambda-nodejs:sdkV2NotInRuntime]",
-            "trace": [
-              "Annotations.addMessage (/Users/sidney/boundless/live-lambda/sample-app/node_modules/.pnpm/aws-cdk-lib@2.194.0_constructs@10.4.2/node_modules/aws-cdk-lib/core/lib/annotations.js:1:1608)",
-              "Annotations.addWarningV2 (/Users/sidney/boundless/live-lambda/sample-app/node_modules/.pnpm/aws-cdk-lib@2.194.0_constructs@10.4.2/node_modules/aws-cdk-lib/core/lib/annotations.js:1:825)",
-              "new Bundling (/Users/sidney/boundless/live-lambda/sample-app/node_modules/.pnpm/aws-cdk-lib@2.194.0_constructs@10.4.2/node_modules/aws-cdk-lib/aws-lambda-nodejs/lib/bundling.js:1:3762)",
-              "Function.bundle (/Users/sidney/boundless/live-lambda/sample-app/node_modules/.pnpm/aws-cdk-lib@2.194.0_constructs@10.4.2/node_modules/aws-cdk-lib/aws-lambda-nodejs/lib/bundling.js:1:1066)",
-              "new NodejsFunction (/Users/sidney/boundless/live-lambda/sample-app/node_modules/.pnpm/aws-cdk-lib@2.194.0_constructs@10.4.2/node_modules/aws-cdk-lib/aws-lambda-nodejs/lib/function.js:1:2288)",
-              "new SampleInfrastructureStack (/Users/sidney/boundless/live-lambda/sample-app/infrastructure/stacks/sample-infrastructure.stack.ts:2:1692)",
-              "/Users/sidney/boundless/live-lambda/sample-app/infrastructure/index.ts:3:964",
-              "Object.<anonymous> (/Users/sidney/boundless/live-lambda/sample-app/infrastructure/index.ts:4:3)",
-              "Module._compile (node:internal/modules/cjs/loader:1554:14)",
-              "Object.transformer (/Users/sidney/boundless/live-lambda/sample-app/node_modules/.pnpm/tsx@4.19.4/node_modules/tsx/dist/register-D2KMMyKp.cjs:2:1186)",
-              "Module.load (node:internal/modules/cjs/loader:1289:32)",
-              "Function._load (node:internal/modules/cjs/loader:1108:12)",
-              "TracingChannel.traceSync (node:diagnostics_channel:322:14)",
-              "wrapModuleLoad (node:internal/modules/cjs/loader:220:24)",
-              "cjsLoader (node:internal/modules/esm/translators:262:5)",
-              "ModuleWrap.<anonymous> (node:internal/modules/esm/translators:196:7)",
-              "ModuleJob.run (node:internal/modules/esm/module_job:271:25)",
-              "onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:578:26)",
-              "asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:116:5)"
-            ]
+            "type": "aws:cdk:logicalId",
+            "data": "MessageQueue7A3BF959"
           }
         ],
         "/SampleInfrastructureStack/MyUrlLambda/ServiceRole/Resource": [
           {
             "type": "aws:cdk:logicalId",
             "data": "MyUrlLambdaServiceRole8810716E"
+          }
+        ],
+        "/SampleInfrastructureStack/MyUrlLambda/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MyUrlLambdaServiceRoleDefaultPolicy200644FD"
           }
         ],
         "/SampleInfrastructureStack/MyUrlLambda/Resource": [
@@ -79,10 +64,52 @@
             "data": "MyUrlLambdaFunctionUrl42C1236F"
           }
         ],
+        "/SampleInfrastructureStack/MyUrlLambda/invoke-function-url": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MyUrlLambdainvokefunctionurlBE8F3864"
+          }
+        ],
+        "/SampleInfrastructureStack/SqsMessageProcessorLambda/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SqsMessageProcessorLambdaServiceRoleA5ECB266"
+          }
+        ],
+        "/SampleInfrastructureStack/SqsMessageProcessorLambda/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SqsMessageProcessorLambdaServiceRoleDefaultPolicy1B5D5AB1"
+          }
+        ],
+        "/SampleInfrastructureStack/SqsMessageProcessorLambda/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SqsMessageProcessorLambdaA898F567"
+          }
+        ],
+        "/SampleInfrastructureStack/SqsMessageProcessorLambda/SqsEventSource:SampleInfrastructureStackMessageQueue5A6EAEBE/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SqsMessageProcessorLambdaSqsEventSourceSampleInfrastructureStackMessageQueue5A6EAEBED3E6CA77"
+          }
+        ],
         "/SampleInfrastructureStack/MyUrlLambdaFunctionUrl": [
           {
             "type": "aws:cdk:logicalId",
             "data": "MyUrlLambdaFunctionUrl"
+          }
+        ],
+        "/SampleInfrastructureStack/MessageQueueUrlCfn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MessageQueueUrlCfn"
+          }
+        ],
+        "/SampleInfrastructureStack/MessageQueueArnCfn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MessageQueueArnCfn"
           }
         ],
         "/SampleInfrastructureStack/CDKMetadata/Default": [
