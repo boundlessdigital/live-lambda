@@ -1,6 +1,5 @@
 # Node.js & pnpm
 node_modules/
-pnpm-lock.yaml # pnpm-lock.yaml should typically be committed
 
 # Logs
 logs
