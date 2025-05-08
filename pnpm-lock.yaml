@@ -20,25 +20,37 @@ importers:
       '@aws-sdk/signature-v4':
         specifier: ^3.374.0
         version: 3.374.0
-      tsx:
-        specifier: ^4.19.4
-        version: 4.19.4
+      constructs:
+        specifier: ^10.0.0
+        version: 10.4.2
     devDependencies:
       '@stylistic/eslint-plugin-ts':
         specifier: ^4.2.0
         version: 4.2.0(eslint@9.26.0)(typescript@5.8.3)
+      '@types/node':
+        specifier: ^22.15.17
+        version: 22.15.17
       '@typescript-eslint/eslint-plugin':
         specifier: ^8.32.0
         version: 8.32.0(@typescript-eslint/parser@8.32.0(eslint@9.26.0)(typescript@5.8.3))(eslint@9.26.0)(typescript@5.8.3)
       '@typescript-eslint/parser':
         specifier: ^8.32.0
         version: 8.32.0(eslint@9.26.0)(typescript@5.8.3)
+      aws-cdk-lib:
+        specifier: ^2.195.0
+        version: 2.195.0(constructs@10.4.2)
+      esbuild:
+        specifier: ^0.25.4
+        version: 0.25.4
       eslint:
         specifier: ^9.26.0
         version: 9.26.0
       globals:
         specifier: ^16.1.0
         version: 16.1.0
+      tsx:
+        specifier: ^4.19.4
+        version: 4.19.4
       typescript-eslint:
         specifier: ^8.32.0
         version: 8.32.0(eslint@9.26.0)(typescript@5.8.3)
@@ -866,6 +878,9 @@ packages:
 
   '@types/node@22.15.15':
     resolution: {integrity: sha512-R5muMcZob3/Jjchn5LcO8jdKwSCbzqmPB6ruBxMcf9kbxtniZHP327s6C37iOfuw8mbKK3cAQa7sEl7afLrQ8A==}
+
+  '@types/node@22.15.17':
+    resolution: {integrity: sha512-wIX2aSZL5FE+MR0JlvF87BNVrtFWf6AE6rxSE9X7OwnVvoyCQjpzSRJ+M87se/4QCkCiebQAqrJ0y6fwIyi7nw==}
 
   '@types/ws@8.18.1':
     resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
@@ -2899,6 +2914,10 @@ snapshots:
       undici-types: 6.19.8
 
   '@types/node@22.15.15':
+    dependencies:
+      undici-types: 6.21.0
+
+  '@types/node@22.15.17':
     dependencies:
       undici-types: 6.21.0
 
