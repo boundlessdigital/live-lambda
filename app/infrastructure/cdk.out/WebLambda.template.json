@@ -1,0 +1,200 @@
+{
+ "Resources": {
+  "WebLambdaServiceRoleDD756FC0": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "WebLambda/WebLambda/ServiceRole/Resource"
+   }
+  },
+  "WebLambdaServiceRoleDefaultPolicy817D173C": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "sqs:SendMessage",
+        "sqs:GetQueueAttributes",
+        "sqs:GetQueueUrl"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::ImportValue": "QueueStack:ExportsOutputFnGetAttQueue4A7E3555Arn15A7202E"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "WebLambdaServiceRoleDefaultPolicy817D173C",
+    "Roles": [
+     {
+      "Ref": "WebLambdaServiceRoleDD756FC0"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "WebLambda/WebLambda/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "WebLambda1EB10ABF": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Architectures": [
+     "arm64"
+    ],
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-942189704687-us-west-1",
+     "S3Key": "76daebcccff635a477e92c455685449bac12e13eaf366d5cba6f44bda669c336.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "QUEUE_URL": {
+       "Fn::ImportValue": "QueueStack:ExportsOutputRefQueue4A7E3555425E8BD3"
+      }
+     }
+    },
+    "Handler": "index.handler",
+    "MemorySize": 256,
+    "Role": {
+     "Fn::GetAtt": [
+      "WebLambdaServiceRoleDD756FC0",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs18.x",
+    "Timeout": 900
+   },
+   "DependsOn": [
+    "WebLambdaServiceRoleDefaultPolicy817D173C",
+    "WebLambdaServiceRoleDD756FC0"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "WebLambda/WebLambda/Resource",
+    "aws:asset:path": "asset.76daebcccff635a477e92c455685449bac12e13eaf366d5cba6f44bda669c336",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "WebLambdainvokefunctionurl5AF73296": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunctionUrl",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "WebLambda1EB10ABF",
+      "Arn"
+     ]
+    },
+    "FunctionUrlAuthType": "NONE",
+    "Principal": "*"
+   },
+   "Metadata": {
+    "aws:cdk:path": "WebLambda/WebLambda/invoke-function-url"
+   }
+  },
+  "FunctionUrl84B92DCA": {
+   "Type": "AWS::Lambda::Url",
+   "Properties": {
+    "AuthType": "NONE",
+    "TargetFunctionArn": {
+     "Fn::GetAtt": [
+      "WebLambda1EB10ABF",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "WebLambda/FunctionUrl/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/z2OQY7CMAxFz8LeNVCGxSwBiSWMilhXJjXIbZqM4mQQqnp3lFbD6vn7y08ucf29xdWCnlqYpius3HC4RDId0FPrwVJ/a6h2vuFW8TThmJyJ4h0I9ThU3jIc7m7ij7diXjnO0wi6qUmVo+IuA3SD+2Q6jntShlmPw+HuPtZ8zKEX1Zz+19dgc3MNdhyhYvUpGIbJeYn0EPfI9TnF3xRHyP9iq8u/ssT1F64WrYoUIbkoPWM18w3qyKib/AAAAA=="
+   },
+   "Metadata": {
+    "aws:cdk:path": "WebLambda/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "WebLambdaArn": {
+   "Value": {
+    "Fn::GetAtt": [
+     "WebLambda1EB10ABF",
+     "Arn"
+    ]
+   }
+  },
+  "WebLambdaUrl": {
+   "Value": {
+    "Fn::GetAtt": [
+     "FunctionUrl84B92DCA",
+     "FunctionUrl"
+    ]
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

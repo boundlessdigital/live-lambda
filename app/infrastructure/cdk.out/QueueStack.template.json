@@ -1,0 +1,84 @@
+{
+ "Resources": {
+  "Queue4A7E3555": {
+   "Type": "AWS::SQS::Queue",
+   "Properties": {
+    "QueueName": "live-lambda-queue"
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "QueueStack/Queue/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/zPSM7Q01TNQTCwv1k1OydbNyUzSqw4uSUzO1kksL44vLizWqw4sTS1N1XFOywMzakEs/9KSgtKSWp28/JRUvaxi/TIjIz1DEz0DxazizEzdotK8kszcVL0gCA0AzWE81GQAAAA="
+   },
+   "Metadata": {
+    "aws:cdk:path": "QueueStack/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "QueueUrl": {
+   "Value": {
+    "Ref": "Queue4A7E3555"
+   }
+  },
+  "ExportsOutputFnGetAttQueue4A7E3555Arn15A7202E": {
+   "Value": {
+    "Fn::GetAtt": [
+     "Queue4A7E3555",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "QueueStack:ExportsOutputFnGetAttQueue4A7E3555Arn15A7202E"
+   }
+  },
+  "ExportsOutputRefQueue4A7E3555425E8BD3": {
+   "Value": {
+    "Ref": "Queue4A7E3555"
+   },
+   "Export": {
+    "Name": "QueueStack:ExportsOutputRefQueue4A7E3555425E8BD3"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

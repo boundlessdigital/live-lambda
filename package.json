@@ -9,6 +9,7 @@
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
     "bootstrap": "tsx scripts/bootstrap.ts",
+    "app": "cd app/infrastructure && AWS_PROFILE=boundless-development AWS_REGION=us-west-1 npx cdk deploy --all --require-approval never",
     "dev": "cd dev/infrastructure && AWS_PROFILE=boundless-development AWS_REGION=us-west-1 npx cdk deploy --all --require-approval never"
   },
   "keywords": [],
@@ -17,6 +18,7 @@
   "packageManager": "pnpm@10.10.0",
   "devDependencies": {
     "@stylistic/eslint-plugin-ts": "^4.2.0",
+    "@types/aws-lambda": "^8.10.149",
     "@types/node": "^22.15.17",
     "@typescript-eslint/eslint-plugin": "^8.32.0",
     "@typescript-eslint/parser": "^8.32.0",
@@ -29,6 +31,8 @@
   },
   "dependencies": {
     "@aws-crypto/sha256-js": "^5.2.0",
+    "@aws-sdk/client-lambda": "^3.806.0",
+    "@aws-sdk/client-sqs": "^3.806.0",
     "@aws-sdk/credential-provider-node": "^3.804.0",
     "@aws-sdk/protocol-http": "^3.374.0",
     "@aws-sdk/signature-v4": "^3.374.0",

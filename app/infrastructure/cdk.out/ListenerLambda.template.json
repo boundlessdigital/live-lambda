@@ -1,0 +1,152 @@
+{
+ "Resources": {
+  "ListenerLambdaServiceRoleD1469C15": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ListenerLambda/ListenerLambda/ServiceRole/Resource"
+   }
+  },
+  "ListenerLambdaServiceRoleDefaultPolicy11FA1910": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "sqs:ReceiveMessage",
+        "sqs:ChangeMessageVisibility",
+        "sqs:GetQueueUrl",
+        "sqs:DeleteMessage",
+        "sqs:GetQueueAttributes"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::ImportValue": "QueueStack:ExportsOutputFnGetAttQueue4A7E3555Arn15A7202E"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "ListenerLambdaServiceRoleDefaultPolicy11FA1910",
+    "Roles": [
+     {
+      "Ref": "ListenerLambdaServiceRoleD1469C15"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ListenerLambda/ListenerLambda/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "ListenerLambdaB85869BE": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Architectures": [
+     "arm64"
+    ],
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-942189704687-us-west-1",
+     "S3Key": "56148683b71f6c0eada21bf1f11be22cde6da91cb8a13e8061772f72fd15bef5.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "LISTENER_QUEUE_URL": {
+       "Fn::ImportValue": "QueueStack:ExportsOutputRefQueue4A7E3555425E8BD3"
+      }
+     }
+    },
+    "Handler": "index.handler",
+    "MemorySize": 256,
+    "Role": {
+     "Fn::GetAtt": [
+      "ListenerLambdaServiceRoleD1469C15",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs18.x",
+    "Timeout": 900
+   },
+   "DependsOn": [
+    "ListenerLambdaServiceRoleDefaultPolicy11FA1910",
+    "ListenerLambdaServiceRoleD1469C15"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ListenerLambda/ListenerLambda/Resource",
+    "aws:asset:path": "asset.56148683b71f6c0eada21bf1f11be22cde6da91cb8a13e8061772f72fd15bef5",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/zWOSwqDQBBEz+K+7fhJFllGIcsQ9ADSjqO0nxmwZyJBvHtQyepVLepRCcb3G0YBLRKqZghHrnEtHakBaJFqHWmqG6qMbXQv+Drw9EY5tgaYJlwLO2rIW3PwbUdW372eaQNJKxLRTvCxAyTFzKtBu4xEw6nHvDV/6QaFFutnpeEYlI46Nt0G+wXs5fJJEoyvGAW9MIezN44njcXJH0+9sO7PAAAA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "ListenerLambda/CDKMetadata/Default"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

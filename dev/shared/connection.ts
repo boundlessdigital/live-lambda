@@ -1,7 +1,11 @@
 import { btoa } from 'buffer'
 
-function getAuthProtocol(authorization: { 'x-api-key': string; host: string }) {
-  const header = btoa(JSON.stringify(authorization))
+function get_auth_protocol(host: string) {
+  const header = btoa(
+    JSON.stringify({
+      host
+    })
+  )
     .replace(/\+/g, '-') // Convert '+' to '-'
     .replace(/\//g, '_') // Convert '/' to '_'
     .replace(/=+$/, '') // Remove padding `=`
@@ -9,23 +13,17 @@ function getAuthProtocol(authorization: { 'x-api-key': string; host: string }) {
 }
 
 interface ConnectionParams {
-  realtime_domain: string
-  http_domain: string
-  api_key: string
+  realtime_endpoint: string
 }
 
 export class Connection {
   socket: WebSocket
   constructor(params: ConnectionParams) {
-    const authorization = {
-      'x-api-key': params.api_key,
-      host: params.http_domain
-    }
+    this.socket = new WebSocket(params.realtime_endpoint, [
+      'aws-appsync-event-ws',
+      get_auth_protocol(params.realtime_endpoint)
+    ])
 
-    this.socket = new WebSocket(
-      `wss://${params.realtime_domain}/event/realtime`,
-      ['aws-appsync-event-ws', getAuthProtocol(authorization)]
-    )
     this.socket.onopen = () => console.log('Connected to AppSync WebSocket')
     this.socket.onclose = (event) => console.log('WebSocket closed:', event)
     this.socket.onmessage = (event) => console.log('WebSocket message:', event)
