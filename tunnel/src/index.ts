@@ -35,6 +35,7 @@ export interface LiveLambdaTunnelProps {
  */
 export class LiveLambdaTunnel extends Construct {
   public readonly stub_function?: NodejsFunction
+  public readonly stub_function_arn?: string;
 
   constructor(scope: Construct, id: string, props: LiveLambdaTunnelProps) {
     super(scope, id)
@@ -78,6 +79,8 @@ export class LiveLambdaTunnel extends Construct {
           ...(props.stub_lambda_props?.bundling || {}),
         },
       })
+
+      this.stub_function_arn = this.stub_function.functionArn;
 
       // TODO: In a later step, we need to handle how the original Lambda's triggers
       // (e.g., API Gateway integration) are pointed to this stub_function instead of

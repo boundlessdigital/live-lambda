@@ -118,38 +118,6 @@
     "aws:asset:property": "Code"
    }
   },
-  "MyUrlLambdaFunctionUrl42C1236F": {
-   "Type": "AWS::Lambda::Url",
-   "Properties": {
-    "AuthType": "NONE",
-    "TargetFunctionArn": {
-     "Fn::GetAtt": [
-      "MyUrlLambda947A2956",
-      "Arn"
-     ]
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "SampleInfrastructureStack/MyUrlLambda/FunctionUrl/Resource"
-   }
-  },
-  "MyUrlLambdainvokefunctionurlBE8F3864": {
-   "Type": "AWS::Lambda::Permission",
-   "Properties": {
-    "Action": "lambda:InvokeFunctionUrl",
-    "FunctionName": {
-     "Fn::GetAtt": [
-      "MyUrlLambda947A2956",
-      "Arn"
-     ]
-    },
-    "FunctionUrlAuthType": "NONE",
-    "Principal": "*"
-   },
-   "Metadata": {
-    "aws:cdk:path": "SampleInfrastructureStack/MyUrlLambda/invoke-function-url"
-   }
-  },
   "MyUrlLambdaTunnelStubProxyLambdaServiceRoleECAF2AE1": {
    "Type": "AWS::IAM::Role",
    "Properties": {
@@ -220,6 +188,49 @@
     "aws:asset:path": "asset.9035fa27193f14ad94913df2bf7d21fedb45ca0ef9978804e300f84b45a5c134",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
+   }
+  },
+  "MyUrlLambdaTunnelStubProxyLambdainvokefunctionurl1A1BBDA0": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunctionUrl",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "MyUrlLambdaTunnelStubProxyLambdaCAB56BDD",
+      "Arn"
+     ]
+    },
+    "FunctionUrlAuthType": "NONE",
+    "Principal": "*"
+   },
+   "Metadata": {
+    "aws:cdk:path": "SampleInfrastructureStack/MyUrlLambdaTunnel/StubProxyLambda/invoke-function-url"
+   }
+  },
+  "MyUrlLambdaLiveSwitchUrl20CBA9C2": {
+   "Type": "AWS::Lambda::Url",
+   "Properties": {
+    "AuthType": "NONE",
+    "Cors": {
+     "AllowHeaders": [
+      "*"
+     ],
+     "AllowMethods": [
+      "*"
+     ],
+     "AllowOrigins": [
+      "*"
+     ]
+    },
+    "TargetFunctionArn": {
+     "Fn::GetAtt": [
+      "MyUrlLambdaTunnelStubProxyLambdaCAB56BDD",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SampleInfrastructureStack/MyUrlLambdaLiveSwitchUrl/Resource"
    }
   },
   "SqsMessageProcessorLambdaServiceRoleA5ECB266": {
@@ -349,7 +360,7 @@
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/2WPQW/CMAyFfwv31EAZhx0H2m7bWCvOlUkNSpsmXZ2AUJT/PiV0u+z0PT89P8slrJ+3sFrgjQvZ9oVWJwi1Q9kLvHET+JshfHnyJPZnk0UUGodTi42xLXUMHxlv3kinrBEKBwiV1Xkh82C1kvc0PlQUvGmQmRzDS4LgDey87MntkGmuh7A/m7/WX3GcdCqacaBpUMwp8Hol42rrJ0nvOI7KXFLgvxujqIizI/Lx2uFlTn96N3oXRXoMOl5eyxLWT7BadKxUMXnj1EBQPfgDi17NszoBAAA="
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/2WPQW/CMAyFfwv31IPCDjsOxG6D0YpzZVKD0qZJVycgFOW/Twlsl50+v2f7WS5h8fYK8xneuJBtX2h1glA7lL3AGzeBvxnCwZMnsTmbXEShcTi12BjbUsewy/jwRjpljVA4QKiszguZX1YreU/yUUXBywaZyTG8JwhewtrLntwamZ7xEDZn85ealmkaFHNSv/Zx0qmTsL2ScbX1k6RPHEdlLqnz341RVMTZEfl47fDynN57N3oXRXoMOn65liUsVjCfdaxUMXnj1EBQPfgDlVj+vzoBAAA="
    },
    "Metadata": {
     "aws:cdk:path": "SampleInfrastructureStack/CDKMetadata/Default"
@@ -358,35 +369,33 @@
   }
  },
  "Outputs": {
-  "StubMyUrlLambdaArn": {
-   "Description": "The ARN of the MyUrlLambda Stub Function (if live mode is enabled)",
-   "Value": {
-    "Fn::GetAtt": [
-     "MyUrlLambdaTunnelStubProxyLambdaCAB56BDD",
-     "Arn"
-    ]
-   }
-  },
-  "MyUrlLambdaFunctionUrl": {
-   "Description": "The URL of the MyUrlLambda function",
-   "Value": {
-    "Fn::GetAtt": [
-     "MyUrlLambdaFunctionUrl42C1236F",
-     "FunctionUrl"
-    ]
-   }
-  },
   "MessageQueueUrlCfn": {
-   "Description": "The URL of the SQS message queue",
    "Value": {
     "Ref": "MessageQueue7A3BF959"
    }
   },
   "MessageQueueArnCfn": {
-   "Description": "The ARN of the SQS message queue",
    "Value": {
     "Fn::GetAtt": [
      "MessageQueue7A3BF959",
+     "Arn"
+    ]
+   }
+  },
+  "MyUrlLambdaFunctionUrl": {
+   "Description": "The Function URL for MyUrlLambda (conditionally proxied if live mode is active)",
+   "Value": {
+    "Fn::GetAtt": [
+     "MyUrlLambdaLiveSwitchUrl20CBA9C2",
+     "FunctionUrl"
+    ]
+   }
+  },
+  "StubMyUrlLambdaArn": {
+   "Description": "ARN of the Stub Lambda for MyUrlLambda when live mode is active.",
+   "Value": {
+    "Fn::GetAtt": [
+     "MyUrlLambdaTunnelStubProxyLambdaCAB56BDD",
      "Arn"
     ]
    }
