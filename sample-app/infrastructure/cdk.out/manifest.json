@@ -11,21 +11,21 @@
     },
     "SampleInfrastructureStack": {
       "type": "aws:cloudformation:stack",
-      "environment": "aws://unknown-account/unknown-region",
+      "environment": "aws://942189704687/us-west-1",
       "properties": {
         "templateFile": "SampleInfrastructureStack.template.json",
         "terminationProtection": false,
         "validateOnSynth": false,
-        "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-deploy-role-${AWS::AccountId}-${AWS::Region}",
-        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-cfn-exec-role-${AWS::AccountId}-${AWS::Region}",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}/fa7d86d5963c7a07eee0f7917c6bfbdb3ee416a7ba27cfd8c83c3bffb46602b3.json",
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::942189704687:role/cdk-hnb659fds-deploy-role-942189704687-us-west-1",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::942189704687:role/cdk-hnb659fds-cfn-exec-role-942189704687-us-west-1",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-942189704687-us-west-1/2e852e4b357fa3d5eb94de549bdc696c7c83c43db7d4163660fa03a9e4bbcb6f.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
           "SampleInfrastructureStack.assets"
         ],
         "lookupRole": {
-          "arn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-lookup-role-${AWS::AccountId}-${AWS::Region}",
+          "arn": "arn:${AWS::Partition}:iam::942189704687:role/cdk-hnb659fds-lookup-role-942189704687-us-west-1",
           "requiresBootstrapStackVersion": 8,
           "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
         }
@@ -58,58 +58,6 @@
             "data": "MyUrlLambda947A2956"
           }
         ],
-        "/SampleInfrastructureStack/MyUrlLambdaTunnel": [
-          {
-            "type": "aws:cdk:warning",
-            "data": "If you are relying on AWS SDK v2 to be present in the Lambda environment already, please explicitly configure a NodeJS runtime of Node 16 or lower. [ack: @aws-cdk/aws-lambda-nodejs:sdkV2NotInRuntime]",
-            "trace": [
-              "Annotations.addMessage (/Users/sidney/boundless/live-lambda/node_modules/.pnpm/aws-cdk-lib@2.195.0_constructs@10.4.2/node_modules/aws-cdk-lib/core/lib/annotations.js:1:1608)",
-              "Annotations.addWarningV2 (/Users/sidney/boundless/live-lambda/node_modules/.pnpm/aws-cdk-lib@2.195.0_constructs@10.4.2/node_modules/aws-cdk-lib/core/lib/annotations.js:1:825)",
-              "new Bundling (/Users/sidney/boundless/live-lambda/node_modules/.pnpm/aws-cdk-lib@2.195.0_constructs@10.4.2/node_modules/aws-cdk-lib/aws-lambda-nodejs/lib/bundling.js:1:3762)",
-              "Function.bundle (/Users/sidney/boundless/live-lambda/node_modules/.pnpm/aws-cdk-lib@2.195.0_constructs@10.4.2/node_modules/aws-cdk-lib/aws-lambda-nodejs/lib/bundling.js:1:1066)",
-              "new NodejsFunction (/Users/sidney/boundless/live-lambda/node_modules/.pnpm/aws-cdk-lib@2.195.0_constructs@10.4.2/node_modules/aws-cdk-lib/aws-lambda-nodejs/lib/function.js:1:2288)",
-              "new LiveLambdaTunnel (/Users/sidney/boundless/live-lambda/tunnel/src/index.ts:2:49)",
-              "new SampleInfrastructureStack (/Users/sidney/boundless/live-lambda/sample-app/infrastructure/stacks/sample-infrastructure.stack.ts:2:2670)",
-              "/Users/sidney/boundless/live-lambda/sample-app/infrastructure/index.ts:3:1140",
-              "Object.<anonymous> (/Users/sidney/boundless/live-lambda/sample-app/infrastructure/index.ts:4:3)",
-              "Module._compile (node:internal/modules/cjs/loader:1554:14)",
-              "Object.transformer (/Users/sidney/boundless/live-lambda/node_modules/.pnpm/tsx@4.19.4/node_modules/tsx/dist/register-D2KMMyKp.cjs:2:1186)",
-              "Module.load (node:internal/modules/cjs/loader:1289:32)",
-              "Function._load (node:internal/modules/cjs/loader:1108:12)",
-              "TracingChannel.traceSync (node:diagnostics_channel:322:14)",
-              "wrapModuleLoad (node:internal/modules/cjs/loader:220:24)",
-              "cjsLoader (node:internal/modules/esm/translators:262:5)",
-              "ModuleWrap.<anonymous> (node:internal/modules/esm/translators:196:7)",
-              "ModuleJob.run (node:internal/modules/esm/module_job:271:25)",
-              "onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:578:26)",
-              "asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:116:5)"
-            ]
-          }
-        ],
-        "/SampleInfrastructureStack/MyUrlLambdaTunnel/StubProxyLambda/ServiceRole/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "MyUrlLambdaTunnelStubProxyLambdaServiceRoleECAF2AE1"
-          }
-        ],
-        "/SampleInfrastructureStack/MyUrlLambdaTunnel/StubProxyLambda/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "MyUrlLambdaTunnelStubProxyLambdaCAB56BDD"
-          }
-        ],
-        "/SampleInfrastructureStack/MyUrlLambdaTunnel/StubProxyLambda/invoke-function-url": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "MyUrlLambdaTunnelStubProxyLambdainvokefunctionurl1A1BBDA0"
-          }
-        ],
-        "/SampleInfrastructureStack/MyUrlLambdaLiveSwitchUrl/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "MyUrlLambdaLiveSwitchUrl20CBA9C2"
-          }
-        ],
         "/SampleInfrastructureStack/SqsMessageProcessorLambda/ServiceRole/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -134,6 +82,54 @@
             "data": "SqsMessageProcessorLambdaSqsEventSourceSampleInfrastructureStackMessageQueue5A6EAEBED3E6CA77"
           }
         ],
+        "/SampleInfrastructureStack/LiveLambdaEventApi/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LiveLambdaEventApi91DD40F3"
+          }
+        ],
+        "/SampleInfrastructureStack/LiveLambdaEventApi/liveLambda/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LiveLambdaEventApiliveLambdaCAC3AEFD"
+          }
+        ],
+        "/SampleInfrastructureStack/MyUrlLambdaTunnel/StubProxyLambda/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MyUrlLambdaTunnelStubProxyLambdaServiceRoleECAF2AE1"
+          }
+        ],
+        "/SampleInfrastructureStack/MyUrlLambdaTunnel/StubProxyLambda/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MyUrlLambdaTunnelStubProxyLambdaServiceRoleDefaultPolicyB9C4AF64"
+          }
+        ],
+        "/SampleInfrastructureStack/MyUrlLambdaTunnel/StubProxyLambda/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MyUrlLambdaTunnelStubProxyLambdaCAB56BDD"
+          }
+        ],
+        "/SampleInfrastructureStack/MyUrlLambdaTunnel/StubProxyLambda/invoke-function-url": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MyUrlLambdaTunnelStubProxyLambdainvokefunctionurl1A1BBDA0"
+          }
+        ],
+        "/SampleInfrastructureStack/MyUrlLambdaLiveSwitchUrl/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MyUrlLambdaLiveSwitchUrl20CBA9C2"
+          }
+        ],
+        "/SampleInfrastructureStack/StubMyUrlLambdaArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StubMyUrlLambdaArn"
+          }
+        ],
         "/SampleInfrastructureStack/MessageQueueUrlCfn": [
           {
             "type": "aws:cdk:logicalId",
@@ -152,22 +148,28 @@
             "data": "MyUrlLambdaFunctionUrl"
           }
         ],
-        "/SampleInfrastructureStack/StubMyUrlLambdaArn": [
+        "/SampleInfrastructureStack/LiveLambdaEventApiId": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "StubMyUrlLambdaArn"
+            "data": "LiveLambdaEventApiId"
+          }
+        ],
+        "/SampleInfrastructureStack/LiveLambdaEventApiHttpEndpoint": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LiveLambdaEventApiHttpEndpoint"
+          }
+        ],
+        "/SampleInfrastructureStack/LiveLambdaEventApiWssEndpoint": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LiveLambdaEventApiWssEndpoint"
           }
         ],
         "/SampleInfrastructureStack/CDKMetadata/Default": [
           {
             "type": "aws:cdk:logicalId",
             "data": "CDKMetadata"
-          }
-        ],
-        "/SampleInfrastructureStack/CDKMetadata/Condition": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "CDKMetadataAvailable"
           }
         ],
         "/SampleInfrastructureStack/BootstrapVersion": [

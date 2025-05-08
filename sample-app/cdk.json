@@ -1,0 +1,6 @@
+{
+  "app": "pnpm exec tsx infrastructure/index.ts",
+  "context": {
+    "liveLambdaActive": "false"
+  }
+}

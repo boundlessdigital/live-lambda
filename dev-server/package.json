@@ -1,0 +1,28 @@
+{
+  "name": "live-lambda-dev-server",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/local-dev-server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/local-dev-server.js",
+    "dev": "tsc -w & nodemon dist/local-dev-server.js"
+  },
+  "devDependencies": {
+    "@smithy/types": "^4.2.0",
+    "@types/node": "^20.11.5",
+    "@types/ws": "^8.5.10",
+    "nodemon": "^3.0.3",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "@aws-crypto/sha256-js": "^5.2.0",
+    "@aws-sdk/credential-provider-node": "^3.804.0",
+    "@aws-sdk/signature-v4": "^3.374.0",
+    "@aws-sdk/util-format-url": "^3.804.0",
+    "@aws-sdk/util-uri-escape": "^3.374.0",
+    "@smithy/protocol-http": "^5.1.0",
+    "@smithy/url-parser": "^4.0.2",
+    "ws": "^8.18.2"
+  }
+}

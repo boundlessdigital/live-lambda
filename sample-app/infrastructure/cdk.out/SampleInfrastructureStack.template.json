@@ -85,9 +85,7 @@
      "arm64"
     ],
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
-     },
+     "S3Bucket": "cdk-hnb659fds-assets-942189704687-us-west-1",
      "S3Key": "dbf5af774d93e2b43cb590582a399462e2aa143dd076f5f82d8070bf5c596769.zip"
     },
     "Environment": {
@@ -116,121 +114,6 @@
     "aws:asset:path": "asset.dbf5af774d93e2b43cb590582a399462e2aa143dd076f5f82d8070bf5c596769",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
-   }
-  },
-  "MyUrlLambdaTunnelStubProxyLambdaServiceRoleECAF2AE1": {
-   "Type": "AWS::IAM::Role",
-   "Properties": {
-    "AssumeRolePolicyDocument": {
-     "Statement": [
-      {
-       "Action": "sts:AssumeRole",
-       "Effect": "Allow",
-       "Principal": {
-        "Service": "lambda.amazonaws.com"
-       }
-      }
-     ],
-     "Version": "2012-10-17"
-    },
-    "ManagedPolicyArns": [
-     {
-      "Fn::Join": [
-       "",
-       [
-        "arn:",
-        {
-         "Ref": "AWS::Partition"
-        },
-        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-       ]
-      ]
-     }
-    ]
-   },
-   "Metadata": {
-    "aws:cdk:path": "SampleInfrastructureStack/MyUrlLambdaTunnel/StubProxyLambda/ServiceRole/Resource"
-   }
-  },
-  "MyUrlLambdaTunnelStubProxyLambdaCAB56BDD": {
-   "Type": "AWS::Lambda::Function",
-   "Properties": {
-    "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
-     },
-     "S3Key": "9035fa27193f14ad94913df2bf7d21fedb45ca0ef9978804e300f84b45a5c134.zip"
-    },
-    "Environment": {
-     "Variables": {
-      "ORIGINAL_FUNCTION_ARN": {
-       "Fn::GetAtt": [
-        "MyUrlLambda947A2956",
-        "Arn"
-       ]
-      }
-     }
-    },
-    "Handler": "index.handler",
-    "Role": {
-     "Fn::GetAtt": [
-      "MyUrlLambdaTunnelStubProxyLambdaServiceRoleECAF2AE1",
-      "Arn"
-     ]
-    },
-    "Runtime": "nodejs20.x"
-   },
-   "DependsOn": [
-    "MyUrlLambdaTunnelStubProxyLambdaServiceRoleECAF2AE1"
-   ],
-   "Metadata": {
-    "aws:cdk:path": "SampleInfrastructureStack/MyUrlLambdaTunnel/StubProxyLambda/Resource",
-    "aws:asset:path": "asset.9035fa27193f14ad94913df2bf7d21fedb45ca0ef9978804e300f84b45a5c134",
-    "aws:asset:is-bundled": true,
-    "aws:asset:property": "Code"
-   }
-  },
-  "MyUrlLambdaTunnelStubProxyLambdainvokefunctionurl1A1BBDA0": {
-   "Type": "AWS::Lambda::Permission",
-   "Properties": {
-    "Action": "lambda:InvokeFunctionUrl",
-    "FunctionName": {
-     "Fn::GetAtt": [
-      "MyUrlLambdaTunnelStubProxyLambdaCAB56BDD",
-      "Arn"
-     ]
-    },
-    "FunctionUrlAuthType": "NONE",
-    "Principal": "*"
-   },
-   "Metadata": {
-    "aws:cdk:path": "SampleInfrastructureStack/MyUrlLambdaTunnel/StubProxyLambda/invoke-function-url"
-   }
-  },
-  "MyUrlLambdaLiveSwitchUrl20CBA9C2": {
-   "Type": "AWS::Lambda::Url",
-   "Properties": {
-    "AuthType": "NONE",
-    "Cors": {
-     "AllowHeaders": [
-      "*"
-     ],
-     "AllowMethods": [
-      "*"
-     ],
-     "AllowOrigins": [
-      "*"
-     ]
-    },
-    "TargetFunctionArn": {
-     "Fn::GetAtt": [
-      "MyUrlLambdaTunnelStubProxyLambdaCAB56BDD",
-      "Arn"
-     ]
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "SampleInfrastructureStack/MyUrlLambdaLiveSwitchUrl/Resource"
    }
   },
   "SqsMessageProcessorLambdaServiceRoleA5ECB266": {
@@ -309,9 +192,7 @@
      "arm64"
     ],
     "Code": {
-     "S3Bucket": {
-      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
-     },
+     "S3Bucket": "cdk-hnb659fds-assets-942189704687-us-west-1",
      "S3Key": "72008c25dd422a1b47e43f52b90307723eee82f8273b1ff31b8203045fbf3ece.zip"
     },
     "Environment": {
@@ -357,18 +238,290 @@
     "aws:cdk:path": "SampleInfrastructureStack/SqsMessageProcessorLambda/SqsEventSource:SampleInfrastructureStackMessageQueue5A6EAEBE/Resource"
    }
   },
+  "LiveLambdaEventApi91DD40F3": {
+   "Type": "AWS::AppSync::Api",
+   "Properties": {
+    "EventConfig": {
+     "AuthProviders": [
+      {
+       "AuthType": "AWS_IAM"
+      }
+     ],
+     "ConnectionAuthModes": [
+      {
+       "AuthType": "AWS_IAM"
+      }
+     ],
+     "DefaultPublishAuthModes": [
+      {
+       "AuthType": "AWS_IAM"
+      }
+     ],
+     "DefaultSubscribeAuthModes": [
+      {
+       "AuthType": "AWS_IAM"
+      }
+     ]
+    },
+    "Name": "live-lambda-events-SampleInfrastructureStack"
+   },
+   "Metadata": {
+    "aws:cdk:path": "SampleInfrastructureStack/LiveLambdaEventApi/Resource"
+   }
+  },
+  "LiveLambdaEventApiliveLambdaCAC3AEFD": {
+   "Type": "AWS::AppSync::ChannelNamespace",
+   "Properties": {
+    "ApiId": {
+     "Fn::GetAtt": [
+      "LiveLambdaEventApi91DD40F3",
+      "ApiId"
+     ]
+    },
+    "HandlerConfigs": {},
+    "Name": "liveLambda"
+   },
+   "Metadata": {
+    "aws:cdk:path": "SampleInfrastructureStack/LiveLambdaEventApi/liveLambda/Resource"
+   }
+  },
+  "MyUrlLambdaTunnelStubProxyLambdaServiceRoleECAF2AE1": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SampleInfrastructureStack/MyUrlLambdaTunnel/StubProxyLambda/ServiceRole/Resource"
+   }
+  },
+  "MyUrlLambdaTunnelStubProxyLambdaServiceRoleDefaultPolicyB9C4AF64": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "appsync:connect",
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::Join": [
+         "",
+         [
+          "arn:aws:appsync:",
+          {
+           "Ref": "AWS::Region"
+          },
+          ":",
+          {
+           "Ref": "AWS::AccountId"
+          },
+          ":apis/",
+          {
+           "Fn::GetAtt": [
+            "LiveLambdaEventApi91DD40F3",
+            "ApiId"
+           ]
+          }
+         ]
+        ]
+       },
+       "Sid": "AppSyncConnectPolicy1746730959232"
+      },
+      {
+       "Action": "appsync:*",
+       "Effect": "Allow",
+       "Resource": "*",
+       "Sid": "TemporaryBroadAppSyncDebugPolicy1746730959233"
+      },
+      {
+       "Action": "sts:GetCallerIdentity",
+       "Effect": "Allow",
+       "Resource": "*",
+       "Sid": "DummyPolicyToForceUpdate1746730959233"
+      },
+      {
+       "Action": "appsync:EventPublish",
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::Join": [
+         "",
+         [
+          "arn:",
+          {
+           "Ref": "AWS::Partition"
+          },
+          ":appsync:us-west-1:942189704687:apis/",
+          {
+           "Fn::GetAtt": [
+            "LiveLambdaEventApi91DD40F3",
+            "ApiId"
+           ]
+          },
+          "/channelNamespace/*"
+         ]
+        ]
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "MyUrlLambdaTunnelStubProxyLambdaServiceRoleDefaultPolicyB9C4AF64",
+    "Roles": [
+     {
+      "Ref": "MyUrlLambdaTunnelStubProxyLambdaServiceRoleECAF2AE1"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SampleInfrastructureStack/MyUrlLambdaTunnel/StubProxyLambda/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "MyUrlLambdaTunnelStubProxyLambdaCAB56BDD": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Architectures": [
+     "arm64"
+    ],
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-942189704687-us-west-1",
+     "S3Key": "e008eabc646c515647c25d57d3bd01e812f33f04314c7468bba3a2f44ad890f8.zip"
+    },
+    "Description": "Stub Lambda for Live Lambda Tunnel - Deployed: 1746730958818",
+    "Environment": {
+     "Variables": {
+      "APPSYNC_EVENT_API_URL": {
+       "Fn::Join": [
+        "",
+        [
+         "https://",
+         {
+          "Fn::GetAtt": [
+           "LiveLambdaEventApi91DD40F3",
+           "Dns.Http"
+          ]
+         },
+         "/event"
+        ]
+       ]
+      },
+      "APPSYNC_CHANNEL_NAMESPACE": "liveLambda",
+      "ORIGINAL_FUNCTION_ARN": {
+       "Fn::GetAtt": [
+        "MyUrlLambda947A2956",
+        "Arn"
+       ]
+      }
+     }
+    },
+    "Handler": "index.handler",
+    "MemorySize": 256,
+    "Role": {
+     "Fn::GetAtt": [
+      "MyUrlLambdaTunnelStubProxyLambdaServiceRoleECAF2AE1",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Timeout": 30
+   },
+   "DependsOn": [
+    "MyUrlLambdaTunnelStubProxyLambdaServiceRoleDefaultPolicyB9C4AF64",
+    "MyUrlLambdaTunnelStubProxyLambdaServiceRoleECAF2AE1"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "SampleInfrastructureStack/MyUrlLambdaTunnel/StubProxyLambda/Resource",
+    "aws:asset:path": "asset.e008eabc646c515647c25d57d3bd01e812f33f04314c7468bba3a2f44ad890f8",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "MyUrlLambdaTunnelStubProxyLambdainvokefunctionurl1A1BBDA0": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunctionUrl",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "MyUrlLambdaTunnelStubProxyLambdaCAB56BDD",
+      "Arn"
+     ]
+    },
+    "FunctionUrlAuthType": "NONE",
+    "Principal": "*"
+   },
+   "Metadata": {
+    "aws:cdk:path": "SampleInfrastructureStack/MyUrlLambdaTunnel/StubProxyLambda/invoke-function-url"
+   }
+  },
+  "MyUrlLambdaLiveSwitchUrl20CBA9C2": {
+   "Type": "AWS::Lambda::Url",
+   "Properties": {
+    "AuthType": "NONE",
+    "Cors": {
+     "AllowHeaders": [
+      "*"
+     ],
+     "AllowMethods": [
+      "*"
+     ],
+     "AllowOrigins": [
+      "*"
+     ]
+    },
+    "TargetFunctionArn": {
+     "Fn::GetAtt": [
+      "MyUrlLambdaTunnelStubProxyLambdaCAB56BDD",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SampleInfrastructureStack/MyUrlLambdaLiveSwitchUrl/Resource"
+   }
+  },
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/2WPQW/CMAyFfwv31IPCDjsOxG6D0YpzZVKD0qZJVycgFOW/Twlsl50+v2f7WS5h8fYK8xneuJBtX2h1glA7lL3AGzeBvxnCwZMnsTmbXEShcTi12BjbUsewy/jwRjpljVA4QKiszguZX1YreU/yUUXBywaZyTG8JwhewtrLntwamZ7xEDZn85ealmkaFHNSv/Zx0qmTsL2ScbX1k6RPHEdlLqnz341RVMTZEfl47fDynN57N3oXRXoMOn65liUsVjCfdaxUMXnj1EBQPfgDlVj+vzoBAAA="
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/22Qy27CMBBFv4W9M4XQLroE1O5KaSLW0eAM1InjuBkbhCz/e2VDu6i6OvPQvfMoYfH8BPMZXriQbV9odYBQO5S9wAs3gb8YwocnT2JzNDmIQuNwaLExY0sdwzbj1Rvp1GiEwgFCNeosyNyNWslrSm9RFLxskJkcwypB8BLWXvbk1sh0t4ewOZpf15czGVePfpL0htYqc0p+/1d3NA2KOcl+9PtJp85+0lGgtXw1EkJWr6xKnYxPNIb0FgdiizIf8LcWo6iI80SRd68dnu5z372z3kWR/gIdP5zLEhaPMJ91rFQxeePUQFDd+A2G7378eQEAAA=="
    },
    "Metadata": {
     "aws:cdk:path": "SampleInfrastructureStack/CDKMetadata/Default"
-   },
-   "Condition": "CDKMetadataAvailable"
+   }
   }
  },
  "Outputs": {
+  "StubMyUrlLambdaArn": {
+   "Description": "ARN of the Stub Lambda for MyUrlLambda used in live mode",
+   "Value": {
+    "Fn::GetAtt": [
+     "MyUrlLambdaTunnelStubProxyLambdaCAB56BDD",
+     "Arn"
+    ]
+   }
+  },
   "MessageQueueUrlCfn": {
    "Value": {
     "Ref": "MessageQueue7A3BF959"
@@ -391,280 +544,50 @@
     ]
    }
   },
-  "StubMyUrlLambdaArn": {
-   "Description": "ARN of the Stub Lambda for MyUrlLambda when live mode is active.",
+  "LiveLambdaEventApiId": {
+   "Description": "The ID of the AppSync Event API for Live Lambda.",
    "Value": {
     "Fn::GetAtt": [
-     "MyUrlLambdaTunnelStubProxyLambdaCAB56BDD",
-     "Arn"
+     "LiveLambdaEventApi91DD40F3",
+     "ApiId"
     ]
    }
-  }
- },
- "Conditions": {
-  "CDKMetadataAvailable": {
-   "Fn::Or": [
-    {
-     "Fn::Or": [
+  },
+  "LiveLambdaEventApiHttpEndpoint": {
+   "Description": "The HTTP endpoint for the AppSync Event API for Live Lambda.",
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "https://",
       {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "af-south-1"
+       "Fn::GetAtt": [
+        "LiveLambdaEventApi91DD40F3",
+        "Dns.Http"
        ]
       },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ap-east-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ap-northeast-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ap-northeast-2"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ap-northeast-3"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ap-south-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ap-south-2"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ap-southeast-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ap-southeast-2"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ap-southeast-3"
-       ]
-      }
+      "/event"
      ]
-    },
-    {
-     "Fn::Or": [
+    ]
+   }
+  },
+  "LiveLambdaEventApiWssEndpoint": {
+   "Description": "The WebSocket endpoint for the AppSync Event API for Live Lambda.",
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "wss://",
       {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ap-southeast-4"
+       "Fn::GetAtt": [
+        "LiveLambdaEventApi91DD40F3",
+        "Dns.Realtime"
        ]
       },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ca-central-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "ca-west-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "cn-north-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "cn-northwest-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "eu-central-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "eu-central-2"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "eu-north-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "eu-south-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "eu-south-2"
-       ]
-      }
+      "/event/realtime"
      ]
-    },
-    {
-     "Fn::Or": [
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "eu-west-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "eu-west-2"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "eu-west-3"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "il-central-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "me-central-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "me-south-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "sa-east-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "us-east-1"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "us-east-2"
-       ]
-      },
-      {
-       "Fn::Equals": [
-        {
-         "Ref": "AWS::Region"
-        },
-        "us-west-1"
-       ]
-      }
-     ]
-    },
-    {
-     "Fn::Equals": [
-      {
-       "Ref": "AWS::Region"
-      },
-      "us-west-2"
-     ]
-    }
-   ]
+    ]
+   }
   }
  },
  "Parameters": {
