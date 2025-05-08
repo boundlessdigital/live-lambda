@@ -8,11 +8,13 @@ import {
 import {
   Runtime,
   FunctionUrlAuthType,
-  Architecture
+  Architecture,
+  IFunction
 } from 'aws-cdk-lib/aws-lambda'
 import * as path from 'path'
 import * as sqs from 'aws-cdk-lib/aws-sqs'; 
 import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources'; 
+import { LiveLambdaTunnel } from '@live-lambda/tunnel';
 
 export interface SampleInfrastructureStackProps extends cdk.StackProps {
   // Define any stack-specific props here
@@ -72,6 +74,29 @@ export class SampleInfrastructureStack extends cdk.Stack {
 
     // Grant the URL Lambda permission to send messages to the SQS queue
     message_queue.grantSendMessages(my_url_lambda);
+
+    // --- Live Lambda Tunnel Integration for my_url_lambda ---
+    const is_live_mode_enabled = true; // For testing, set this to true
+    // In a real scenario, this might come from an env var or CDK context set by live-lambda-serve CLI
+
+    const my_url_lambda_tunnel = new LiveLambdaTunnel(this, 'MyUrlLambdaTunnel', {
+      lambda_function: my_url_lambda, // The original Lambda
+      is_live: is_live_mode_enabled,
+      // Optionally, provide specific props for the stub if needed
+      // stub_lambda_props: { ... }
+    });
+
+    // Output the ARN of the stub Lambda if it was created
+    if (my_url_lambda_tunnel.stub_function) {
+      new cdk.CfnOutput(this, 'StubMyUrlLambdaArn', {
+        value: my_url_lambda_tunnel.stub_function.functionArn,
+        description: 'The ARN of the MyUrlLambda Stub Function (if live mode is enabled)',
+      });
+      // IMPORTANT: For actual live mode, the `function_url` would need to point to
+      // `my_url_lambda_tunnel.stub_function` instead of `my_url_lambda`.
+      // This re-wiring is not done automatically by the construct yet.
+    }
+    // --- End Live Lambda Tunnel Integration ---
 
     // New Lambda function to process messages from the SQS queue
     const sqs_message_processor_lambda = new NodejsFunction(this, 'SqsMessageProcessorLambda', {

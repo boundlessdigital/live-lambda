@@ -15,6 +15,20 @@
         }
       }
     },
+    "9035fa27193f14ad94913df2bf7d21fedb45ca0ef9978804e300f84b45a5c134": {
+      "displayName": "MyUrlLambdaTunnel/StubProxyLambda/Code",
+      "source": {
+        "path": "asset.9035fa27193f14ad94913df2bf7d21fedb45ca0ef9978804e300f84b45a5c134",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "current_account-current_region": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}",
+          "objectKey": "9035fa27193f14ad94913df2bf7d21fedb45ca0ef9978804e300f84b45a5c134.zip",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-${AWS::Region}"
+        }
+      }
+    },
     "72008c25dd422a1b47e43f52b90307723eee82f8273b1ff31b8203045fbf3ece": {
       "displayName": "SqsMessageProcessorLambda/Code",
       "source": {
@@ -29,7 +43,7 @@
         }
       }
     },
-    "50fac5251edd8f0938429dc46a48d0f431267e8925463b679f34f81d0eab0d4a": {
+    "f0f5f098316fe4473350e38db8ad64308bf4875a627aeeb8b6044699b59dcd2f": {
       "displayName": "SampleInfrastructureStack Template",
       "source": {
         "path": "SampleInfrastructureStack.template.json",
@@ -38,7 +52,7 @@
       "destinations": {
         "current_account-current_region": {
           "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}",
-          "objectKey": "50fac5251edd8f0938429dc46a48d0f431267e8925463b679f34f81d0eab0d4a.json",
+          "objectKey": "f0f5f098316fe4473350e38db8ad64308bf4875a627aeeb8b6044699b59dcd2f.json",
           "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-${AWS::Region}"
         }
       }

@@ -4,9 +4,16 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  '@live-lambda/tunnel': link:../../tunnel
+
 importers:
 
   .:
+    dependencies:
+      '@live-lambda/tunnel':
+        specifier: link:../../tunnel
+        version: link:../../tunnel
     devDependencies:
       '@types/node':
         specifier: ^22.15.15
@@ -31,6 +38,9 @@ importers:
 
   infrastructure:
     dependencies:
+      '@live-lambda/tunnel':
+        specifier: link:../../../tunnel
+        version: link:../../../tunnel
       aws-cdk-lib:
         specifier: ^2.194.0
         version: 2.194.0(constructs@10.4.2)

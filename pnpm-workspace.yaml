@@ -2,7 +2,9 @@
 packages:
   # This line tells pnpm to recognize the directory named 'sample-app'
   # located at the root of your workspace as a package.
-  - 'sample-app'
+  - 'sample-app/*'
+  # - 'sample-app/infrastructure' # Old explicit path
+  # - 'sample-app/backend'      # Old explicit path
   # This line tells pnpm to recognize the directory named 'tunnel'
   # located at the root of your workspace as another package.
   - 'tunnel'

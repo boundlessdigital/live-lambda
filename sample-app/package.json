@@ -19,5 +19,13 @@
     "esbuild": "^0.20.0",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "@live-lambda/tunnel": "link:../../tunnel"
+    }
+  },
+  "dependencies": {
+    "@live-lambda/tunnel": "link:../../tunnel"
   }
 }

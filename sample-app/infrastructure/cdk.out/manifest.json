@@ -18,7 +18,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-deploy-role-${AWS::AccountId}-${AWS::Region}",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-cfn-exec-role-${AWS::AccountId}-${AWS::Region}",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}/50fac5251edd8f0938429dc46a48d0f431267e8925463b679f34f81d0eab0d4a.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}/f0f5f098316fe4473350e38db8ad64308bf4875a627aeeb8b6044699b59dcd2f.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -68,6 +68,52 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "MyUrlLambdainvokefunctionurlBE8F3864"
+          }
+        ],
+        "/SampleInfrastructureStack/MyUrlLambdaTunnel": [
+          {
+            "type": "aws:cdk:warning",
+            "data": "If you are relying on AWS SDK v2 to be present in the Lambda environment already, please explicitly configure a NodeJS runtime of Node 16 or lower. [ack: @aws-cdk/aws-lambda-nodejs:sdkV2NotInRuntime]",
+            "trace": [
+              "Annotations.addMessage (/Users/sidney/boundless/live-lambda/node_modules/.pnpm/aws-cdk-lib@2.195.0_constructs@10.4.2/node_modules/aws-cdk-lib/core/lib/annotations.js:1:1608)",
+              "Annotations.addWarningV2 (/Users/sidney/boundless/live-lambda/node_modules/.pnpm/aws-cdk-lib@2.195.0_constructs@10.4.2/node_modules/aws-cdk-lib/core/lib/annotations.js:1:825)",
+              "new Bundling (/Users/sidney/boundless/live-lambda/node_modules/.pnpm/aws-cdk-lib@2.195.0_constructs@10.4.2/node_modules/aws-cdk-lib/aws-lambda-nodejs/lib/bundling.js:1:3762)",
+              "Function.bundle (/Users/sidney/boundless/live-lambda/node_modules/.pnpm/aws-cdk-lib@2.195.0_constructs@10.4.2/node_modules/aws-cdk-lib/aws-lambda-nodejs/lib/bundling.js:1:1066)",
+              "new NodejsFunction (/Users/sidney/boundless/live-lambda/node_modules/.pnpm/aws-cdk-lib@2.195.0_constructs@10.4.2/node_modules/aws-cdk-lib/aws-lambda-nodejs/lib/function.js:1:2288)",
+              "new LiveLambdaTunnel (/Users/sidney/boundless/live-lambda/tunnel/src/index.ts:2:49)",
+              "new SampleInfrastructureStack (/Users/sidney/boundless/live-lambda/sample-app/infrastructure/stacks/sample-infrastructure.stack.ts:2:2692)",
+              "/Users/sidney/boundless/live-lambda/sample-app/infrastructure/index.ts:3:964",
+              "Object.<anonymous> (/Users/sidney/boundless/live-lambda/sample-app/infrastructure/index.ts:4:3)",
+              "Module._compile (node:internal/modules/cjs/loader:1554:14)",
+              "Object.transformer (/Users/sidney/boundless/live-lambda/node_modules/.pnpm/tsx@4.19.4/node_modules/tsx/dist/register-D2KMMyKp.cjs:2:1186)",
+              "Module.load (node:internal/modules/cjs/loader:1289:32)",
+              "Function._load (node:internal/modules/cjs/loader:1108:12)",
+              "TracingChannel.traceSync (node:diagnostics_channel:322:14)",
+              "wrapModuleLoad (node:internal/modules/cjs/loader:220:24)",
+              "cjsLoader (node:internal/modules/esm/translators:262:5)",
+              "ModuleWrap.<anonymous> (node:internal/modules/esm/translators:196:7)",
+              "ModuleJob.run (node:internal/modules/esm/module_job:271:25)",
+              "onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:578:26)",
+              "asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:116:5)"
+            ]
+          }
+        ],
+        "/SampleInfrastructureStack/MyUrlLambdaTunnel/StubProxyLambda/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MyUrlLambdaTunnelStubProxyLambdaServiceRoleECAF2AE1"
+          }
+        ],
+        "/SampleInfrastructureStack/MyUrlLambdaTunnel/StubProxyLambda/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MyUrlLambdaTunnelStubProxyLambdaCAB56BDD"
+          }
+        ],
+        "/SampleInfrastructureStack/StubMyUrlLambdaArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StubMyUrlLambdaArn"
           }
         ],
         "/SampleInfrastructureStack/SqsMessageProcessorLambda/ServiceRole/Resource": [

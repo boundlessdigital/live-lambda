@@ -11,6 +11,7 @@
     "deploy": "AWS_PROFILE=boundless-development AWS_REGION=us-east-1 pnpm exec cdk deploy SampleInfrastructureStack --outputs-file cdk-outputs.json --require-approval never"
   },
   "dependencies": {
+    "@live-lambda/tunnel": "workspace:*",
     "aws-cdk-lib": "^2.194.0",
     "constructs": "^10.4.2",
     "source-map-support": "^0.5.21"

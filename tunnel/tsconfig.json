@@ -1,11 +1,13 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "./dist"
-    // If 'tunnel' had specific JSX needs (it likely doesn't as a CDK construct),
-    // you could add "jsx": "..." here to override or set it.
+    "noEmit": false,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "declaration": true,
+    "sourceMap": true
   },
-  "include": ["**/*.ts", "**/*.tsx"],
+  "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "tsconfig.json"],
-  "references": [] // For project references, can be set up later
+  "references": [] 
 }
