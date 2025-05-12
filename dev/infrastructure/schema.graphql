@@ -1,0 +1,18 @@
+# Minimal schema for an AppSync Event API
+
+type Mutation {
+  "Publishes an event to a specified channel."
+  publishEvent(channel: String!, data: AWSJSON!): AWSJSON
+}
+
+type Query {
+  "A dummy query to ensure the Query type is defined."
+  getStatus: String
+}
+
+# If you plan to have clients subscribe directly via AppSync subscriptions for testing:
+type Subscription {
+  "Subscribes to events on a specified channel."
+  onEvent(channel: String!): AWSJSON
+    @aws_subscribe(mutations: ["publishEvent"])
+}
