@@ -1,6 +1,6 @@
+import _ from 'lodash'
 import 'colors'
 import WebSocket from 'ws'
-import _ from 'lodash'
 import { SignatureV4 } from '@aws-sdk/signature-v4'
 import { Sha256 } from '@aws-crypto/sha256-js'
 
@@ -15,11 +15,12 @@ import {
 } from './types'
 
 export class AppSyncEventWebSocketClient {
+  public debug: boolean = false
+
   private socket?: WebSocket
   private options: AppSyncEventWebSocketClientOptions
   private operations = new Map<string, OperationCallbacks>()
   private realtime_url: string
-  private http_url: string
   private host: string
   private region: string
   private signer: SignatureV4
@@ -28,15 +29,14 @@ export class AppSyncEventWebSocketClient {
   private connectionResolver?: () => void
   private connectionRejecter?: (reason?: any) => void
 
-  private keepAliveTimeout?: NodeJS.Timeout
-  private connectionTimeoutMs: number = 300000 // Default 5 mins, updated by connection_ack
+  private keep_alive_timeout?: NodeJS.Timeout
+  private connection_timeout_ms: number = 300000 // Default 5 mins, updated by connection_ack
 
   constructor(options: AppSyncEventWebSocketClientOptions) {
     this.options = options
 
     this.region = options.region
     this.realtime_url = `wss://${options.realtime}/event/realtime`
-    this.http_url = `https://${options.http}/event`
     this.host = options.http
 
     this.signer = this.initialize_signer()
@@ -148,24 +148,23 @@ export class AppSyncEventWebSocketClient {
     return this.connectionPromise
   }
 
-  private async handle_message(rawMessage: string): Promise<void> {
+  private async handle_message(raw_message: string): Promise<void> {
     try {
-      const message = JSON.parse(rawMessage) as WebSocketMessage
+      const message = JSON.parse(raw_message) as WebSocketMessage
       // console.log('WebSocket message received:', message); // For debugging
 
-      if (this.keepAliveTimeout) {
-        clearTimeout(this.keepAliveTimeout)
-      }
-      this.keepAliveTimeout = setTimeout(() => {
+      this.handle_keep_alive()
+
+      this.keep_alive_timeout = setTimeout(() => {
         console.warn('Keep-alive timeout. Closing WebSocket.')
         this.socket?.close(1000, 'Keep-alive timeout')
-      }, this.connectionTimeoutMs + 5000) // Add a small buffer
+      }, this.connection_timeout_ms + 5000) // Add a small buffer
 
       switch (message.type) {
         case 'connection_ack':
           console.log('AppSync connection acknowledged.')
           if (message.connectionTimeoutMs) {
-            this.connectionTimeoutMs = message.connectionTimeoutMs
+            this.connection_timeout_ms = message.connectionTimeoutMs
           }
           this.connectionResolver?.()
           console.log('Successfully connected to WebSocket.'.green)
@@ -229,7 +228,7 @@ export class AppSyncEventWebSocketClient {
         'Error processing WebSocket message:',
         error,
         'Raw data:',
-        rawMessage
+        raw_message
       )
       this.options.on_error?.(error)
     }
@@ -245,11 +244,16 @@ export class AppSyncEventWebSocketClient {
     }
   }
 
-  private cleanup_connection(): void {
-    if (this.keepAliveTimeout) {
-      clearTimeout(this.keepAliveTimeout)
-      this.keepAliveTimeout = undefined
+  private handle_keep_alive(): void {
+    if (this.keep_alive_timeout) {
+      clearTimeout(this.keep_alive_timeout)
+      this.keep_alive_timeout = undefined
     }
+  }
+
+  private cleanup_connection(): void {
+    this.handle_keep_alive()
+
     this.operations.forEach((op) =>
       op.reject(new Error('WebSocket connection closed or failed.'))
     )
