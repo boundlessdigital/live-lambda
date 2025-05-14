@@ -2,11 +2,10 @@
   "name": "live-lambda-extension",
   "version": "0.0.1",
   "main": "dist/index.js",
-  "type": "module",
   "license": "MIT",
   "scripts": {
     "build": "rm -rf dist live-lambda-extension-exec extensions && npx tsc && npm run package",
-    "package": "npx pkg dist/index.js --targets node18-linux-x64 --output live-lambda-extension-exec"
+    "package": "mkdir -p extensions && npx pkg dist/index.js --targets node18-linux-x64 --output extensions/live-lambda-extension-exec"
   },
   "bin": {
     "live-lambda-extension": "dist/index.js"
