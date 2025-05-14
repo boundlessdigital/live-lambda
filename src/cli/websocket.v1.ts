@@ -42,9 +42,7 @@ interface OperationCallbacks {
   onData?: (data: any) => void // For ongoing subscription data
 }
 
-const credentials = fromNodeProviderChain({
-  profile: 'boundless-development'
-})
+const credentials = fromNodeProviderChain()
 
 export class AppSyncEventWebSocketClient {
   private socket?: WebSocket
@@ -143,7 +141,8 @@ export class AppSyncEventWebSocketClient {
         signedRequest.headers['x-amz-security-token']
     }
     if (signedRequest.headers['x-amz-content-sha256']) {
-      authHeaders['x-amz-content-sha256'] = signedRequest.headers['x-amz-content-sha256'];
+      authHeaders['x-amz-content-sha256'] =
+        signedRequest.headers['x-amz-content-sha256']
     }
     return authHeaders
   }
@@ -184,7 +183,8 @@ export class AppSyncEventWebSocketClient {
         signedRequest.headers['x-amz-security-token']
     }
     if (signedRequest.headers['x-amz-content-sha256']) {
-      authHeaders['x-amz-content-sha256'] = signedRequest.headers['x-amz-content-sha256'];
+      authHeaders['x-amz-content-sha256'] =
+        signedRequest.headers['x-amz-content-sha256']
     }
     return authHeaders
   }
