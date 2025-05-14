@@ -15,10 +15,10 @@ export async function deploy_live_lambda_stacks(env: cdk.Environment) {
 
     new AppSyncStack(app, 'AppSyncStack', { env })
 
-    // new LiveLambdaLayerStack(app, 'LiveLambda-LayerStack', {
-    //   env,
-    //   api: event_api_stack.api
-    // })
+    new LiveLambdaLayerStack(app, 'LiveLambda-LayerStack', {
+      env
+      // api: event_api_stack.api
+    })
 
     return app.synth()
   })

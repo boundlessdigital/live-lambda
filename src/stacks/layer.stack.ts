@@ -1,14 +1,14 @@
-import * as lambda from 'aws-cdk-lib/aws-lambda'
 import * as cdk from 'aws-cdk-lib'
-import { Construct } from 'constructs'
+import * as lambda from 'aws-cdk-lib/aws-lambda'
 import * as appsync from 'aws-cdk-lib/aws-appsync'
+import { Construct } from 'constructs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 interface LiveLambdaLayerStackProps extends cdk.StackProps {
-  readonly api: appsync.EventApi
+  readonly api?: appsync.EventApi
 }
 
 export class LiveLambdaLayerStack extends cdk.Stack {
@@ -17,22 +17,38 @@ export class LiveLambdaLayerStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: LiveLambdaLayerStackProps) {
     super(scope, id, props)
 
-    this.layer = new lambda.LayerVersion(this, 'LiveLambdaForwarderLayer', {
-      code: lambda.Code.fromAsset(
-        join(__dirname, '..', 'lambda/live-lambda.layer.ts')
-      ),
+    const extensionPath = join(__dirname, '..', 'layer', 'extension')
+
+    this.layer = new lambda.LayerVersion(this, 'LiveLambdaProxyLayer', {
+      layerVersionName: 'live-lambda-proxy',
+      code: lambda.Code.fromAsset(extensionPath, {
+        bundling: {
+          image: lambda.Runtime.NODEJS_18_X.bundlingImage,
+          user: 'root',
+          command: [
+            'bash',
+            '-c',
+            [
+              'npm install', // Install all dependencies (including dev for tsc)
+              'npm run build', // This runs 'npx tsc' and then 'npx pkg'
+              'mkdir -p /asset-output/extensions',
+              'mv extensions/live-lambda-extension-exec /asset-output/extensions/live-lambda-extension',
+              'chmod +x /asset-output/extensions/live-lambda-extension'
+            ].join(' && ')
+          ]
+        }
+      }),
       compatibleRuntimes: [
-        lambda.Runtime.NODEJS_22_X,
+        lambda.Runtime.NODEJS_18_X,
         lambda.Runtime.NODEJS_LATEST
       ],
       description:
-        'Layer to conditionally forward Lambda invocations to AppSync for live development.',
-      layerVersionName: 'live-lambda-forwarder'
+        'Layer to conditionally forward Lambda invocations to AppSync for live development.'
     })
 
-    new cdk.CfnOutput(this, 'LiveLambdaForwarderLayerArn', {
+    new cdk.CfnOutput(this, 'LiveLambdaProxyLayerArn', {
       value: this.layer.layerVersionArn,
-      description: 'ARN of the Live Lambda Forwarder Layer'
+      description: 'ARN of the Live Lambda Proxy Layer'
     })
   }
 }

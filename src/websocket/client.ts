@@ -1,4 +1,3 @@
-import _ from 'lodash'
 import 'colors'
 import WebSocket from 'ws'
 import { SignatureV4 } from '@aws-sdk/signature-v4'
