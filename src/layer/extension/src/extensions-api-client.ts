@@ -55,7 +55,9 @@ export class ExtensionsApiClient {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        ...(this.extensionId && { 'Lambda-Extension-Identifier': this.extensionId }),
+        ...(this.extensionId && {
+          'Lambda-Extension-Identifier': this.extensionId
+        })
       }
     })
 

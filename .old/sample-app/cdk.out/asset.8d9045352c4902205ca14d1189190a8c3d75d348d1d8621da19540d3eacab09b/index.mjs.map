@@ -1,7 +1,0 @@
-{
-  "version": 3,
-  "sources": ["../../../tunnel/src/lambda-proxy/handler.ts"],
-  "sourcesContent": ["import { Handler, Context, APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';\n\nexport const handler: Handler<APIGatewayProxyEvent, APIGatewayProxyResult> = async (\n  event: APIGatewayProxyEvent,\n  context: Context\n): Promise<APIGatewayProxyResult> => {\n  console.log('LAMBDA PROXY (SIMPLIFIED): Event received:', JSON.stringify(event, null, 2));\n  console.log('LAMBDA PROXY (SIMPLIFIED): Context received:', JSON.stringify(context, null, 2));\n\n  return {\n    statusCode: 200,\n    body: JSON.stringify({\n      message: \"LAMBDA PROXY (SIMPLIFIED) WAS INVOKED!\",\n      invoked_function_arn: context.invokedFunctionArn,\n    }),\n    headers: { 'Content-Type': 'application/json' },\n  };\n};\n"],
-  "mappings": ";AAEO,IAAM,UAAgE,OAC3E,OACA,YACmC;AACnC,UAAQ,IAAI,8CAA8C,KAAK,UAAU,OAAO,MAAM,CAAC,CAAC;AACxF,UAAQ,IAAI,gDAAgD,KAAK,UAAU,SAAS,MAAM,CAAC,CAAC;AAE5F,SAAO;AAAA,IACL,YAAY;AAAA,IACZ,MAAM,KAAK,UAAU;AAAA,MACnB,SAAS;AAAA,MACT,sBAAsB,QAAQ;AAAA,IAChC,CAAC;AAAA,IACD,SAAS,EAAE,gBAAgB,mBAAmB;AAAA,EAChD;AACF;",
-  "names": []
-}
