@@ -11,7 +11,7 @@ const RUNTIME_API_ENDPOINT =
 const LISTENER_PORT = process.env.LRAP_LISTENER_PORT || 9009
 const RUNTIME_API_URL = `http://${RUNTIME_API_ENDPOINT}/2018-06-01/runtime`
 
-import { IncomingHttpHeaders } from 'http';
+import { IncomingHttpHeaders } from 'http'
 
 export class RuntimeApiProxy {
   async start() {
@@ -78,18 +78,20 @@ export class RuntimeApiProxy {
     return res.status(resp.status).json(await resp.json())
   }
 
-  private convertHeaders(incomingHeaders: IncomingHttpHeaders): Record<string, string> {
-    const result: Record<string, string> = {};
+  private convertHeaders(
+    incomingHeaders: IncomingHttpHeaders
+  ): Record<string, string> {
+    const result: Record<string, string> = {}
     for (const key in incomingHeaders) {
-      const value = incomingHeaders[key];
+      const value = incomingHeaders[key]
       if (typeof value === 'string') {
-        result[key] = value;
+        result[key] = value
       } else if (Array.isArray(value) && value.length > 0) {
-        result[key] = value[0]; // Take the first value if it's an array
+        result[key] = value[0] // Take the first value if it's an array
       }
       // Skip undefined values
     }
-    return result;
+    return result
   }
 
   async handleInitError(req: Request, res: Response) {

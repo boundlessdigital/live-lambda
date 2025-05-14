@@ -8,7 +8,7 @@ import { dirname, join } from 'node:path'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 interface LiveLambdaLayerStackProps extends cdk.StackProps {
-  readonly api?: appsync.EventApi
+  readonly api: appsync.EventApi
 }
 
 export class LiveLambdaLayerStack extends cdk.Stack {

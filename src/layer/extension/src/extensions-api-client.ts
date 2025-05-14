@@ -31,8 +31,7 @@ export class ExtensionsApiClient {
       }),
       headers: {
         'Content-Type': 'application/json',
-        'Lambda-Extension-Name':
-          'nodejs-example-lambda-runtime-api-proxy-extension'
+        'Lambda-Extension-Name': 'live-lambda-proxy-extension'
       }
     })
 

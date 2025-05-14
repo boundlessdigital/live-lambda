@@ -13,11 +13,11 @@ export async function deploy_live_lambda_stacks(env: cdk.Environment) {
   const cloud_assembly_source = await cdk.fromAssemblyBuilder(async () => {
     const app = new core.App()
 
-    new AppSyncStack(app, 'AppSyncStack', { env })
+    const events_stack = new AppSyncStack(app, 'AppSyncStack', { env })
 
     new LiveLambdaLayerStack(app, 'LiveLambda-LayerStack', {
-      env
-      // api: event_api_stack.api
+      env,
+      api: events_stack.api
     })
 
     return app.synth()
