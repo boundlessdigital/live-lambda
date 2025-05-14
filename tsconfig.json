@@ -2,6 +2,8 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
+    "outDir": "dist",
+    "rootDir": "src",
     "moduleResolution": "bundler",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
@@ -11,5 +13,8 @@
     "noEmit": true,
     "useUnknownInCatchVariables": true,
     "allowSyntheticDefaultImports": true
-  }
+  },
+  "include": [
+    "src/**/*",
+  ]
 }
