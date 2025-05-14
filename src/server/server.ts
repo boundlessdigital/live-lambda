@@ -1,17 +1,18 @@
 import 'colors'
-import { AppSyncEventWebSocketClient } from './websocket'
+import { AppSyncEventWebSocketClient } from '../websocket'
 
-async function main(): Promise<void> {
+interface ServerConfig {
+  region: string
+  http: string
+  realtime: string
+}
+
+export async function serve(config: ServerConfig): Promise<void> {
   console.log('Starting AppSync WebSocket Client...'.yellow)
 
-  const client = new AppSyncEventWebSocketClient({
-    region: 'us-west-1',
-    http: '2ayr2zxgarh6xacc6icw6kezpi.appsync-api.us-west-1.amazonaws.com',
-    realtime:
-      '2ayr2zxgarh6xacc6icw6kezpi.appsync-realtime-api.us-west-1.amazonaws.com'
-  })
+  const client = new AppSyncEventWebSocketClient(config)
 
-  const testChannel = `default/${Date.now()}`
+  const testChannel = `live-lambda/${Date.now()}`
   let subscriptionId: string | undefined
 
   try {
@@ -63,5 +64,3 @@ async function main(): Promise<void> {
     console.log('Test finished.'.yellow)
   }
 }
-
-await main()
