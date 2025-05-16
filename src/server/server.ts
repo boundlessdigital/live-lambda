@@ -7,6 +7,7 @@ interface ServerConfig {
   http: string
   realtime: string
   layer_arn: string
+  profile?: string // Add profile
 }
 
 export async function serve(config: ServerConfig): Promise<void> {

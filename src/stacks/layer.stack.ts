@@ -12,7 +12,7 @@ interface LiveLambdaLayerStackProps extends cdk.StackProps {
 }
 
 export class LiveLambdaLayerStack extends cdk.Stack {
-  layer: lambda.LayerVersion
+  public readonly layer: lambda.LayerVersion;
 
   constructor(scope: Construct, id: string, props: LiveLambdaLayerStackProps) {
     super(scope, id, props)

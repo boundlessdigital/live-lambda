@@ -3,7 +3,7 @@ import WebSocket from 'ws'
 import { SignatureV4 } from '@aws-sdk/signature-v4'
 import { Sha256 } from '@aws-crypto/sha256-js'
 
-import { fromNodeProviderChain } from '@aws-sdk/credential-providers'
+import { fromNodeProviderChain, fromIni } from '@aws-sdk/credential-providers' // Updated to credential-providers from credential-provider-ini as per modern SDK v3 style, assuming it exports fromIni.
 import { HttpRequest } from '@aws-sdk/protocol-http'
 import { randomUUID } from 'crypto'
 import { base_64_url_encode } from './utils.js'
@@ -42,12 +42,22 @@ export class AppSyncEventWebSocketClient {
   }
 
   initialize_signer() {
+    const credentialProvider = this.options.profile
+      ? fromIni({ profile: this.options.profile })
+      : fromNodeProviderChain();
+
+    if (this.options.profile) {
+      console.log(`WebSocket client using AWS profile: ${this.options.profile}`.yellow);
+    } else {
+      console.log('WebSocket client using default AWS credential provider chain.'.yellow);
+    }
+
     return new SignatureV4({
       service: 'appsync',
       region: this.region,
-      credentials: fromNodeProviderChain(),
+      credentials: credentialProvider,
       sha256: Sha256
-    })
+    });
   }
 
   public get is_connected(): boolean {

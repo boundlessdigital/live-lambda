@@ -1,2 +1,1 @@
-export * from './appsync-events-integration.js';
-export * from './cdk/live-lambda-aspect.js';
+export { LiveLambda } from './cdk/live_lambda.js'
