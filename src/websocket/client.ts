@@ -6,12 +6,12 @@ import { Sha256 } from '@aws-crypto/sha256-js'
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers'
 import { HttpRequest } from '@aws-sdk/protocol-http'
 import { randomUUID } from 'crypto'
-import { base_64_url_encode } from './utils'
+import { base_64_url_encode } from './utils.js'
 import {
   AppSyncEventWebSocketClientOptions,
   OperationCallbacks,
   WebSocketMessage
-} from './types'
+} from './types.js'
 
 export class AppSyncEventWebSocketClient {
   public debug: boolean = false

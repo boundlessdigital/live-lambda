@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import 'colors'
 import * as cdk from 'aws-cdk-lib'
-import { AppSyncStack } from './appsync.stack'
-import { LiveLambdaLayerStack } from './layer.stack'
+import { AppSyncStack } from './appsync.stack.js'
+import { LiveLambdaLayerStack } from './layer.stack.js'
 import { Toolkit } from '@aws-cdk/toolkit-lib'
 import * as core from 'aws-cdk-lib/core'
 

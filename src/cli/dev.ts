@@ -3,8 +3,8 @@ const env = {
   region: 'us-west-1'
 }
 
-import { deploy_live_lambda_stacks } from '../stacks/app'
-import { serve } from '../server/server'
+import { deploy_live_lambda_stacks } from '../stacks/app.js'
+import { serve } from '../server/server.js'
 
 async function main() {
   const { server_parameters } = await deploy_live_lambda_stacks(env)

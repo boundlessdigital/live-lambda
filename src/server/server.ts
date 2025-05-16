@@ -1,5 +1,5 @@
 import 'colors'
-import { AppSyncEventWebSocketClient } from '../websocket'
+import { AppSyncEventWebSocketClient } from '../websocket/index.js'
 
 interface ServerConfig {
   region: string

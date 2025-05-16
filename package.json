@@ -14,7 +14,7 @@
     "live-lambda": "dist/cli/dev.js"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && mkdir -p dist/layer/extension && cp src/layer/extension/package.json dist/layer/extension/ && cp src/layer/extension/package-lock.json dist/layer/extension/",
     "watch": "tsc -w -p tsconfig.json",
     "prepublishOnly": "pnpm run build",
     "dev": "tsx src/cli/dev.ts",
@@ -33,12 +33,12 @@
     "@typescript-eslint/eslint-plugin": "^8.32.0",
     "@typescript-eslint/parser": "^8.32.0",
     "aws-cdk-lib": "^2.195.0",
+    "cpy-cli": "^5.0.0",
     "esbuild": "^0.25.4",
     "eslint": "^9.26.0",
     "globals": "^16.1.0",
     "tsx": "^4.19.4",
-    "typescript-eslint": "^8.32.0",
-    "ws": "^8.18.2"
+    "typescript-eslint": "^8.32.0"
   },
   "dependencies": {
     "@aws-cdk/toolkit-lib": "^0.3.5",
@@ -55,6 +55,7 @@
     "aws-amplify": "^6.14.4",
     "colors": "^1.4.0",
     "constructs": "^10.0.0",
-    "lodash": "^4.17.21"
+    "lodash": "^4.17.21",
+    "ws": "^8.18.2"
   }
 }

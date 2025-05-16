@@ -4,8 +4,8 @@
   "main": "dist/index.js",
   "license": "MIT",
   "scripts": {
-    "build": "rm -rf dist live-lambda-extension-exec extensions && npx tsc && npm run package",
-    "package": "mkdir -p extensions && npx pkg dist/index.js --targets node18-linux-x64 --output extensions/live-lambda-extension-exec"
+    "build": "rm -rf dist live-lambda-extension-exec extensions && npm run package",
+    "package": "mkdir -p extensions && npx pkg src/index.js --targets node18-linux-x64 --output extensions/live-lambda-extension-exec"
   },
   "bin": {
     "live-lambda-extension": "dist/index.js"
