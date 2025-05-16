@@ -14,7 +14,7 @@
     "live-lambda": "dist/cli/dev.js"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && mkdir -p dist/layer/extension && cp src/layer/extension/package.json dist/layer/extension/ && cp src/layer/extension/package-lock.json dist/layer/extension/",
+    "build": "tsc -p tsconfig.json && mkdir -p dist/layer/extension && cp src/layer/extension/package.json dist/layer/extension/ && cp src/layer/extension/package-lock.json dist/layer/extension/ && cp src/layer/extension/run_pkg.sh dist/layer/extension/ && cp src/layer/extension/tsconfig.json dist/layer/extension/",
     "watch": "tsc -w -p tsconfig.json",
     "prepublishOnly": "pnpm run build",
     "dev": "tsx src/cli/dev.ts",
