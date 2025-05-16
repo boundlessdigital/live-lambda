@@ -1,10 +1,12 @@
 import 'colors'
 import { AppSyncEventWebSocketClient } from '../websocket/index.js'
+import { APPSYNC_EVENTS_API_NAMESPACE } from '../constants.js'
 
 interface ServerConfig {
   region: string
   http: string
   realtime: string
+  layer_arn: string
 }
 
 export async function serve(config: ServerConfig): Promise<void> {
@@ -12,7 +14,7 @@ export async function serve(config: ServerConfig): Promise<void> {
 
   const client = new AppSyncEventWebSocketClient(config)
 
-  const testChannel = `live-lambda/${Date.now()}`
+  const testChannel = `${APPSYNC_EVENTS_API_NAMESPACE}/${Date.now()}`
   let subscriptionId: string | undefined
 
   try {
@@ -52,15 +54,11 @@ export async function serve(config: ServerConfig): Promise<void> {
         )
       }
     }
-    if (client.is_connected) {
-      console.log('Disconnecting WebSocket client...'.cyan)
-      await client.disconnect()
-      console.log('WebSocket client disconnected.'.green)
-    } else {
-      console.log(
-        'WebSocket client was not connected or already disconnected.'.yellow
-      )
-    }
+
+    console.log('Disconnecting WebSocket client...'.cyan)
+    await client.disconnect()
+    console.log('WebSocket client disconnected.'.green)
+
     console.log('Test finished.'.yellow)
   }
 }

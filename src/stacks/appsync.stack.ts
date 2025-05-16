@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib'
 import { Construct } from 'constructs'
 import * as appsync from 'aws-cdk-lib/aws-appsync'
 import * as iam from 'aws-cdk-lib/aws-iam'
+import { APPSYNC_EVENTS_API_NAMESPACE } from '../constants.js'
 
 export interface AppSyncStackProps extends cdk.StackProps {
   readonly live_lambda_enabled?: boolean
@@ -23,7 +24,7 @@ export class AppSyncStack extends cdk.Stack {
       }
     })
 
-    this.api.addChannelNamespace('live-lambda')
+    this.api.addChannelNamespace(APPSYNC_EVENTS_API_NAMESPACE)
 
     this.api_policy = new iam.Policy(this, 'LiveLambdaEventApiPolicy', {
       policyName: `live-lambda-events-${this.stackName}`,

@@ -24,16 +24,24 @@ export async function deploy_live_lambda_stacks(env: cdk.Environment) {
   })
 
   const result = await cdk.deploy(cloud_assembly_source, {
-    deploymentMethod: { method: 'direct' }
+    deploymentMethod: { method: 'direct' },
+    outputsFile: 'outputs.json'
   })
 
   const events = result.stacks.find(
     (stack) => stack.stackName === 'AppSyncStack'
   )
+
+  const layer = result.stacks.find(
+    (stack) => stack.stackName === 'LiveLambda-LayerStack'
+  )
+
+  const layer_arn = layer?.outputs['LiveLambdaLayerArn']
   const server_parameters = {
     region: env.region as string,
     http: events?.outputs['LiveLambdaEventApiHttpHost'] as string,
-    realtime: events?.outputs['LiveLambdaEventApiRealtimeHost'] as string
+    realtime: events?.outputs['LiveLambdaEventApiRealtimeHost'] as string,
+    layer_arn: layer?.outputs['LiveLambdaProxyLayerArn'] as string
   }
   return { result, server_parameters }
 }
