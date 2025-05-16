@@ -25,21 +25,45 @@ class LiveLambdaLayerAspect implements cdk.IAspect {
 
   public visit(node: IConstruct): void {
     if (node instanceof lambda.Function) {
-      if (node.node.path.includes('CustomResource') || node.node.path.includes('SingletonLambda')) {
-        return;
-      }
-      if (node.stack.stackName.startsWith('AwsCdkKms')) {
+      const functionPath = node.node.path;
+      const stackName = node.stack.stackName;
+
+      // Exclude functions from LiveLambda's own stacks or other explicitly excluded stack prefixes
+      const excludedStackPrefixes = ['LiveLambda-', 'SSTBootstrap', 'CDKToolkit']; // CDKToolkit for bootstrap stack
+      if (excludedStackPrefixes.some(prefix => stackName.startsWith(prefix))) {
+        // console.warn(`LiveLambda Aspect: Skipping layer for function in excluded stack: ${functionPath}`);
         return;
       }
 
-      const liveLayer = lambda.LayerVersion.fromLayerVersionArn(
-        node, 
-        'ImportedLiveLambdaLayer', 
-        this.layerArn
-      );
-      node.addLayers(liveLayer);
+      // Exclude common CDK internal / custom resource / framework Lambda patterns
+      const internalFunctionPathPatterns = [
+        'CustomResourceHandler', // General custom resources
+        'Framework/Resource',    // Often seen with provider framework
+        'Providerframework',     // Provider framework handlers
+        'LogRetention',          // Log retention handlers
+        'SingletonLambda',       // Singleton function handlers
+        '/NodejsBuildV1$/Resource', // From @aws-cdk/aws-lambda-nodejs
+        '/AssetVersionNotifier$/Resource', // For asset updates
+        // Add more known CDK internal patterns if discovered
+      ];
+
+      if (internalFunctionPathPatterns.some(pattern => functionPath.includes(pattern))) {
+        // console.warn(`LiveLambda Aspect: Skipping layer for internal/framework function: ${functionPath}`);
+        return;
+      }
+
+      // If we reach here, it's a user-defined Lambda function that's not excluded.
+      // Apply the layer and environment variables.
+      // Ensure layerArn is valid before attempting to use it
+      if (!this.layerArn) {
+        // console.warn(`LiveLambda Aspect: Layer ARN is not available for ${functionPath}. Skipping.`);
+        return;
+      }
+      
+      node.addLayers(lambda.LayerVersion.fromLayerVersionArn(node, `LiveLambdaProxyLayerImport-${node.node.id}`, this.layerArn));
       node.addEnvironment('AWS_LAMBDA_EXEC_WRAPPER', '/opt/live-lambda-extension');
-      node.addEnvironment('LIVE_LAMBDA_DEBUG', 'true');
+      node.addEnvironment('LIVE_LAMBDA_DEBUG', 'true'); // Or some other configurable value
+      // console.log(`LiveLambda Aspect: Applied layer to ${functionPath} in stack ${stackName}`);
     }
   }
 }
@@ -49,7 +73,6 @@ export class LiveLambda {
     try {
       const appRoot = process.cwd();
       const filePath = path.resolve(appRoot, OUTPUTS_JSON_PATH);
-      console.log(`LiveLambda Aspect: Attempting to read Layer ARN from: ${filePath}`);
       if (fs.existsSync(filePath)) {
         const fileContent = fs.readFileSync(filePath, 'utf-8');
         const outputs: CdkOutputs = JSON.parse(fileContent);
