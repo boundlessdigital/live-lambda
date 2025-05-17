@@ -11,6 +11,27 @@ interface ServerConfig {
 }
 
 export async function serve(config: ServerConfig): Promise<void> {
+  console.log('Starting LiveLambda server...'.yellow)
+
+  const client = new AppSyncEventWebSocketClient(config)
+
+  const channel = `${APPSYNC_EVENTS_API_NAMESPACE}/events`
+
+  await client.connect()
+
+  await client.subscribe(channel, async (data) => {
+    // Load lambda code
+    // Grab permissions
+    const response = await execute_handler(data)
+    await client.publish(channel, [response])
+  })
+}
+
+async function execute_handler(request: object) {
+  let response
+  return response
+}
+export async function test_serve(config: ServerConfig): Promise<void> {
   console.log('Starting AppSync WebSocket Client...'.yellow)
 
   const client = new AppSyncEventWebSocketClient(config)
