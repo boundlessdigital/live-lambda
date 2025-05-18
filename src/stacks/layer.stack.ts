@@ -12,16 +12,19 @@ interface LiveLambdaLayerStackProps extends cdk.StackProps {
 }
 
 export class LiveLambdaLayerStack extends cdk.Stack {
-  public readonly layer: lambda.LayerVersion;
+  public readonly layer: lambda.LayerVersion
 
   constructor(scope: Construct, id: string, props: LiveLambdaLayerStackProps) {
     super(scope, id, props)
 
-    const extensionPath = join(__dirname, '..', 'layer', 'extension')
+    const extension_path = join(__dirname, '..', 'layer', 'extension')
 
-    this.layer = new lambda.LayerVersion(this, 'LiveLambdaProxyLayer', {
+    const date = Date.now()
+    const logical_id = `LiveLambdaProxyLayer-${date}`
+
+    this.layer = new lambda.LayerVersion(this, logical_id, {
       layerVersionName: 'live-lambda-proxy',
-      code: lambda.Code.fromAsset(extensionPath, {
+      code: lambda.Code.fromAsset(extension_path, {
         bundling: {
           image: lambda.Runtime.NODEJS_18_X.bundlingImage,
           user: 'root',
@@ -32,7 +35,7 @@ export class LiveLambdaLayerStack extends cdk.Stack {
               'npm install', // Install all dependencies (including dev for tsc)
               'npm run build', // This runs 'npx tsc' and then 'npx pkg'
               'mkdir -p /asset-output/extensions',
-              'mv extensions/live-lambda-extension-exec /asset-output/extensions/live-lambda-extension',
+              'mv extensions/live-lambda-extension /asset-output/extensions/live-lambda-extension',
               'chmod +x /asset-output/extensions/live-lambda-extension'
             ].join(' && ')
           ]

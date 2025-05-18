@@ -4,10 +4,10 @@
   "main": "dist/index.js",
   "license": "MIT",
   "scripts": {
+    "clean": "rm -rf dist live-lambda-extension-exec extensions",
     "compile": "npx tsc",
     "package": "./run_pkg.sh",
-    "build": "rm -rf live-lambda-extension-exec extensions && npm run package",
-    "build:local": "rm -rf dist live-lambda-extension-exec extensions && npm run compile && npm run package"
+    "build": "npm run clean && npm run compile && npm run package"
   },
   "bin": {
     "live-lambda-extension": "dist/index.js"
