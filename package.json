@@ -7,14 +7,13 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
-    "dist/**/*",
-    "layer/**/*"
+    "dist/**/*"
   ],
   "bin": {
     "live-lambda": "dist/cli/index.js"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && cpy . ../../dist/layer/extension --cwd=src/layer/extension --overwrite && chmod +x dist/layer/extension/live-lambda-extension dist/layer/extension/run_pkg.sh",
+    "build": "tsc -p tsconfig.json && (cd src/layer/extension && cpy package.json run_pkg.sh live-lambda-extension tsconfig.json src ../../../dist/layer/extension --overwrite) && chmod +x dist/layer/extension/live-lambda-extension dist/layer/extension/run_pkg.sh",
     "watch": "tsc -w -p tsconfig.json",
     "prepublishOnly": "pnpm run build",
     "dev": "tsx src/cli/index.ts"
