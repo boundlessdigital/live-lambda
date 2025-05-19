@@ -1,6 +1,12 @@
 import http from 'node:http'
 import { URL } from 'node:url'
-
+import {
+  fetch,
+  Agent,
+  RequestInit as UndiciRequestInit,
+  Response as UndiciResponse
+} from 'undici' // For custom fetch dispatcher
+import { AppSyncEventWebSocketClient } from '../../../websocket/index.js'
 enum Method {
   GET = 'GET',
   POST = 'POST',
@@ -19,6 +25,7 @@ const LISTENER_PORT = Number(process.env.LRAP_LISTENER_PORT || 9009)
 const BASE_RUNTIME_URL = `http://${RUNTIME_API_ENDPOINT}/2018-06-01/runtime`
 
 export class LambdaRuntimeApiProxy {
+  private upstream_dispatcher: Agent
   private routes: Array<{
     method: Method
     regex: RegExp
@@ -30,6 +37,15 @@ export class LambdaRuntimeApiProxy {
   }> = []
 
   constructor() {
+    // Initialize a dispatcher (agent) for upstream calls to the actual Lambda Runtime API
+    // with longer timeouts suitable for long-polling and potentially slow responses.
+    this.upstream_dispatcher = new Agent({
+      headersTimeout: 16 * 60 * 1000, // 16 minutes (Lambda max timeout + 1 min buffer)
+      bodyTimeout: 16 * 60 * 1000, // 16 minutes
+      keepAliveTimeout: 5 * 60 * 1000, // 5 minutes keep-alive for idle connections
+      keepAliveMaxTimeout: 15 * 60 * 1000 // Undici will forcefully close connections after this time of inactivity
+    })
+
     this.routes = [
       {
         method: Method.GET,
@@ -93,7 +109,9 @@ export class LambdaRuntimeApiProxy {
     request: http.IncomingMessage,
     response: http.ServerResponse
   ) {
-    const upstream = await fetch(`${BASE_RUNTIME_URL}/invocation/next`) // AWS Runtime API: invocation/next [oai_citation:turn0search4](https://docs.aws.amazon.com/lambda/latest/dg/runtimes-api.html)
+    const upstream = await fetch(`${BASE_RUNTIME_URL}/invocation/next`, {
+      dispatcher: this.upstream_dispatcher
+    } as UndiciRequestInit) // AWS Runtime API: invocation/next [oai_citation:turn0search4](https://docs.aws.amazon.com/lambda/latest/dg/runtimes-api.html)
     this.copy_headers(upstream, response)
 
     const payload = await upstream.json()
@@ -113,8 +131,10 @@ export class LambdaRuntimeApiProxy {
       `${BASE_RUNTIME_URL}/invocation/${request_id}/response`,
       {
         method: Method.POST,
-        body: JSON.stringify(body)
-      }
+        body: JSON.stringify(body),
+        headers: { 'Content-Type': 'application/json' },
+        dispatcher: this.upstream_dispatcher
+      } as UndiciRequestInit
     ) // AWS Runtime API: invocation/<id>/response [oai_citation:turn0search4](https://docs.aws.amazon.com/lambda/latest/dg/runtimes-api.html)
     await this.pipe(upstream, response)
   }
@@ -135,8 +155,9 @@ export class LambdaRuntimeApiProxy {
     const upstream = await fetch(`${BASE_RUNTIME_URL}/initialize/error`, {
       method: Method.POST,
       headers: headers_to_send,
-      body: JSON.stringify(body)
-    }) // AWS Runtime API: init/error [oai_citation:turn0search4](https://docs.aws.amazon.com/lambda/latest/dg/runtimes-api.html)
+      body: JSON.stringify(body),
+      dispatcher: this.upstream_dispatcher
+    } as UndiciRequestInit) // AWS Runtime API: init/error [oai_citation:turn0search4](https://docs.aws.amazon.com/lambda/latest/dg/runtimes-api.html)
     await this.pipe(upstream, response)
   }
 
@@ -160,8 +181,9 @@ export class LambdaRuntimeApiProxy {
       {
         method: Method.POST,
         headers: headers_to_send, // Use the constructed minimal headers
-        body: JSON.stringify(body)
-      }
+        body: JSON.stringify(body),
+        dispatcher: this.upstream_dispatcher
+      } as UndiciRequestInit
     ) // AWS Runtime API: invocation/<id>/error [oai_citation:turn0search4](https://docs.aws.amazon.com/lambda/latest/dg/runtimes-api.html)
     await this.pipe(upstream, response)
   }
@@ -173,11 +195,11 @@ export class LambdaRuntimeApiProxy {
     return raw ? JSON.parse(raw) : {}
   }
 
-  copy_headers(upstream: Response, response: http.ServerResponse) {
+  copy_headers(upstream: UndiciResponse, response: http.ServerResponse) {
     upstream.headers.forEach((v, k) => response.setHeader(k, v)) // setHeader API [oai_citation:turn0search12](https://nodejs.org/en/learn/modules/anatomy-of-an-http-transaction)
   }
 
-  async pipe(upstream: Response, response: http.ServerResponse) {
+  async pipe(upstream: UndiciResponse, response: http.ServerResponse) {
     response.writeHead(upstream.status, Object.fromEntries(upstream.headers))
     response.end(await upstream.text())
   }
