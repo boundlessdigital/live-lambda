@@ -103,22 +103,6 @@ export class RuntimeApiProxy {
     }
   }
 
-  private convertHeaders(
-    incomingHeaders: IncomingHttpHeaders
-  ): Record<string, string> {
-    const result: Record<string, string> = {}
-    for (const key in incomingHeaders) {
-      const value = incomingHeaders[key]
-      if (typeof value === 'string') {
-        result[key] = value
-      } else if (Array.isArray(value) && value.length > 0) {
-        result[key] = value[0] // Take the first value if it's an array
-      }
-      // Skip undefined values
-    }
-    return result
-  }
-
   handleInitError = async (req: Request, res: Response) => {
     console.log(`[LRAP:RuntimeProxy] handleInitError`)
     const error_payload = req.body;
