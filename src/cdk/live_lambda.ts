@@ -22,6 +22,11 @@ export class LiveLambda {
       `LiveLambda: Installing aspect with Layer ARN: ${layer.layerVersionArn}`
         .yellow
     )
-    cdk.Aspects.of(app).add(new LiveLambdaLayerAspect(layer.layerVersionArn))
+
+    const aspect = new LiveLambdaLayerAspect({
+      api: app_sync_stack.api,
+      layer_arn: layer.layerVersionArn
+    })
+    cdk.Aspects.of(app).add(aspect)
   }
 }

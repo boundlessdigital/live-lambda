@@ -13,7 +13,7 @@
     "live-lambda": "dist/cli/index.js"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && (cd src/layer/extension && tsc -p tsconfig.json) && mkdir -p dist/layer/extension/extensions/bin && pkg src/layer/extension/dist/index.js --targets node18-linux-x64 --output dist/layer/extension/extensions/bin/live-lambda-extension-x86_64 && pkg src/layer/extension/dist/index.js --targets node18-linux-arm64 --output dist/layer/extension/extensions/bin/live-lambda-extension-arm64 && cpy src/layer/extension/live-lambda-extension dist/layer/extension/ --overwrite && chmod +x dist/layer/extension/live-lambda-extension dist/layer/extension/extensions/bin/*",
+    "build": "tsc -p tsconfig.json && bash scripts/build-extension-artifacts.sh",
     "watch": "tsc -w -p tsconfig.json",
     "prepublishOnly": "pnpm run build",
     "dev": "tsx src/cli/index.ts"
