@@ -1,5 +1,5 @@
 import 'colors'
-import { AppSyncEventWebSocketClient } from '../websocket/index.js'
+import { AppSyncEventWebSocketClient } from '@boundlessdigital/aws-appsync-events-websockets-client'
 import { APPSYNC_EVENTS_API_NAMESPACE } from '../constants.js'
 
 interface ServerConfig {

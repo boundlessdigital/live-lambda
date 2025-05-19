@@ -15,6 +15,11 @@
     "declaration": true
   },
   "include": [
-    "src/**/*",
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/layer/extension/dist"
   ]
 }

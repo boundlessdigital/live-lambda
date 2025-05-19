@@ -29,12 +29,9 @@ importers:
       '@aws-sdk/credential-providers':
         specifier: ^3.808.0
         version: 3.808.0
-      '@aws-sdk/protocol-http':
-        specifier: ^3.374.0
-        version: 3.374.0
-      '@aws-sdk/signature-v4':
-        specifier: ^3.374.0
-        version: 3.374.0
+      '@boundlessdigital/aws-appsync-events-websockets-client':
+        specifier: ^0.1.7
+        version: 0.1.7
       '@smithy/protocol-http':
         specifier: ^5.1.0
         version: 5.1.0
@@ -870,6 +867,9 @@ packages:
   '@babel/types@7.19.0':
     resolution: {integrity: sha512-YuGopBq3ke25BVSiS6fgF49Ul9gH1x70Bcr6bqRLjWCkcX8Hre1/5+z+IiWOIerRMSSEfGZVB9z9kyq7wVs9YA==}
     engines: {node: '>=6.9.0'}
+
+  '@boundlessdigital/aws-appsync-events-websockets-client@0.1.7':
+    resolution: {integrity: sha512-VluWcFsupTdeJvVJx2pWVb+JHhdTJ9oHiq0fad3xX0BBKJwo/skRaANK+nOP3ailW1ErPSo0AWNU9N/+LqaxYw==, tarball: https://npm.pkg.github.com/download/@boundlessdigital/aws-appsync-events-websockets-client/0.1.7/81fced721cb7b7fa99af760100eca76caa26b023}
 
   '@cdklabs/tskb@0.0.3':
     resolution: {integrity: sha512-JR+MuD4awAXvutu7HArephXfZm09GPTaSAQUqNcJB5+ZENRm4kV+L6vJL6Tn1xHjCcHksO+HAqj3gYtm5K94vA==}
@@ -6089,6 +6089,22 @@ snapshots:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.27.1
       to-fast-properties: 2.0.0
+
+  '@boundlessdigital/aws-appsync-events-websockets-client@0.1.7':
+    dependencies:
+      '@aws-crypto/sha256-js': 5.2.0
+      '@aws-sdk/credential-providers': 3.808.0
+      '@aws-sdk/protocol-http': 3.374.0
+      '@aws-sdk/signature-v4': 3.374.0
+      '@smithy/protocol-http': 5.1.0
+      '@smithy/signature-v4': 5.1.0
+      colors: 1.4.0
+      lodash: 4.17.21
+      ws: 8.18.2
+    transitivePeerDependencies:
+      - aws-crt
+      - bufferutil
+      - utf-8-validate
 
   '@cdklabs/tskb@0.0.3': {}
 

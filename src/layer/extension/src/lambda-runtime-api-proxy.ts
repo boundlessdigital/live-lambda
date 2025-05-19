@@ -5,8 +5,8 @@ import {
   Agent,
   RequestInit as UndiciRequestInit,
   Response as UndiciResponse
-} from 'undici' // For custom fetch dispatcher
-import { AppSyncEventWebSocketClient } from '../../../websocket/index.js'
+} from 'undici'
+import { AppSyncEventWebSocketClient } from '@boundlessdigital/aws-appsync-events-websockets-client'
 enum Method {
   GET = 'GET',
   POST = 'POST',
@@ -36,6 +36,9 @@ export class LambdaRuntimeApiProxy {
     ) => Promise<void>
   }> = []
 
+  private channel: string
+  private websocket: AppSyncEventWebSocketClient
+
   constructor() {
     // Initialize a dispatcher (agent) for upstream calls to the actual Lambda Runtime API
     // with longer timeouts suitable for long-polling and potentially slow responses.
@@ -45,6 +48,13 @@ export class LambdaRuntimeApiProxy {
       keepAliveTimeout: 5 * 60 * 1000, // 5 minutes keep-alive for idle connections
       keepAliveMaxTimeout: 15 * 60 * 1000 // Undici will forcefully close connections after this time of inactivity
     })
+    this.websocket = new AppSyncEventWebSocketClient({
+      region: process.env.AWS_REGION || '',
+      http: process.env.AWS_LAMBDA_RUNTIME_API || '',
+      realtime: process.env.AWS_LAMBDA_RUNTIME_API || ''
+    })
+
+    this.channel = `live-lambda/events`
 
     this.routes = [
       {
@@ -77,6 +87,12 @@ export class LambdaRuntimeApiProxy {
         `[LiveLambda Runtime API Proxy] listening on :${LISTENER_PORT}, proxying → ${RUNTIME_API_ENDPOINT}`
       )
     )
+
+    await this.websocket.connect()
+
+    await this.websocket.subscribe(this.channel, (data) => {
+      console.log('Received data:', data)
+    })
   }
 
   async dispatch(request: http.IncomingMessage, response: http.ServerResponse) {
@@ -115,6 +131,8 @@ export class LambdaRuntimeApiProxy {
     this.copy_headers(upstream, response)
 
     const payload = await upstream.json()
+
+    await this.websocket.publish(this.channel, [payload])
 
     response.writeHead(200, { 'content-type': 'application/json' })
     response.end(JSON.stringify(payload))

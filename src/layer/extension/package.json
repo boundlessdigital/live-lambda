@@ -6,31 +6,24 @@
   "scripts": {
     "clean": "rm -rf dist live-lambda-extension-exec extensions",
     "compile": "npx tsc",
-    "package": "./run_pkg.sh",
-    "build": "npm run clean && npm run compile && npm run package"
+    "package": "esbuild src/index.ts --bundle --outfile=dist/index.js --platform=node --target=node18 --format=cjs --external:aws-sdk --external:@aws-sdk/*",
+    "build": "npm run clean && npm run package"
   },
   "bin": {
     "live-lambda-extension": "dist/index.js"
-  },
-  "pkg": {
-    "assets": [
-      "node_modules/**/*"
-    ],
-    "outputPath": "extensions"
   },
   "dependencies": {
     "@aws-crypto/sha256-js": "^5.2.0",
     "@aws-sdk/credential-providers": "^3.810.0",
     "@aws-sdk/protocol-http": "^3.370.0",
     "@aws-sdk/signature-v4": "^3.370.0",
-    "colors": "^1.4.0",
-    "express": "^4.21.2",
-    "ws": "^8.18.2"
+    "colors": "^1.4.0"
   },
   "devDependencies": {
-    "@types/node": "^20",
     "@types/express": "^4",
-    "pkg": "^5.8.1",
+    "@types/node": "^20",
+    "esbuild": "^0.25.4",
+
     "typescript": "^5.0.0"
   }
 }

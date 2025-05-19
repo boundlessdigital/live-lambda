@@ -5,7 +5,7 @@ import { Construct } from 'constructs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 interface LiveLambdaLayerStackProps extends cdk.StackProps {
   readonly api: appsync.EventApi
