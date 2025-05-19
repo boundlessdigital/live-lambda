@@ -4,9 +4,9 @@ import * as appsync from 'aws-cdk-lib/aws-appsync'
 import * as iam from 'aws-cdk-lib/aws-iam'
 import { IConstruct } from 'constructs'
 
-interface LiveLambdaLayerAspectProps {
-  api: appsync.EventApi
-  layer_arn: string
+export interface LiveLambdaLayerAspectProps {
+  readonly layer_arn: string
+  readonly api: appsync.EventApi
 }
 
 export class LiveLambdaLayerAspect implements cdk.IAspect {
@@ -78,7 +78,20 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
         'AWS_LAMBDA_EXEC_WRAPPER',
         '/opt/live-lambda-runtime-wrapper.sh'
       )
-      node.addEnvironment('LIVE_LAMBDA_DEBUG', 'true')
+
+      // Add AppSync configuration as environment variables for the extension
+      node.addEnvironment(
+        'LIVE_LAMBDA_APPSYNC_REGION',
+        this.props.api.env.region
+      )
+      node.addEnvironment(
+        'LIVE_LAMBDA_APPSYNC_REALTIME_URL',
+        this.props.api.realtimeDns
+      )
+      node.addEnvironment(
+        'LIVE_LAMBDA_APPSYNC_HTTP_URL',
+        this.props.api.httpDns
+      )
     }
   }
 }

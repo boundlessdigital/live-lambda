@@ -3,8 +3,10 @@
 # It sets the AWS_LAMBDA_RUNTIME_API for the function process
 # to point to our extension's proxy server.
 
+# Documentation: https://docs.aws.amazon.com/lambda/latest/dg/runtimes-modify.html#runtime-wrapper
+
 # The port our extension's proxy server (RuntimeApiProxy) is listening on.
-# This must match the LISTENER_PORT in src/layer/extension/src/runtime-api-proxy.ts
+# This must match the LISTENER_PORT in src/layer/extension/src/lambda-runtime-api-proxy.ts
 LISTENER_PORT="9009"
 
 export AWS_LAMBDA_RUNTIME_API="127.0.0.1:${LISTENER_PORT}"

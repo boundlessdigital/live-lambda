@@ -7,11 +7,19 @@
 const AWS_LAMBDA_RUNTIME_API = process.env.AWS_LAMBDA_RUNTIME_API
 const EXTENSIONS_API_ENDPOINT = `http://${AWS_LAMBDA_RUNTIME_API}/2020-01-01/extension`
 
+type Method = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
+
+interface ExtensionAPIRequest {
+  method: Method
+  path: string
+  payload?: object
+  headers?: object
+}
 export class ExtensionsApiClient {
-  private extensionId: string | null = null
+  private extension_id: string | null = null
 
   constructor() {
-    this.extensionId = null
+    this.extension_id = null
   }
 
   async bootstrap() {
@@ -20,53 +28,65 @@ export class ExtensionsApiClient {
     await this.next()
   }
 
+  async call(request: ExtensionAPIRequest) {
+    if (!request.headers) {
+      request.headers = {}
+    }
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(this.extension_id
+        ? {
+            'Lambda-Extension-Identifier': this.extension_id
+          }
+        : {
+            'Lambda-Extension-Name': 'live-lambda-extension'
+          })
+    }
+
+    const response = await fetch(`${EXTENSIONS_API_ENDPOINT}/${request.path}`, {
+      method: request.method,
+      body: JSON.stringify(request.payload),
+      headers
+    })
+
+    return response
+  }
+
   async register() {
-    console.info(
-      `[LRAP:ExtensionsApiClient] register endpoint=${EXTENSIONS_API_ENDPOINT}`
-    )
-    const res = await fetch(`${EXTENSIONS_API_ENDPOINT}/register`, {
+    const response = await this.call({
       method: 'POST',
-      body: JSON.stringify({
+      path: 'register',
+      payload: {
         events: ['INVOKE', 'SHUTDOWN']
-      }),
-      headers: {
-        'Content-Type': 'application/json',
-        'Lambda-Extension-Name': 'live-lambda-extension'
       }
     })
 
-    if (!res.ok) {
+    if (!response.ok) {
       console.error(
-        '[LRAP:ExtensionsApiClient] register failed:',
-        await res.text()
+        '[LRAP:ExtensionsApiClient] register failed',
+        await response.text()
       )
-    } else {
-      this.extensionId = res.headers.get('lambda-extension-identifier')
-      console.info(
-        `[LRAP:ExtensionsApiClient] register success extensionId=${this.extensionId}`
-      )
+      return null
     }
+
+    this.extension_id = response.headers.get('lambda-extension-identifier')
   }
 
   async next() {
-    console.info('[LRAP:ExtensionsApiClient] next waiting...')
-    const res = await fetch(`${EXTENSIONS_API_ENDPOINT}/event/next`, {
+    const response = await this.call({
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(this.extensionId && {
-          'Lambda-Extension-Identifier': this.extensionId
-        })
-      }
+      path: 'event/next'
     })
 
-    if (!res.ok) {
-      console.error('[LRAP:ExtensionsApiClient] next failed', await res.text())
+    if (!response.ok) {
+      console.error(
+        '[LRAP:ExtensionsApiClient] next failed',
+        await response.text()
+      )
       return null
-    } else {
-      const event = await res.json()
-      console.info('[LRAP:ExtensionsApiClient] next success')
-      return event
     }
+
+    const event = await response.json()
+    return event
   }
 }
