@@ -19,8 +19,7 @@ export class LiveLambdaLayerStack extends cdk.Stack {
 
     const extension_path = join(__dirname, '..', 'layer', 'extension')
 
-    const date = Date.now()
-    const logical_id = `LiveLambdaProxyLayer-${date}`
+    const logical_id = 'LiveLambdaProxyLayer'
 
     this.layer = new lambda.LayerVersion(this, logical_id, {
       layerVersionName: 'live-lambda-proxy',
@@ -34,8 +33,10 @@ export class LiveLambdaLayerStack extends cdk.Stack {
             [
               'mkdir -p /asset-output/extensions/bin',
               'cp /asset-input/live-lambda-extension /asset-output/extensions/live-lambda-extension',
+              'cp /asset-input/live-lambda-runtime-wrapper.sh /asset-output/live-lambda-runtime-wrapper.sh',
               'cp /asset-input/extensions/bin/* /asset-output/extensions/bin/',
               'chmod +x /asset-output/extensions/live-lambda-extension',
+              'chmod +x /asset-output/live-lambda-runtime-wrapper.sh',
               'chmod +x /asset-output/extensions/bin/*'
             ].join(' && ')
           ]

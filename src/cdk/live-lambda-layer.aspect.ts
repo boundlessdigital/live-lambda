@@ -76,7 +76,7 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
 
       node.addEnvironment(
         'AWS_LAMBDA_EXEC_WRAPPER',
-        '/opt/live-lambda-extension'
+        '/opt/live-lambda-runtime-wrapper.sh'
       )
       node.addEnvironment('LIVE_LAMBDA_DEBUG', 'true')
     }

@@ -19,12 +19,21 @@ echo "Packaging arm64 binary..."
 pkg src/layer/extension/dist/index.js --targets node18-linux-arm64 --output dist/layer/extension/extensions/bin/live-lambda-extension.arm64
 
 echo "Copying wrapper script..."
+# Ensure the target directory exists
+mkdir -p dist/layer/extension
 # Copy the main extension wrapper script
-cpy src/layer/extension/live-lambda-extension dist/layer/extension/ --overwrite
+cp src/layer/extension/live-lambda-extension dist/layer/extension/
+
+echo "Copying runtime wrapper script..."
+# Copy the runtime wrapper script
+cp src/layer/extension/live-lambda-runtime-wrapper.sh dist/layer/extension/
 
 echo "Setting execute permissions..."
 # Set execute permissions on the wrapper and the binaries
 chmod +x dist/layer/extension/live-lambda-extension
 chmod +x dist/layer/extension/extensions/bin/*
+
+echo "Setting execute permission for runtime wrapper..."
+chmod +x dist/layer/extension/live-lambda-runtime-wrapper.sh
 
 echo "Extension artifact build complete."
