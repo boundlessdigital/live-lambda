@@ -13,7 +13,7 @@
     "live-lambda": "dist/cli/index.js"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && (cd src/layer/extension && cpy package.json run_pkg.sh live-lambda-extension tsconfig.json src ../../../dist/layer/extension --overwrite) && chmod +x dist/layer/extension/live-lambda-extension dist/layer/extension/run_pkg.sh",
+    "build": "tsc -p tsconfig.json && (cd src/layer/extension && tsc -p tsconfig.json) && mkdir -p dist/layer/extension/extensions/bin && pkg src/layer/extension/dist/index.js --targets node18-linux-x64 --output dist/layer/extension/extensions/bin/live-lambda-extension-x86_64 && pkg src/layer/extension/dist/index.js --targets node18-linux-arm64 --output dist/layer/extension/extensions/bin/live-lambda-extension-arm64 && cpy src/layer/extension/live-lambda-extension dist/layer/extension/ --overwrite && chmod +x dist/layer/extension/live-lambda-extension dist/layer/extension/extensions/bin/*",
     "watch": "tsc -w -p tsconfig.json",
     "prepublishOnly": "pnpm run build",
     "dev": "tsx src/cli/index.ts"
@@ -37,6 +37,7 @@
     "esbuild": "^0.25.4",
     "eslint": "^9.26.0",
     "globals": "^16.1.0",
+    "pkg": "^5.8.1",
     "tsx": "^4.19.4",
     "typescript": "^5.5.2",
     "typescript-eslint": "^8.32.0"

@@ -32,11 +32,9 @@ export class LiveLambdaLayerStack extends cdk.Stack {
             'bash',
             '-c',
             [
-              'npm install',
-              'npm run build',
               'mkdir -p /asset-output/extensions/bin',
-              'cp live-lambda-extension /asset-output/extensions/live-lambda-extension',
-              'mv extensions/bin/* /asset-output/extensions/bin/',
+              'cp /asset-input/live-lambda-extension /asset-output/extensions/live-lambda-extension',
+              'cp /asset-input/extensions/bin/* /asset-output/extensions/bin/',
               'chmod +x /asset-output/extensions/live-lambda-extension',
               'chmod +x /asset-output/extensions/bin/*'
             ].join(' && ')

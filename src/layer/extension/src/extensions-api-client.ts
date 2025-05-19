@@ -27,11 +27,11 @@ export class ExtensionsApiClient {
     const res = await fetch(`${EXTENSIONS_API_ENDPOINT}/register`, {
       method: 'POST',
       body: JSON.stringify({
-        events: ['INVOKE'] // You can register for INVOKE and SHUTDOWN events here
+        events: ['INVOKE', 'SHUTDOWN']
       }),
       headers: {
         'Content-Type': 'application/json',
-        'Lambda-Extension-Name': 'live-lambda-proxy-extension'
+        'Lambda-Extension-Name': 'live-lambda-extension'
       }
     })
 
