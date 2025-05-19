@@ -9,12 +9,12 @@ export interface LiveLambdaInstallProps {
 
 export class LiveLambda {
   public static install(app: cdk.App, props?: LiveLambdaInstallProps): void {
-    const app_sync_stack = new AppSyncStack(app, 'AppSyncStack', {
+    const { api } = new AppSyncStack(app, 'AppSyncStack', {
       env: props?.env
     })
 
     const { layer } = new LiveLambdaLayerStack(app, 'LiveLambda-LayerStack', {
-      api: app_sync_stack.api,
+      api,
       env: props?.env
     })
 
@@ -24,7 +24,7 @@ export class LiveLambda {
     )
 
     const aspect = new LiveLambdaLayerAspect({
-      api: app_sync_stack.api,
+      api,
       layer_arn: layer.layerVersionArn
     })
     cdk.Aspects.of(app).add(aspect)

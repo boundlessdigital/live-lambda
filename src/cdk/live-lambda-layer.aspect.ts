@@ -1,19 +1,19 @@
-import * as cdk from 'aws-cdk-lib';
-import * as lambda from 'aws-cdk-lib/aws-lambda';
-import * as appsync from 'aws-cdk-lib/aws-appsync';
-import * as iam from 'aws-cdk-lib/aws-iam';
-import { IConstruct } from 'constructs';
+import * as cdk from 'aws-cdk-lib'
+import * as lambda from 'aws-cdk-lib/aws-lambda'
+import * as appsync from 'aws-cdk-lib/aws-appsync'
+import * as iam from 'aws-cdk-lib/aws-iam'
+import { IConstruct } from 'constructs'
 
 interface LiveLambdaLayerAspectProps {
-  api: appsync.EventApi;
-  layer_arn: string;
+  api: appsync.EventApi
+  layer_arn: string
 }
 
 export class LiveLambdaLayerAspect implements cdk.IAspect {
-  private readonly props: LiveLambdaLayerAspectProps;
+  private readonly props: LiveLambdaLayerAspectProps
 
   constructor(props: LiveLambdaLayerAspectProps) {
-    this.props = props;
+    this.props = props
   }
 
   public visit(node: IConstruct): void {
@@ -61,18 +61,18 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
           layer_import_id,
           this.props.layer_arn
         )
-      );
+      )
 
       node.addToRolePolicy(
         new iam.PolicyStatement({
           actions: [
             'appsync:EventConnect',
             'appsync:EventPublish',
-            'appsync:EventSubscribe',
+            'appsync:EventSubscribe'
           ],
           resources: [`${this.props.api.apiArn}/*`]
         })
-      );
+      )
 
       node.addEnvironment(
         'AWS_LAMBDA_EXEC_WRAPPER',
