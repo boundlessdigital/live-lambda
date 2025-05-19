@@ -57,7 +57,8 @@ async function deploy_stacks(cdk: Toolkit, assembly: ICloudAssemblySource) {
 async function destroy_stacks(cdk: Toolkit, assembly: ICloudAssemblySource) {
   await cdk.destroy(assembly, {
     stacks: {
-      strategy: StackSelectionStrategy.MAIN_ASSEMBLY
+      strategy: StackSelectionStrategy.PATTERN_MATCH,
+      patterns: ['*Lambda']
     }
   })
 }

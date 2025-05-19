@@ -36,7 +36,7 @@ export class RuntimeApiProxy {
     listener.listen(LISTENER_PORT)
   }
 
-  async handleNext(_req: Request, res: Response) {
+  handleNext = async (_req: Request, res: Response) => {
     console.log('[LRAP:RuntimeProxy] handleNext');
 
     // Getting the next event from Lambda Runtime API
@@ -63,7 +63,7 @@ export class RuntimeApiProxy {
     return res.status(next_event_response.status).send(event_text);
   }
 
-  async handleResponse(req: Request, res: Response) {
+  handleResponse = async (req: Request, res: Response) => {
     const request_id = req.params.requestId;
     console.log(`[LRAP:RuntimeProxy] handleResponse intercepted for requestId=${request_id}`);
 
@@ -119,37 +119,75 @@ export class RuntimeApiProxy {
     return result
   }
 
-  async handleInitError(req: Request, res: Response) {
+  handleInitError = async (req: Request, res: Response) => {
     console.log(`[LRAP:RuntimeProxy] handleInitError`)
+    const error_payload = req.body;
+    const headers_to_send: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+    // The Lambda-Runtime-Function-Error-Type header is optional but good practice.
+    // The runtime can often infer it from the payload's errorType field.
+    if (error_payload && typeof error_payload.errorType === 'string') {
+      headers_to_send['Lambda-Runtime-Function-Error-Type'] = error_payload.errorType;
+    }
 
     const resp = await fetch(`${RUNTIME_API_URL}/init/error`, {
       method: 'POST',
-      headers: this.convertHeaders(req.headers),
-      body: JSON.stringify(req.body)
-    })
+      headers: headers_to_send, // Use new minimal headers
+      body: JSON.stringify(error_payload)
+    });
 
-    console.log('[LRAP:RuntimeProxy] handleInitError posted')
-    return res.status(resp.status).json(await resp.json())
+    console.log('[LRAP:RuntimeProxy] handleInitError posted to Runtime API, status:', resp.status);
+    
+    // Process response from Runtime API
+    const response_text = await resp.text();
+    const response_status = resp.status;
+    
+    // Send response back to the entity that called our /init/error (which is the Lambda runtime itself)
+    // This response to the original caller isn't strictly defined by Lambda docs for /init/error proxying,
+    // but responding with what the actual API said is reasonable.
+    try {
+        const response_json = JSON.parse(response_text); // If runtime API sent JSON (e.g., on its own error)
+        return res.status(response_status).json(response_json);
+    } catch (e) {
+        return res.status(response_status).send(response_text); // If empty or non-JSON response
+    }
   }
 
-  async handleInvokeError(req: Request, res: Response) {
-    const requestId = req.params.requestId
-    console.log(`[LRAP:RuntimeProxy] handleInvokeError requestid=${requestId}`)
+  handleInvokeError = async (req: Request, res: Response) => {
+    const requestId = req.params.requestId;
+    console.log(`[LRAP:RuntimeProxy] handleInvokeError requestid=${requestId}`);
+    const error_payload = req.body;
+    const headers_to_send: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+    if (error_payload && typeof error_payload.errorType === 'string') {
+      headers_to_send['Lambda-Runtime-Function-Error-Type'] = error_payload.errorType;
+    }
 
     const resp = await fetch(
       `${RUNTIME_API_URL}/invocation/${requestId}/error`,
       {
         method: 'POST',
-        headers: this.convertHeaders(req.headers),
-        body: JSON.stringify(req.body)
+        headers: headers_to_send, // Use new minimal headers
+        body: JSON.stringify(error_payload)
       }
-    )
+    );
 
-    console.log('[LRAP:RuntimeProxy] handleInvokeError posted')
-    return res.status(resp.status).json(await resp.json())
+    console.log(`[LRAP:RuntimeProxy] handleInvokeError posted to Runtime API for ${requestId}, status:`, resp.status);
+
+    const response_text = await resp.text();
+    const response_status = resp.status;
+    
+    try {
+        const response_json = JSON.parse(response_text);
+        return res.status(response_status).json(response_json);
+    } catch (e) {
+        return res.status(response_status).send(response_text);
+    }
   }
 
-  logIncomingRequest(req: Request, _res: Response, next: NextFunction) {
+  logIncomingRequest = (req: Request, _res: Response, next: NextFunction) => {
     console.log(
       `[LRAP:RuntimeProxy] logIncomingRequest method=${req.method} url=${req.originalUrl}`
     )
