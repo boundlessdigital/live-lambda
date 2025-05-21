@@ -15,17 +15,20 @@ export async function serve(config: ServerConfig): Promise<void> {
 
   const client = new AppSyncEventWebSocketClient(config)
 
-  const channel = `${APPSYNC_EVENTS_API_NAMESPACE}/events`
+  const channel = `${APPSYNC_EVENTS_API_NAMESPACE}/requests`
 
   await client.connect()
 
   await client.subscribe(channel, async (data) => {
     // Load lambda code
     // Grab permissions
+
     console.log('Received data:'.cyan)
-    console.log(JSON.stringify(data, null, 2))
+    console.log(data)
+    const request_id = data.request_id
     const response = await execute_handler(data)
-    await client.publish(channel, [response])
+    const response_channel = `${APPSYNC_EVENTS_API_NAMESPACE}/response/${request_id}`
+    await client.publish(response_channel, [response])
   })
 }
 
