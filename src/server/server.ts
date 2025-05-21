@@ -22,13 +22,15 @@ export async function serve(config: ServerConfig): Promise<void> {
   await client.subscribe(channel, async (data) => {
     // Load lambda code
     // Grab permissions
+    console.log('Received data:'.cyan)
+    console.log(JSON.stringify(data, null, 2))
     const response = await execute_handler(data)
     await client.publish(channel, [response])
   })
 }
 
 async function execute_handler(request: object) {
-  let response
+  let response = request
   return response
 }
 export async function test_serve(config: ServerConfig): Promise<void> {

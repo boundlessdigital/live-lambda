@@ -5,6 +5,7 @@ import { LiveLambdaLayerAspect } from './live-lambda-layer.aspect.js'
 
 export interface LiveLambdaInstallProps {
   env: cdk.Environment
+  skip_layer?: boolean
 }
 
 export class LiveLambda {
@@ -20,13 +21,15 @@ export class LiveLambda {
 
     console.log(
       `LiveLambda: Installing aspect with Layer ARN: ${layer.layerVersionArn}`
-        .yellow
     )
 
     const aspect = new LiveLambdaLayerAspect({
       api,
       layer_arn: layer.layerVersionArn
     })
-    cdk.Aspects.of(app).add(aspect)
+
+    if (!props?.skip_layer) {
+      cdk.Aspects.of(app).add(aspect)
+    }
   }
 }

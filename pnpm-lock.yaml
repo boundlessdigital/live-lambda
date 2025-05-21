@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@aws-cdk/toolkit-lib':
-        specifier: ^0.3.5
-        version: 0.3.5(@aws-cdk/cli-plugin-contract@2.180.2)
+        specifier: latest
+        version: 0.3.7(@aws-cdk/cli-plugin-contract@2.180.2)
       '@aws-crypto/sha256-js':
         specifier: ^5.2.0
         version: 5.2.0
@@ -30,8 +30,8 @@ importers:
         specifier: ^3.808.0
         version: 3.808.0
       '@boundlessdigital/aws-appsync-events-websockets-client':
-        specifier: ^0.1.7
-        version: 0.1.7
+        specifier: latest
+        version: 0.1.8
       '@smithy/protocol-http':
         specifier: ^5.1.0
         version: 5.1.0
@@ -253,8 +253,8 @@ packages:
       - jsonschema
       - semver
 
-  '@aws-cdk/cloud-assembly-schema@43.10.0':
-    resolution: {integrity: sha512-8L/QP349x5QG3Qeq0IosooLgTl7DaUjs+XmNaV1ND5jIfQOocv2wPfjIMV/0VMJWCBOuRRvq8+X1c7zPOySCaQ==}
+  '@aws-cdk/cloud-assembly-schema@43.12.0':
+    resolution: {integrity: sha512-wcou4UEKhLLBKMXfndct1AwRALP4+ovkkLW3xW5I5KpNsIayMbnhR/cll8VH8hvRiwkGix00a8ZHy/7LRA9HMQ==}
     engines: {node: '>= 14.15.0'}
     bundledDependencies:
       - jsonschema
@@ -277,11 +277,11 @@ packages:
   '@aws-cdk/service-spec-types@0.0.138':
     resolution: {integrity: sha512-II9zZ1XEAEnLhODnItDnS92na1qp8eexSml8hOa2KhM4CkVdeq4SopWKRv5/uU4CfxRBvkfq3rciR+i2rpu8PA==}
 
-  '@aws-cdk/toolkit-lib@0.3.5':
-    resolution: {integrity: sha512-rWKEdhdswFClc086B8xn6Veif62CdKREvKUzoGVz9X6/SjjikSEa5jkdE6C/EnzbeHSUgBNtjNt0SROceYovCQ==}
+  '@aws-cdk/toolkit-lib@0.3.7':
+    resolution: {integrity: sha512-o7efKvJfsU9NpoFq1iqJu5gwM5rJgwa9SE4tGSupIXptKx/Da8VbOUp/XcVqif9KlaIwNj+8hcrM7WIwFZloCw==}
     engines: {node: '>= 14.15.0'}
     peerDependencies:
-      '@aws-cdk/cli-plugin-contract': ^2.180.2
+      '@aws-cdk/cli-plugin-contract': ^2
 
   '@aws-crypto/crc32@3.0.0':
     resolution: {integrity: sha512-IzSgsrxUcsrejQbPVilIKy16kAT52EwB6zSaI+M3xxIhKh5+aldEyvI+z6erM7TCLB2BJsFrtHjp6/4/sr+3dA==}
@@ -868,8 +868,8 @@ packages:
     resolution: {integrity: sha512-YuGopBq3ke25BVSiS6fgF49Ul9gH1x70Bcr6bqRLjWCkcX8Hre1/5+z+IiWOIerRMSSEfGZVB9z9kyq7wVs9YA==}
     engines: {node: '>=6.9.0'}
 
-  '@boundlessdigital/aws-appsync-events-websockets-client@0.1.7':
-    resolution: {integrity: sha512-VluWcFsupTdeJvVJx2pWVb+JHhdTJ9oHiq0fad3xX0BBKJwo/skRaANK+nOP3ailW1ErPSo0AWNU9N/+LqaxYw==, tarball: https://npm.pkg.github.com/download/@boundlessdigital/aws-appsync-events-websockets-client/0.1.7/81fced721cb7b7fa99af760100eca76caa26b023}
+  '@boundlessdigital/aws-appsync-events-websockets-client@0.1.8':
+    resolution: {integrity: sha512-mQsZ7nubT7CmXsCq1e3FAd+o0jXCbcOA4y+gcoT3oHDh5oN2RdX0zOnIlniMcL68MJMZo1gzqPMDUKd4Vl8OSg==, tarball: https://npm.pkg.github.com/download/@boundlessdigital/aws-appsync-events-websockets-client/0.1.8/03ebc536d39c5a9f41a4bc7f23eec0caf189ac31}
 
   '@cdklabs/tskb@0.0.3':
     resolution: {integrity: sha512-JR+MuD4awAXvutu7HArephXfZm09GPTaSAQUqNcJB5+ZENRm4kV+L6vJL6Tn1xHjCcHksO+HAqj3gYtm5K94vA==}
@@ -2015,8 +2015,8 @@ packages:
     engines: {node: '>= 14.15.0'}
     hasBin: true
 
-  cdk-from-cfn@0.213.0:
-    resolution: {integrity: sha512-D3/cz3DX0ge9+UTx3H+sB3j4ZEJ73GsgaBFSgH0o73BWqRZRWDwV69rAzEcO9Ri1l182+Gojdb3Whg2arRQd3w==}
+  cdk-from-cfn@0.214.0:
+    resolution: {integrity: sha512-k0kaf0QhzfzKp7E/GZ6eoFFqVdK/Bjl5hs+kEIKvtur92gRvAq4Ehs4fSOqDksVWYxT9of50qFEzQPTxUzR02A==}
 
   chai@5.2.0:
     resolution: {integrity: sha512-mCuXncKXk5iCLhfhwTc0izo0gtEmpz5CtG2y8GiOINBlMVS6v8TMRc5TaLWKS6692m9+dVVfzgeVxR5UxWHTYw==}
@@ -3600,7 +3600,7 @@ snapshots:
 
   '@aws-cdk/cloud-assembly-schema@41.2.0': {}
 
-  '@aws-cdk/cloud-assembly-schema@43.10.0': {}
+  '@aws-cdk/cloud-assembly-schema@43.12.0': {}
 
   '@aws-cdk/cloudformation-diff@2.181.2(@aws-sdk/client-cloudformation@3.810.0)':
     dependencies:
@@ -3613,20 +3613,20 @@ snapshots:
       string-width: 4.2.3
       table: 6.9.0
 
-  '@aws-cdk/cx-api@2.195.0(@aws-cdk/cloud-assembly-schema@43.10.0)':
+  '@aws-cdk/cx-api@2.195.0(@aws-cdk/cloud-assembly-schema@43.12.0)':
     dependencies:
-      '@aws-cdk/cloud-assembly-schema': 43.10.0
+      '@aws-cdk/cloud-assembly-schema': 43.12.0
 
   '@aws-cdk/service-spec-types@0.0.138':
     dependencies:
       '@cdklabs/tskb': 0.0.3
 
-  '@aws-cdk/toolkit-lib@0.3.5(@aws-cdk/cli-plugin-contract@2.180.2)':
+  '@aws-cdk/toolkit-lib@0.3.7(@aws-cdk/cli-plugin-contract@2.180.2)':
     dependencies:
       '@aws-cdk/cli-plugin-contract': 2.180.2
-      '@aws-cdk/cloud-assembly-schema': 43.10.0
+      '@aws-cdk/cloud-assembly-schema': 43.12.0
       '@aws-cdk/cloudformation-diff': 2.181.2(@aws-sdk/client-cloudformation@3.810.0)
-      '@aws-cdk/cx-api': 2.195.0(@aws-cdk/cloud-assembly-schema@43.10.0)
+      '@aws-cdk/cx-api': 2.195.0(@aws-cdk/cloud-assembly-schema@43.12.0)
       '@aws-sdk/client-appsync': 3.810.0
       '@aws-sdk/client-cloudcontrol': 3.810.0
       '@aws-sdk/client-cloudformation': 3.810.0
@@ -3648,7 +3648,7 @@ snapshots:
       '@aws-sdk/credential-providers': 3.808.0
       '@aws-sdk/ec2-metadata-service': 3.810.0
       '@aws-sdk/lib-storage': 3.810.0(@aws-sdk/client-s3@3.810.0)
-      '@smithy/middleware-endpoint': 4.1.5
+      '@smithy/middleware-endpoint': 4.1.6
       '@smithy/node-http-handler': 4.0.4
       '@smithy/property-provider': 4.0.2
       '@smithy/shared-ini-file-loader': 4.0.2
@@ -3656,7 +3656,7 @@ snapshots:
       '@smithy/util-waiter': 4.0.3
       archiver: 7.0.1
       cdk-assets: 3.2.2
-      cdk-from-cfn: 0.213.0
+      cdk-from-cfn: 0.214.0
       chalk: 4.1.2
       chokidar: 3.6.0
       fs-extra: 9.1.0
@@ -6090,7 +6090,7 @@ snapshots:
       '@babel/helper-validator-identifier': 7.27.1
       to-fast-properties: 2.0.0
 
-  '@boundlessdigital/aws-appsync-events-websockets-client@0.1.7':
+  '@boundlessdigital/aws-appsync-events-websockets-client@0.1.8':
     dependencies:
       '@aws-crypto/sha256-js': 5.2.0
       '@aws-sdk/credential-providers': 3.808.0
@@ -6098,7 +6098,6 @@ snapshots:
       '@aws-sdk/signature-v4': 3.374.0
       '@smithy/protocol-http': 5.1.0
       '@smithy/signature-v4': 5.1.0
-      colors: 1.4.0
       lodash: 4.17.21
       ws: 8.18.2
     transitivePeerDependencies:
@@ -7517,8 +7516,8 @@ snapshots:
 
   cdk-assets@3.2.2:
     dependencies:
-      '@aws-cdk/cloud-assembly-schema': 43.10.0
-      '@aws-cdk/cx-api': 2.195.0(@aws-cdk/cloud-assembly-schema@43.10.0)
+      '@aws-cdk/cloud-assembly-schema': 43.12.0
+      '@aws-cdk/cx-api': 2.195.0(@aws-cdk/cloud-assembly-schema@43.12.0)
       '@aws-sdk/client-ecr': 3.810.0
       '@aws-sdk/client-s3': 3.810.0
       '@aws-sdk/client-secrets-manager': 3.810.0
@@ -7534,7 +7533,7 @@ snapshots:
     transitivePeerDependencies:
       - aws-crt
 
-  cdk-from-cfn@0.213.0: {}
+  cdk-from-cfn@0.214.0: {}
 
   chai@5.2.0:
     dependencies:

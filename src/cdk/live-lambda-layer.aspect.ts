@@ -79,17 +79,23 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
         '/opt/live-lambda-runtime-wrapper.sh'
       )
 
+      // Set the listener port for the extension's Runtime API Proxy
+      node.addEnvironment('LRAP_LISTENER_PORT', '8082')
+
+      // Set the official extension name, required by the Go extension to register itself
+      node.addEnvironment('AWS_LAMBDA_EXTENSION_NAME', 'live-lambda-extension')
+
       // Add AppSync configuration as environment variables for the extension
       node.addEnvironment(
         'LIVE_LAMBDA_APPSYNC_REGION',
         this.props.api.env.region
       )
       node.addEnvironment(
-        'LIVE_LAMBDA_APPSYNC_REALTIME_URL',
+        'LIVE_LAMBDA_APPSYNC_REALTIME_HOST',
         this.props.api.realtimeDns
       )
       node.addEnvironment(
-        'LIVE_LAMBDA_APPSYNC_HTTP_URL',
+        'LIVE_LAMBDA_APPSYNC_HTTP_HOST',
         this.props.api.httpDns
       )
     }

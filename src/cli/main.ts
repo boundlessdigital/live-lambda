@@ -58,7 +58,7 @@ async function destroy_stacks(cdk: Toolkit, assembly: ICloudAssemblySource) {
   await cdk.destroy(assembly, {
     stacks: {
       strategy: StackSelectionStrategy.PATTERN_MATCH,
-      patterns: ['*Lambda']
+      patterns: ['*Lambda', '*Layer*']
     }
   })
 }
