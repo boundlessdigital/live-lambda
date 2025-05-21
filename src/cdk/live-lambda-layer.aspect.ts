@@ -70,7 +70,7 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
             'appsync:EventPublish',
             'appsync:EventSubscribe'
           ],
-          resources: [`${this.props.api.apiArn}/*`]
+          resources: [`${this.props.api.apiArn}/*`, `${this.props.api.apiArn}`]
         })
       )
 

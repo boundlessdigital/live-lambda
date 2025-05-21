@@ -49,7 +49,7 @@ async function run_server(
 async function deploy_stacks(cdk: Toolkit, assembly: ICloudAssemblySource) {
   return cdk.deploy(assembly, {
     deploymentMethod: {
-      method: 'direct'
+      method: 'change-set'
     }
   })
 }
@@ -70,7 +70,7 @@ async function watch_stacks(
 ) {
   await cdk.watch(assembly, {
     deploymentMethod: {
-      method: 'direct'
+      method: 'change-set'
     },
     ...watch_config
   })
