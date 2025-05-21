@@ -33,8 +33,8 @@ var global_appsync_proxy *RuntimeAPIProxy
 // This struct needs to manage AppSync interactions and implement the AppSyncProxyHelper interface.
 type RuntimeAPIProxy struct {
 	ctx                  context.Context
-	appsync_http_url     string // Corresponds to ClientOptions.AppSyncAPIURL
-	appsync_realtime_url string // Corresponds to ClientOptions.RealtimeServiceURL
+	appsync_http_url     string // Corresponds to ClientOptions.AppSyncAPIHost
+	appsync_realtime_url string // Corresponds to ClientOptions.AppSyncRealtimeHost
 	aws_region           string // For AWS config
 	appsync_ws_client    *appsyncwsclient.Client
 }
@@ -193,9 +193,9 @@ func main() {
 		log.Println(main_print_prefix, "AppSync WebSocket Manager goroutine finished.")
 	}()
 
-	SetAppSyncHelper(global_appsync_proxy) // This function is from http_proxy_handlers.go (package main)
+	// SetAppSyncHelper is removed as AppSync logic is now directly in RuntimeAPIProxy methods.
 
-	StartProxy(actual_runtime_api, listener_port) // This function is from http_proxy_handlers.go (package main)
+	StartProxy(global_appsync_proxy, actual_runtime_api, listener_port) // This function is from runtime_api_proxy.go (package main)
 	log.Printf("%s Proxy server started on port %d, targeting %s", main_print_prefix, listener_port, actual_runtime_api)
 
 	// Initialize the Extensions API client (from extensions_api_client.go, package main)

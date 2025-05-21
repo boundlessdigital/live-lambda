@@ -24,14 +24,8 @@ github.com/aws/aws-sdk-go-v2/service/sts v1.33.19 h1:1XuUZ8mYJw9B6lzAkXhqHlJd/Xv
 github.com/aws/aws-sdk-go-v2/service/sts v1.33.19/go.mod h1:cQnB8CUnxbMU82JvlqjKR2HBOm3fe9pWorWBza6MBJ4=
 github.com/aws/smithy-go v1.22.2 h1:6D9hW43xKFrRx/tXXfAlIZc4JI+yQe6snnWcQyxSyLQ=
 github.com/aws/smithy-go v1.22.2/go.mod h1:irrKGvNn1InZwb2d7fkIRNucdfwR8R+Ts3wxYa/cJHg=
-github.com/boundlessdigital/aws-appsync-events-websockets-client-go v0.1.1-0.20250521180906-438583cd8116 h1:5U4odvb0fxPqpuBk6OaOYXi/5Ap/RNkQl6o4Td8uGTs=
-github.com/boundlessdigital/aws-appsync-events-websockets-client-go v0.1.1-0.20250521180906-438583cd8116/go.mod h1:LIW/bpRY1qm0d5ojNVZDrCvuoCsXNya6rF6xgoLFHBs=
-github.com/boundlessdigital/aws-appsync-events-websockets-client-go v0.2.0 h1:Izm93hTIO34IJdIcIdc+AF1xkg2AYhi+bVGrqsOWdAU=
-github.com/boundlessdigital/aws-appsync-events-websockets-client-go v0.2.0/go.mod h1:LIW/bpRY1qm0d5ojNVZDrCvuoCsXNya6rF6xgoLFHBs=
 github.com/boundlessdigital/aws-appsync-events-websockets-client-go v0.2.1 h1:iWMQI8x2T0YiPEOIx0w7SxHVsYJH1+jDD8ej2uxJ9OU=
 github.com/boundlessdigital/aws-appsync-events-websockets-client-go v0.2.1/go.mod h1:LIW/bpRY1qm0d5ojNVZDrCvuoCsXNya6rF6xgoLFHBs=
-github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
-github.com/cenkalti/backoff/v4 v4.3.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/go-chi/chi/v5 v5.2.1 h1:KOIHODQj58PmL80G2Eak4WdvUzjSJSm0vG72crDCqb8=
