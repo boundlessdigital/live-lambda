@@ -25,7 +25,7 @@ export async function serve(config: ServerConfig): Promise<void> {
 
     const parsed_data = JSON.parse(data)
     console.log('Received data:'.cyan)
-    console.log(JSON.stringify(parsed_data, null, 2))
+    console.log(parsed_data)
     const request_id = parsed_data.request_id
     const response = await execute_handler(parsed_data)
 
