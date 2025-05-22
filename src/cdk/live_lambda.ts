@@ -1,6 +1,6 @@
 import * as cdk from 'aws-cdk-lib'
-import { AppSyncStack } from './appsync.stack.js';
-import { LiveLambdaLayerStack } from './layer.stack.js';
+import { AppSyncStack } from './appsync.stack.js'
+import { LiveLambdaLayerStack } from './layer.stack.js'
 import { LiveLambdaLayerAspect } from './live-lambda-layer.aspect.js'
 
 export interface LiveLambdaInstallProps {
@@ -18,10 +18,6 @@ export class LiveLambda {
       api,
       env: props?.env
     })
-
-    console.log(
-      `LiveLambda: Installing aspect with Layer ARN: ${layer.layerVersionArn}`
-    )
 
     const aspect = new LiveLambdaLayerAspect({
       api,

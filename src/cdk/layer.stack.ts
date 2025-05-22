@@ -22,8 +22,8 @@ export class LiveLambdaLayerStack extends cdk.Stack {
     // and 'live-lambda-runtime-wrapper.sh' for the layer.
     const extension_path = join(
       __dirname, // src/cdk
-      '..',      // src
-      '..',      // project root
+      '..', // src
+      '..', // project root
       'dist'
     )
 

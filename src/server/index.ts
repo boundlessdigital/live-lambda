@@ -15,7 +15,7 @@ export async function serve(config: ServerConfig): Promise<void> {
 
   const client = new AppSyncEventWebSocketClient(config)
 
-  const requests_channel = `${APPSYNC_EVENTS_API_NAMESPACE}/requests`
+  const requests_channel = `/${APPSYNC_EVENTS_API_NAMESPACE}/requests`
 
   await client.connect()
 
@@ -24,17 +24,23 @@ export async function serve(config: ServerConfig): Promise<void> {
     // Grab permissions
 
     const parsed_data = JSON.parse(data)
-    console.log('Received data:'.cyan)
+    console.log(`Received data in proxy server ${requests_channel}:`.cyan)
     console.log(parsed_data)
+
     const request_id = parsed_data.request_id
     const response = await execute_handler(parsed_data)
 
-    const response_channel = `${APPSYNC_EVENTS_API_NAMESPACE}/response/${request_id}`
+    const response_channel = `/${APPSYNC_EVENTS_API_NAMESPACE}/response/${request_id}`
     await client.publish(response_channel, [response])
+    console.log(`Published response to proxy server ${response_channel}:`.cyan)
+    console.log(response)
   })
 }
 
 async function execute_handler(request: object) {
-  let response = request
+  let response = {
+    tag: 'processed through lambda proxy',
+    request
+  }
   return response
 }

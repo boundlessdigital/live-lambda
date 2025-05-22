@@ -7,19 +7,25 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"os"
+	"time"
 
 	"github.com/go-chi/chi/v5"
-
 )
 
 const (
 	http_proxy_print_prefix = "[Runtime API Proxy]"
+	maxLambdaTimeout        = 15 * time.Minute // 15 minutes in Go's time.Duration
+	safetyBuffer            = 30 * time.Second // Buffer for cleanup and processing
+	websocketTimeout        = maxLambdaTimeout - safetyBuffer
 )
 
 var (
@@ -31,8 +37,8 @@ var (
 func (p *RuntimeAPIProxy) handle_next(w http.ResponseWriter, r *http.Request) {
 	log.Println(http_proxy_print_prefix, "GET /next")
 
+	// 1. Forward the request to the Lambda Runtime API
 	url := fmt.Sprintf("http://%s/2018-06-01/runtime/invocation/next", aws_lambda_runtime_api)
-
 	resp, err := p.forward_request("GET", url, r.Body, r.Header)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error forwarding /next request: %v", err), http.StatusInternalServerError)
@@ -40,73 +46,187 @@ func (p *RuntimeAPIProxy) handle_next(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
+	// 2. Read the response body
 	body_bytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error reading /next response body: %v", err), http.StatusInternalServerError)
 		return
 	}
 
+	// 3. Get the request ID from the headers
 	request_id := resp.Header.Get("Lambda-Runtime-Aws-Request-Id")
-
-	modified_body, modified_headers := process_request(r.Context(), request_id, body_bytes, resp.Header)
-
-	copy_headers(modified_headers, w.Header())
-	w.WriteHeader(resp.StatusCode)
-	_, err = w.Write(modified_body)
-	if err != nil {
-		log.Printf("%s Error writing /next response to client: %v", http_proxy_print_prefix, err)
+	if request_id == "" {
+		log.Printf("%s Warning: No request ID found in headers", http_proxy_print_prefix)
 	}
-	log.Println(http_proxy_print_prefix, "GET /next completed")
 
-	// Publish event and subscribe to response channel via AppSync WebSocket
-	if p.appsync_ws_client != nil && p.appsync_ws_client.IsConnected() {
-		// 1. Subscribe to the response channel for this request_id (was 2)
+	// 4. Check if we should use AppSync
+	if p.appsync_ws_client != nil && p.appsync_ws_client.IsConnected() && request_id != "" {
+		// Create a context with our timeout
+		ctx, cancel := context.WithTimeout(r.Context(), websocketTimeout)
+		defer cancel()
+
+		// Create a channel to signal when we're done
+		done := make(chan struct{})
 		response_topic := fmt.Sprintf("live-lambda/response/%s", request_id)
-		subscription_id_for_appsync := response_topic // Use topic as subscription ID for simplicity with AppSync client
+		sub_id := fmt.Sprintf("sub-%s", request_id)
+		
+		// Cleanup function
+		cleanup := func() {
+			if p.appsync_ws_client != nil && p.appsync_ws_client.IsConnected() {
+				// Use a separate context with a short timeout for cleanup
+				_, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second) // cleanupCtx assigned to _ as it's not used after Unsubscribe was commented out
+				defer cleanupCancel()
+				// p.appsync_ws_client.Unsubscribe(cleanupCtx, sub_id, response_topic) // Commented out due to build error: Unsubscribe undefined (type *appsyncwsclient.Client has no field or method Unsubscribe)
+				// Subscription cleanup will rely on the cancellation of the context passed to the Subscribe call (appsyncOpCtx).
+				log.Printf("%s AppSync Unsubscribe call commented out. Cleanup for sub_id %s on topic %s relies on context cancellation.", http_proxy_print_prefix, sub_id, response_topic)
+			}
+		}
+		defer cleanup()
 
-		log.Printf("%s Subscribing to AppSync topic %s for request ID %s", http_proxy_print_prefix, response_topic, request_id)
-		_, err := p.appsync_ws_client.Subscribe( // Note: err is declared with :=
-			r.Context(),
-			subscription_id_for_appsync, // This is the channel for the library, it's set to response_topic
+		// 5. Subscribe to the response topic
+		subConfirmation, err := p.appsync_ws_client.Subscribe(
+			ctx,
+			response_topic, // Use response_topic as the identifier
+			// This function will be called when a message is received
 			func(data_payload interface{}) {
-				log.Printf("%s Received message on AppSync topic %s (for request ID %s): %+v", http_proxy_print_prefix, response_topic, request_id, data_payload)
+				log.Printf("%s Received message on topic %s", http_proxy_print_prefix, response_topic)
+				
+				// Convert the response to bytes
+				response_bytes, err := json.Marshal(data_payload)
+				if err != nil {
+					log.Printf("%s Error marshaling WebSocket response: %v", http_proxy_print_prefix, err)
+					close(done)
+					return
+				}
+
+				// Log the raw response for debugging
+				log.Printf("%s Raw WebSocket response: %s", http_proxy_print_prefix, string(response_bytes))
+
+				// Create a reader for the response body
+				body_reader := bytes.NewReader(response_bytes)
+				
+				// Post the response back to the Runtime API
+				response_url := fmt.Sprintf("http://%s/2018-06-01/runtime/invocation/%s/response", 
+					aws_lambda_runtime_api, request_id)
+				
+				log.Printf("%s Posting response back to Lambda Runtime API: %s", 
+					http_proxy_print_prefix, response_url)
+				
+				// Use forward_request to post the response
+				resp, err := p.forward_request("POST", response_url, body_reader, nil)
+				if err != nil {
+					log.Printf("%s Error posting response to Lambda Runtime API: %v", 
+						http_proxy_print_prefix, err)
+					close(done)
+					return
+				}
+				defer resp.Body.Close()
+				
+				// Log the response status
+				if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+					log.Printf("%s Successfully posted response for request ID %s", 
+						http_proxy_print_prefix, request_id)
+				} else {
+					body, _ := io.ReadAll(resp.Body)
+					log.Printf("%s Error response from Lambda Runtime API: %d - %s", 
+						http_proxy_print_prefix, resp.StatusCode, string(body))
+				}
+				
+				// Signal that we're done
+				close(done)
 			},
 		)
+		
 		if err != nil {
-			log.Printf("%s Error subscribing to AppSync topic %s: %v", http_proxy_print_prefix, response_topic, err)
+			log.Printf("%s Error subscribing to topic %s: %v", http_proxy_print_prefix, response_topic, err)
+			// Continue to normal processing if subscription fails
 		} else {
-			log.Printf("%s Successfully subscribed to AppSync topic %s", http_proxy_print_prefix, response_topic)
-		}
+			log.Printf("%s Successfully subscribed to topic %s. Confirmation: %v", http_proxy_print_prefix, response_topic, subConfirmation)
+			// 6. Publish the request to AppSync
+			publish_topic := "live-lambda/requests"
 
-		// 2. Publish the request event (was 1) - only if subscription was initially successful
-		if err == nil { 
-			type RequestPayload struct {
-				RequestID    string          `json:"request_id"`
-				EventPayload json.RawMessage `json:"event_payload"`
-			}
-			payload_data := RequestPayload{
-				RequestID:    request_id,
-				EventPayload: body_bytes,
-			}
-			payload_json_bytes, marshal_err := json.Marshal(payload_data) // Use new var for marshal error
-			if marshal_err != nil {
-				log.Printf("%s Error marshalling request payload for AppSync: %v", http_proxy_print_prefix, marshal_err)
-			} else {
-				publish_topic := "live-lambda/requests"
-				log.Printf("%s Publishing event for request ID %s to AppSync topic %s", http_proxy_print_prefix, request_id, publish_topic)
-				err = p.appsync_ws_client.Publish(r.Context(), publish_topic, []interface{}{string(payload_json_bytes)}) // Re-assign err
-				if err != nil {
-					log.Printf("%s Error publishing to AppSync topic %s: %v", http_proxy_print_prefix, publish_topic, err)
-				} else {
-					log.Printf("%s Successfully published event for request ID %s to AppSync topic %s", http_proxy_print_prefix, request_id, publish_topic)
-				}
-			}
-		} else {
-			log.Printf("%s Skipping publish for request ID %s due to subscription error: %v", http_proxy_print_prefix, request_id, err)
-		}
-	} else {
-		log.Printf("%s AppSync WebSocket client is nil or not connected. Cannot publish or subscribe.", http_proxy_print_prefix)
-	}
+			// Gather Lambda context information
+            context_data := map[string]interface{}{
+                "invoked_function_arn": resp.Header.Get("Lambda-Runtime-Invoked-Function-Arn"),
+                "deadline_ms":          resp.Header.Get("Lambda-Runtime-Deadline-Ms"),
+                "trace_id":             resp.Header.Get("Lambda-Runtime-Trace-Id"),
+                "function_name":        os.Getenv("AWS_LAMBDA_FUNCTION_NAME"),
+                "function_version":     os.Getenv("AWS_LAMBDA_FUNCTION_VERSION"),
+                "memory_size_mb":       os.Getenv("AWS_LAMBDA_FUNCTION_MEMORY_SIZE"),
+                "log_group_name":       os.Getenv("AWS_LAMBDA_LOG_GROUP_NAME"),
+                "log_stream_name":      os.Getenv("AWS_LAMBDA_LOG_STREAM_NAME"),
+                "aws_region":           os.Getenv("AWS_REGION"),
+                "request_id":           request_id,
+            }
+
+            // Parse and add Cognito identity if present
+            cognito_identity_str := resp.Header.Get("Lambda-Runtime-Cognito-Identity")
+            if cognito_identity_str != "" {
+                var parsed_cognito_identity map[string]interface{}
+                if err := json.Unmarshal([]byte(cognito_identity_str), &parsed_cognito_identity); err == nil {
+                    context_data["identity"] = parsed_cognito_identity
+                } else {
+                    log.Printf("%s Warning: Failed to unmarshal Lambda-Runtime-Cognito-Identity: %v", http_proxy_print_prefix, err)
+                }
+            }
+
+            // Parse and add client context if present
+            client_context_b64_str := resp.Header.Get("Lambda-Runtime-Client-Context")
+            if client_context_b64_str != "" {
+                decoded_client_context_bytes, err := base64.StdEncoding.DecodeString(client_context_b64_str)
+                if err == nil {
+                    var parsed_client_context map[string]interface{}
+                    if err := json.Unmarshal(decoded_client_context_bytes, &parsed_client_context); err == nil {
+                        context_data["client_context"] = parsed_client_context
+                    } else {
+                        log.Printf("%s Warning: Failed to unmarshal decoded Lambda-Runtime-Client-Context: %v", http_proxy_print_prefix, err)
+                    }
+                } else {
+                    log.Printf("%s Warning: Failed to base64 decode Lambda-Runtime-Client-Context: %v", http_proxy_print_prefix, err)
+                }
+            }
+
+            payload := map[string]interface{}{
+                "request_id":    request_id,
+                "event_payload": json.RawMessage(body_bytes),
+                "context":       context_data, // Renamed from lambda_context
+            }
+            
+            payload_bytes, _ := json.Marshal(payload)
+            
+            log.Printf("%s Publishing to AppSync topic %s: %s", 
+                http_proxy_print_prefix, publish_topic, string(payload_bytes))
+            
+            if err := p.appsync_ws_client.Publish(ctx, publish_topic, []interface{}{payload}); err != nil {
+                log.Printf("%s Error publishing to AppSync: %v", http_proxy_print_prefix, err)
+                // Continue to normal processing if publish fails
+            } else {
+                log.Printf("%s Successfully published to AppSync topic %s", 
+                    http_proxy_print_prefix, publish_topic)
+                
+                // 7. Wait for the response (with timeout)
+                select {
+                case <-done:
+                    // Response was received and processed
+                    return
+                    
+                case <-time.After(websocketTimeout):
+                    log.Printf("%s Timeout waiting for response from AppSync (reached %.0f second timeout)", 
+                        http_proxy_print_prefix, websocketTimeout.Seconds())
+                    // Continue to normal processing
+                }
+            }
+        }
+    }
+
+    // 8. If we get here, either we're not using AppSync or there was an error
+    // Just return the original Lambda response
+    modified_body, modified_headers := process_request(r.Context(), request_id, body_bytes, resp.Header)
+    copy_headers(modified_headers, w.Header())
+    w.WriteHeader(resp.StatusCode)
+    if _, err := w.Write(modified_body); err != nil {
+        log.Printf("%s Error writing response: %v", http_proxy_print_prefix, err)
+    }
 }
 
 func (p *RuntimeAPIProxy) handle_response(w http.ResponseWriter, r *http.Request) {
