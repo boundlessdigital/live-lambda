@@ -14,7 +14,7 @@
   },
   "scripts": {
     "clean": "rm -rf dist outputs.json",
-    "build": "pnpm run clean && tsc -p tsconfig.json && bash src/layer/extension-go/build-extension-artifacts.sh",
+    "build": "tsc -p tsconfig.json && bash src/cdk/layer/extension-go/build-extension-artifacts.sh",
     "watch": "tsc -w -p tsconfig.json",
     "prepublishOnly": "pnpm run build",
     "dev": "tsx src/cli/index.ts"

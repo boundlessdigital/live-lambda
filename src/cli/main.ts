@@ -4,7 +4,7 @@ import {
   Toolkit,
   StackSelectionStrategy
 } from '@aws-cdk/toolkit-lib'
-import { serve } from '../server/server.js'
+import { serve } from '../server/index.js'
 import { Command } from 'commander'
 import * as fs from 'fs'
 

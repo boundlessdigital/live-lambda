@@ -81,12 +81,12 @@ func (p *RuntimeAPIProxy) handle_next(w http.ResponseWriter, r *http.Request) {
 		// 2. Publish the request event (was 1) - only if subscription was initially successful
 		if err == nil { 
 			type RequestPayload struct {
-				RequestID    string `json:"request_id"`
-				EventPayload string `json:"event_payload"`
+				RequestID    string          `json:"request_id"`
+				EventPayload json.RawMessage `json:"event_payload"`
 			}
 			payload_data := RequestPayload{
 				RequestID:    request_id,
-				EventPayload: string(body_bytes),
+				EventPayload: body_bytes,
 			}
 			payload_json_bytes, marshal_err := json.Marshal(payload_data) // Use new var for marshal error
 			if marshal_err != nil {

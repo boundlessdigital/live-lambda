@@ -1,6 +1,6 @@
 import * as cdk from 'aws-cdk-lib'
-import { AppSyncStack } from '../stacks/appsync.stack.js'
-import { LiveLambdaLayerStack } from '../stacks/layer.stack.js'
+import { AppSyncStack } from './appsync.stack.js';
+import { LiveLambdaLayerStack } from './layer.stack.js';
 import { LiveLambdaLayerAspect } from './live-lambda-layer.aspect.js'
 
 export interface LiveLambdaInstallProps {
