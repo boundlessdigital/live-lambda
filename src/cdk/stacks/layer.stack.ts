@@ -20,12 +20,9 @@ export class LiveLambdaLayerStack extends cdk.Stack {
     // Artifacts are prepared by scripts/build-extension-artifacts.sh in the dist/ directory
     // The root 'dist' directory will contain the necessary 'extensions/' subdirectory
     // and 'live-lambda-runtime-wrapper.sh' for the layer.
-    const extension_path = join(
-      __dirname, // src/cdk
-      '..', // src
-      '..', // project root
-      'dist'
-    )
+    // The asset for the layer is the entire compiled 'dist' directory.
+    // After refactoring, __dirname is '.../dist/cdk/stacks', so we go up two levels.
+    const extension_path = join(__dirname, '..', '..')
 
     const logical_id = 'LiveLambdaProxyLayer'
 

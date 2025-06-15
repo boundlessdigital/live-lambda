@@ -2,7 +2,7 @@ import * as cdk from 'aws-cdk-lib'
 import { Construct } from 'constructs'
 import * as appsync from 'aws-cdk-lib/aws-appsync'
 import * as iam from 'aws-cdk-lib/aws-iam'
-import { APPSYNC_EVENTS_API_NAMESPACE } from '../constants.js'
+import { APPSYNC_EVENTS_API_NAMESPACE } from '../../constants.js'
 
 export interface AppSyncStackProps extends cdk.StackProps {
   readonly live_lambda_enabled?: boolean

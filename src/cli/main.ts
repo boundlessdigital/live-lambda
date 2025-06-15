@@ -8,10 +8,13 @@ import { serve } from '../server/index.js'
 import { Command } from 'commander'
 import * as fs from 'fs'
 import chokidar from 'chokidar'
+import { CustomIoHost } from '../cdk/toolkit/iohost.js'
 
 const CDK_OUTPUTS_FILE = 'cdk.out/outputs.json'
 export async function main(command: Command) {
-  const cdk = new Toolkit()
+  const cdk = new Toolkit({
+    ioHost: new CustomIoHost()
+  })
 
   const command_name = command.name()
 

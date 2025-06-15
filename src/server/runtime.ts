@@ -20,7 +20,16 @@ interface LiveLambdaMap {
   [deployedFunctionName: string]: LocalFunctionMapping
 }
 
-// --- Helper to load the mapping manifest ---
+// --- Types for parsing cdk.out/outputs.json ---
+interface CdkOutput {
+  [key: string]: string
+}
+
+interface CdkOutputs {
+  [stackName: string]: CdkOutput
+}
+
+// --- Helper to load and transform the CDK outputs into a mapping manifest ---
 let live_lambda_map_cache: LiveLambdaMap | null = null
 
 async function load_live_lambda_map(
@@ -29,10 +38,109 @@ async function load_live_lambda_map(
   if (live_lambda_map_cache) {
     return live_lambda_map_cache
   }
+
   try {
-    const map_content = await fs.readFile(manifest_path, 'utf-8')
-    live_lambda_map_cache = JSON.parse(map_content) as LiveLambdaMap
-    console.log(`[Live Lambda] Loaded function map from ${manifest_path}`)
+    const outputs_content = await fs.readFile(manifest_path, 'utf-8')
+    const cdk_outputs = JSON.parse(outputs_content) as CdkOutputs
+
+    const live_lambda_map: LiveLambdaMap = {}
+
+    for (const stack_name in cdk_outputs) {
+      const outputs = cdk_outputs[stack_name]
+
+      // Find keys for ARN, Role, Handler, and CdkOutAssetPath.
+      const function_arn_key = Object.keys(outputs).find((k) =>
+        k.endsWith('FunctionArn')
+      );
+      const role_arn_key = Object.keys(outputs).find((k) => k.endsWith('RoleArn'));
+      const handler_key = Object.keys(outputs).find((k) => k.endsWith('Handler'));
+      const cdk_out_asset_path_key = Object.keys(outputs).find((k) =>
+        k.endsWith('CdkOutAssetPath')
+      );
+
+      if (
+        !function_arn_key ||
+        !role_arn_key ||
+        !handler_key ||
+        !cdk_out_asset_path_key
+      ) {
+        // This might be a stack like the layer stack or one missing required outputs.
+        continue;
+      }
+
+      const function_arn = outputs[function_arn_key];
+      const role_arn = outputs[role_arn_key];
+      const handler_string = outputs[handler_key];
+      const cdk_out_asset_path_value = outputs[cdk_out_asset_path_key]; // e.g., "cdk.out/asset.XYZ"
+
+      const deployed_function_name = function_arn.split(':').pop();
+      if (!deployed_function_name) {
+        console.warn(
+          `[Live Lambda] Could not parse function name from ARN ${function_arn} for stack ${stack_name}. Skipping.`
+        );
+        continue;
+      }
+
+      const handler_parts = handler_string.split('.');
+      if (handler_parts.length !== 2) {
+        console.warn(
+          `[Live Lambda] Invalid handler format "${handler_string}" for stack ${stack_name}. Skipping.`
+        );
+        continue;
+      }
+      const [handler_file_name_from_handler, handler_export] = handler_parts;
+
+      const cdk_out_directory_abs_path = path.dirname(manifest_path); // e.g., /path/to/project/cdk.out
+      // The cdk_out_asset_path_value is like "cdk.out/asset.XYZ", we only need "asset.XYZ"
+      const asset_directory_name_relative_to_cdk_out = path.basename(
+        cdk_out_asset_path_value
+      );
+
+      // The actual file to load is inside the asset directory, and it's typically .js after bundling by NodejsFunction
+      const target_handler_file_in_asset_dir = `${handler_file_name_from_handler}.js`;
+      
+      // This is the path to the handler file, relative to the cdk.out directory.
+      const local_path_relative_to_cdk_out = path.join(
+        asset_directory_name_relative_to_cdk_out,
+        target_handler_file_in_asset_dir
+      ); // e.g., "asset.XYZ/index.js"
+
+      // Full absolute path for fs.access check
+      const full_absolute_path_to_handler_in_asset_dir = path.join(
+        cdk_out_directory_abs_path,
+        local_path_relative_to_cdk_out
+      );
+
+      try {
+        await fs.access(full_absolute_path_to_handler_in_asset_dir);
+        live_lambda_map[deployed_function_name] = {
+          local_path: local_path_relative_to_cdk_out, // Path relative to project_root (which is cdk.out)
+          handler_export,
+          role_arn,
+          project_root: cdk_out_directory_abs_path, // Absolute path to cdk.out
+        };
+      } catch (access_error) {
+        console.warn(
+          `[Live Lambda] Could not access handler file for ${handler_string} at ${full_absolute_path_to_handler_in_asset_dir}. Error: ${access_error}. Skipping.`
+        );
+        continue;
+      }
+    }
+
+    if (Object.keys(live_lambda_map).length === 0) {
+      throw new Error(
+        `Could not construct any function mappings from ${manifest_path}.`
+      )
+    }
+
+    live_lambda_map_cache = live_lambda_map
+    console.log(
+      `[Live Lambda] Loaded and transformed function map from ${manifest_path}`
+    )
+    console.log(
+      '[Live Lambda] Constructed map:',
+      JSON.stringify(live_lambda_map, null, 2)
+    )
     return live_lambda_map_cache
   } catch (error) {
     console.error(
