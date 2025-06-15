@@ -35,6 +35,12 @@ export async function serve(config: ServerConfig): Promise<void> {
     console.log(`Published response to proxy server ${response_channel}:`.cyan)
     console.log(response)
   })
+
+  // await runtime.changee(async (path) => {
+
+  //   await relaod_module(path)
+
+  // })
 }
 
 async function execute_handler(request: object) {

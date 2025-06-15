@@ -7,7 +7,9 @@ import {
 import { serve } from '../server/index.js'
 import { Command } from 'commander'
 import * as fs from 'fs'
+import chokidar from 'chokidar'
 
+const CDK_OUTPUTS_FILE = 'cdk.out/outputs.json'
 export async function main(command: Command) {
   const cdk = new Toolkit()
 
@@ -43,11 +45,27 @@ async function run_server(
 
   const config = extract_server_config(deployment)
   await serve(config)
+  await watch_file_changes(cdk, assembly)
   await watch_stacks(cdk, assembly, watch_config)
 }
 
+async function watch_file_changes(
+  cdk: Toolkit,
+  assembly: ICloudAssemblySource
+) {
+  const watcher = chokidar.watch('.', {
+    ignored: (path, stats) => {
+      return !path.endsWith('.ts') && !path.startsWith('cdk.out')
+    }
+  })
+  watcher.on('change', async (path: string) => {
+    console.log(`File ${path} changes detected, redeploying...`.yellow)
+    // await deploy_stacks(cdk, assembly)
+  })
+}
 async function deploy_stacks(cdk: Toolkit, assembly: ICloudAssemblySource) {
   return cdk.deploy(assembly, {
+    outputsFile: CDK_OUTPUTS_FILE,
     deploymentMethod: {
       method: 'change-set'
     }
