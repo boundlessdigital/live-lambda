@@ -11,31 +11,60 @@ import chokidar from 'chokidar'
 import { CustomIoHost } from '../cdk/toolkit/iohost.js'
 
 const CDK_OUTPUTS_FILE = 'cdk.out/outputs.json'
+const MAX_CONCURRENCY = 5
 export async function main(command: Command) {
+  const custom_io_host = new CustomIoHost()
   const cdk = new Toolkit({
-    ioHost: new CustomIoHost()
+    ioHost: custom_io_host,
   })
 
-  const command_name = command.name()
-
-  const { app: entrypoint, watch: watch_config } = JSON.parse(
-    fs.readFileSync('cdk.json', 'utf-8')
-  )
-
-  const assembly = await cdk.fromCdkApp(entrypoint)
-
-  if (command_name === 'start') {
-    try {
-      await run_server(cdk, assembly, watch_config)
-    } catch (error) {
-      await destroy_stacks(cdk, assembly)
-      await run_server(cdk, assembly, watch_config)
-    }
+  const cleanup_tasks = async () => {
+    console.log('\nCleaning up UI and CDK resources...'.gray)
+    custom_io_host.cleanup()
+    // Potentially add other cleanup tasks here if needed
+    // For example, ensuring any child processes are terminated
   }
 
-  if (command_name === 'destroy') {
-    console.log('Destroying development stacks...'.yellow)
-    await destroy_stacks(cdk, assembly)
+  // Handle graceful shutdown
+  process.on('SIGINT', async () => {
+    await cleanup_tasks()
+    process.exit(0)
+  })
+  process.on('SIGTERM', async () => {
+    await cleanup_tasks()
+    process.exit(0)
+  })
+
+  try {
+    const command_name = command.name()
+
+    const { app: entrypoint, watch: watch_config } = JSON.parse(
+      fs.readFileSync('cdk.json', 'utf-8')
+    )
+
+    const assembly = await cdk.fromCdkApp(entrypoint)
+
+    if (command_name === 'start') {
+      try {
+        await run_server(cdk, assembly, watch_config)
+      } catch (error) {
+        // Attempt to destroy stacks on error during start, then re-run server
+        // This might be specific to your workflow, adjust as needed
+        console.error('Error during initial server run, attempting cleanup and restart:'.red, error)
+        await destroy_stacks(cdk, assembly) 
+        await run_server(cdk, assembly, watch_config)
+      }
+    }
+
+    if (command_name === 'destroy') {
+      console.log('Destroying development stacks...'.yellow)
+      await destroy_stacks(cdk, assembly)
+    }
+  } catch (error) {
+    console.error('An unexpected error occurred:'.red, error)
+    // Ensure cleanup is called even for unhandled top-level errors
+  } finally {
+    await cleanup_tasks()
   }
 }
 
@@ -69,6 +98,7 @@ async function watch_file_changes(
 async function deploy_stacks(cdk: Toolkit, assembly: ICloudAssemblySource) {
   return cdk.deploy(assembly, {
     outputsFile: CDK_OUTPUTS_FILE,
+    concurrency: MAX_CONCURRENCY,
     deploymentMethod: {
       method: 'change-set'
     }
@@ -90,6 +120,7 @@ async function watch_stacks(
   watch_config: any
 ) {
   await cdk.watch(assembly, {
+    concurrency: MAX_CONCURRENCY,
     deploymentMethod: {
       method: 'change-set'
     },

@@ -12,7 +12,8 @@
     "resolveJsonModule": true,
     "useUnknownInCatchVariables": true,
     "allowSyntheticDefaultImports": true,
-    "declaration": true
+    "declaration": true,
+    "jsx": "react-jsx"
   },
   "include": [
     "src/**/*"
