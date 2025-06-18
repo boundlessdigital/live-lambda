@@ -1,0 +1,36 @@
+{
+  version: '2.0',
+  routeKey: '$default',
+  rawPath: '/',
+  rawQueryString: '',
+  headers: {
+    'x-amzn-tls-cipher-suite': 'TLS_AES_128_GCM_SHA256',
+    'x-amzn-tls-version': 'TLSv1.3',
+    'x-amzn-trace-id': 'Root=1-682bac0c-7290afef2c944dd757509287',
+    'x-forwarded-proto': 'https',
+    host: 'm2ws2up3xuqgfn667gf3ujk4qq0oadpb.lambda-url.us-west-1.on.aws',
+    'x-forwarded-port': '443',
+    'x-forwarded-for': '90.87.154.4',
+    accept: '*/*',
+    'user-agent': 'curl/8.4.0'
+  },
+  requestContext: {
+    accountId: 'anonymous',
+    apiId: 'm2ws2up3xuqgfn667gf3ujk4qq0oadpb',
+    domainName: 'm2ws2up3xuqgfn667gf3ujk4qq0oadpb.lambda-url.us-west-1.on.aws',
+    domainPrefix: 'm2ws2up3xuqgfn667gf3ujk4qq0oadpb',
+    http: {
+      method: 'GET',
+      path: '/',
+      protocol: 'HTTP/1.1',
+      sourceIp: '90.87.154.4',
+      userAgent: 'curl/8.4.0'
+    },
+    requestId: '4b170ac7-b3cd-42a6-a2cc-b6fd332f09e0',
+    routeKey: '$default',
+    stage: '$default',
+    time: '19/May/2025:22:09:16 +0000',
+    timeEpoch: 1747692556110
+  },
+  isBase64Encoded: false
+}

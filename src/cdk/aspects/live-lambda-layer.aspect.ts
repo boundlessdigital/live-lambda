@@ -1,13 +1,16 @@
 import * as cdk from 'aws-cdk-lib'
 import * as lambda from 'aws-cdk-lib/aws-lambda'
+import { CfnOutput, Stack } from 'aws-cdk-lib'
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
 import * as appsync from 'aws-cdk-lib/aws-appsync'
+import * as ssm from 'aws-cdk-lib/aws-ssm'
 import * as iam from 'aws-cdk-lib/aws-iam'
 import { IConstruct } from 'constructs'
 import path from 'node:path'
+import { LiveLambdaLayerStack } from '../stacks/layer.stack.js'
 
 export interface LiveLambdaLayerAspectProps {
-  readonly layer_arn: string
+  readonly layer_stack: LiveLambdaLayerStack
   readonly api: appsync.EventApi
   include_patterns?: string[]
   exclude_patterns?: string[]
@@ -19,6 +22,15 @@ interface LiveLambdaMapEntryForCDK {
   role_arn: string
   // project_root is implicitly where cdk.json is, or can be configured
 }
+interface ManifestRow {
+  stack: string
+  logical_id: string
+  source_path: string
+  handler: string
+  arn_output: string // CloudFormation output logical ID
+}
+
+const rows: ManifestRow[] = []
 
 export class LiveLambdaLayerAspect implements cdk.IAspect {
   private readonly props: LiveLambdaLayerAspectProps
@@ -31,47 +43,37 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
   }
 
   public visit(node: IConstruct): void {
-    if (node instanceof lambda.Function) {
+    if (node instanceof NodejsFunction) {
       const function_path = node.node.path
       const stack_name = node.stack.stackName
 
+      const stack = cdk.Stack.of(node)
+      stack.addDependency(this.props.layer_stack)
+
       const cfn_function = node.node.defaultChild as lambda.CfnFunction // L1 construct
 
-      if (
-        this.props.include_patterns &&
-        !this.props.include_patterns.some((pattern) =>
-          function_path.includes(pattern)
-        )
-      ) {
+      if (should_skip_function(this.props, function_path, stack_name)) {
         return
       }
 
-      const excludedStackPrefixes = [
-        'LiveLambda-',
-        'SSTBootstrap',
-        'CDKToolkit'
-      ]
-      if (
-        excludedStackPrefixes.some((prefix) => stack_name.startsWith(prefix))
-      ) {
-        return
-      }
+      // Try to recover the original code path
+      const source_path = resolve_source_path(node)
 
-      const internalFunctionPathPatterns = [
-        'CustomResourceHandler',
-        'Framework/Resource',
-        'Providerframework',
-        'LogRetention',
-        'SingletonLambda',
-        '/NodejsBuildV1$/Resource',
-        '/AssetVersionNotifier$/Resource'
-      ]
-      if (
-        internalFunctionPathPatterns.some((pattern) =>
-          function_path.includes(pattern)
+      if (!source_path) {
+        console.error(
+          `Could not determine source path for Lambda function ${node.node.path}`
         )
-      ) {
-        return
+      } else {
+        console.log(`Adding function mapping for ${function_path}`)
+        console.log(`Source path: ${source_path}`)
+        console.log(`Handler: ${cfn_function.handler}`)
+        console.log(`Role ARN: ${cfn_function.role}`)
+
+        new cdk.CfnOutput(node.stack, `${node.node.id}SourcePath`, {
+          value: path.relative(process.cwd(), source_path),
+          description: `Source path of the Lambda function ${node.node.path}`,
+          exportName: `${node.stack.stackName}-${node.node.id}-SourcePath`
+        })
       }
 
       // Use a more unique ID for the imported layer version per function to avoid conflicts
@@ -80,13 +82,18 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
           /[^a-zA-Z0-9-]/g,
           ''
         )}`.slice(0, 255)
-      node.addLayers(
-        lambda.LayerVersion.fromLayerVersionArn(
-          node,
-          layer_import_id,
-          this.props.layer_arn
-        )
+
+      const layer_arn = ssm.StringParameter.valueForStringParameter(
+        stack,
+        this.props.layer_stack.layer_arn_ssm_parameter
       )
+
+      const imported_layer = lambda.LayerVersion.fromLayerVersionArn(
+        node,
+        layer_import_id,
+        layer_arn
+      )
+      node.addLayers(imported_layer)
 
       node.addToRolePolicy(
         new iam.PolicyStatement({
@@ -158,9 +165,8 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
       const asset_path_from_cfn_options = cfnOptionsMetadata?.['aws:asset:path']
 
       if (typeof asset_path_from_cfn_options === 'string') {
-        cdkOutAssetPathValue = path.join('cdk.out', asset_path_from_cfn_options)
-        new cdk.CfnOutput(node.stack, `${node.node.id}CdkOutAssetPath`, {
-          value: cdkOutAssetPathValue,
+        new CfnOutput(node.stack, `${node.node.id}CdkOutAssetPath`, {
+          value: path.join('cdk.out', asset_path_from_cfn_options),
           description: `Path to the function's code asset within the cdk.out directory (relative to project root).`,
           exportName: `${node.stack.stackName}-${node.node.id}-CdkOutAssetPath`
         })
@@ -169,13 +175,13 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
         const asset_metadata_entry = cfn_function.node.metadata.find(
           (m: any) => m.type === 'aws:asset:path'
         )
+
         if (
           asset_metadata_entry &&
           typeof asset_metadata_entry.data === 'string'
         ) {
-          cdkOutAssetPathValue = path.join('cdk.out', asset_metadata_entry.data)
-          new cdk.CfnOutput(node.stack, `${node.node.id}CdkOutAssetPath`, {
-            value: cdkOutAssetPathValue,
+          new CfnOutput(node.stack, `${node.node.id}CdkOutAssetPath`, {
+            value: path.join('cdk.out', asset_metadata_entry.data),
             description: `Path to the function's code asset within the cdk.out directory (relative to project root).`,
             exportName: `${node.stack.stackName}-${node.node.id}-CdkOutAssetPath`
           })
@@ -188,4 +194,71 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
       }
     }
   }
+}
+
+function should_skip_function(
+  props: LiveLambdaLayerAspectProps,
+  function_path: string,
+  stack_name: string
+): boolean {
+  if (
+    props.include_patterns &&
+    !props.include_patterns.some((pattern) => function_path.includes(pattern))
+  ) {
+    return true
+  }
+
+  const excludedStackPrefixes = ['LiveLambda-', 'SSTBootstrap', 'CDKToolkit']
+
+  if (excludedStackPrefixes.some((prefix) => stack_name.startsWith(prefix))) {
+    return true
+  }
+
+  const internalFunctionPathPatterns = [
+    'CustomResourceHandler',
+    'Framework/Resource',
+    'Providerframework',
+    'LogRetention',
+    'SingletonLambda',
+    '/NodejsBuildV1$/Resource',
+    '/AssetVersionNotifier$/Resource'
+  ]
+  if (
+    internalFunctionPathPatterns.some((pattern) =>
+      function_path.includes(pattern)
+    )
+  ) {
+    return true
+  }
+
+  return false
+}
+
+function resolve_source_path(fn: lambda.Function): string | undefined {
+  // ① specialised constructs that expose '.entry'
+  if ('entry' in fn && typeof (fn as any).entry === 'string') {
+    return (fn as any).entry
+  }
+
+  // ② plain AssetCode keeps 'path' (older CDK) or 'assetPath' (CDK ≥2.130)
+  // @ts-ignore
+  const code = fn.code as any
+  if (typeof code?.path === 'string') return code.path
+  if (typeof code?.assetPath === 'string') return code.assetPath
+
+  // ③ look at metadata injected by CDK synth (always exists for asset-based code)
+  const cfn = fn.node.defaultChild as lambda.CfnFunction
+  console.log(JSON.stringify(fn.node.metadata, null, 2))
+  console.log(JSON.stringify(cfn.node.metadata, null, 2))
+  for (const meta of cfn.node.metadata) {
+    if (
+      meta.type === 'aws:asset:path' &&
+      typeof meta.data === 'string' &&
+      meta.data.trim() !== ''
+    ) {
+      return meta.data
+    }
+  }
+
+  return undefined
 }
