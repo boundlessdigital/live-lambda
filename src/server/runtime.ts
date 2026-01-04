@@ -4,27 +4,42 @@ import {
 } from '@aws-sdk/client-lambda'
 import { fromTemporaryCredentials } from '@aws-sdk/credential-providers'
 import * as path from 'path'
-
+import { LambdaContext } from './types.js'
+import * as fs from 'fs'
 export interface ExecuteHandlerOptions {
-  region?: string
+  region: string
+  function_arn: string
   event: AWSLambda.APIGatewayProxyEventV2
-  session_name?: string
-  context?: unknown
+  context: LambdaContext
 }
 
-export async function execute_module_handler(
-  function_name: string,
-  handler_name: string,
-  handler_path: string,
-  options: ExecuteHandlerOptions
-): Promise<unknown> {
-  /* ---------- 1 · fetch live configuration ---------- */
-  const region = options.region ?? process.env.AWS_REGION ?? 'us-east-1'
+export async function execute_handler(
+  event: AWSLambda.APIGatewayProxyEventV2,
+  context: LambdaContext
+) {
+  console.log(JSON.stringify(event))
 
-  const assume_role_session_name = `live-lambda-${function_name}`
-    .replace(/[^a-zA-Z0-9_=,.@-]/g, '_')
-    .substring(0, 50)
-    .concat(`-${Date.now().toString(36).substring(0, 8)}`)
+  return execute_module_handler({
+    region: context.aws_region as string,
+    function_arn: context.invoked_function_arn as string,
+    event,
+    context
+  })
+}
+export async function execute_module_handler({
+  region,
+  function_arn,
+  event,
+  context
+}: ExecuteHandlerOptions): Promise<unknown> {
+  /* ---------- 1 · fetch live configuration ---------- */
+  const { function_name } = context
+  const outputs = JSON.parse(
+    fs.readFileSync(
+      path.join(process.cwd(), 'cdk.out', 'outputs.json'),
+      'utf-8'
+    )
+  )
 
   const lambda_client = new LambdaClient({ region })
   const config = await lambda_client.send(
@@ -59,20 +74,18 @@ export async function execute_module_handler(
   })
 
   /* ---------- 4 · load & run the handler ------------ */
-  const abs_path = path.isAbsolute(handler_path)
-    ? handler_path
-    : path.resolve(process.cwd(), handler_path)
+  const abs_path = path.isAbsolute(context.handler_path)
+    ? context.handler_path
+    : path.resolve(process.cwd(), context.handler_path)
 
   const handler_module = await import(abs_path)
-  const handler = handler_module[handler_name] // Use dynamically determined export name
+  const handler = handler_module[context.handler_name] // Use dynamically determined export name
 
   if (typeof handler !== 'function') {
     throw new Error(
-      `Expected ${abs_path} to export a function named "${handler_name}".`
+      `Expected ${abs_path} to export a function named "${context.handler_name}".`
     )
   }
-
-  const { event, context } = options
 
   return handler(event, context)
 }

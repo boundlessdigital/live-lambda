@@ -1,16 +1,10 @@
 import 'colors'
 import { AppSyncEventWebSocketClient } from '@boundlessdigital/aws-appsync-events-websockets-client'
 import { APPSYNC_EVENTS_API_NAMESPACE } from '../constants.js'
-import * as runtime from './runtime.js'
+import { execute_handler } from './runtime.js'
 import * as path from 'node:path'
 
-interface ServerConfig {
-  region: string
-  http: string
-  realtime: string
-  layer_arn: string
-  profile?: string // Add profile
-}
+import { ServerConfig } from './types.js'
 
 export async function serve(config: ServerConfig): Promise<void> {
   console.log('Starting LiveLambda server...'.yellow)
@@ -21,29 +15,24 @@ export async function serve(config: ServerConfig): Promise<void> {
 
   await client.connect()
 
-  await client.subscribe(requests_channel, async (data) => {
-    const parsed_data = JSON.parse(data)
-    console.log(`Received data in proxy server ${requests_channel}:`.cyan)
-    console.log(parsed_data)
+  await client.subscribe(requests_channel, (payload) =>
+    handle_request(client, payload)
+  )
+}
 
-    const request_id = parsed_data.request_id
-    // const response = await execute_handler(parsed_data)
-    const response = { response: 'Hello World' }
+async function handle_request(
+  client: AppSyncEventWebSocketClient,
+  payload: string
+): Promise<any> {
+  const { request_id, context, event_payload: event } = JSON.parse(payload)
 
-    const response_channel = `/${APPSYNC_EVENTS_API_NAMESPACE}/response/${request_id}`
-    await client.publish(response_channel, [response])
-    console.log(`Published response to proxy server ${response_channel}:`.cyan)
-    console.log(response)
-  })
+  const response = await execute_handler(event, context)
+
+  const response_channel = `/${APPSYNC_EVENTS_API_NAMESPACE}/response/${request_id}`
+  await client.publish(response_channel, [response])
 }
 
 // Define the expected structure of the request from the AppSync subscription
-interface ProxiedLambdaInvocation {
-  request_id: string // The request_id for AppSync response channel
-  target_function_name: string // Deployed name of the Lambda function (e.g., MyStack-MyFunction-Resource-XYZ)
-  event_payload: any // The actual event payload for the Lambda
-  // lambda_context?: any; // Optional: if the original AWS Lambda context is also sent
-}
 
 // async function execute_handler(request: ProxiedLambdaInvocation): Promise<any> {
 //   const { target_function_name, event_payload, request_id } = request

@@ -132,7 +132,7 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
       )
 
       // Add CloudFormation outputs for Function ARN and Role ARN
-      new cdk.CfnOutput(node.stack, `${node.node.id}FunctionArn`, {
+      new cdk.CfnOutput(node.stack, `${node.node.id}Arn`, {
         value: node.functionArn,
         description: `ARN of the Lambda function ${node.node.path}`,
         exportName: `${node.stack.stackName}-${node.node.id}-FunctionArn`
