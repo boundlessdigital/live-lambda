@@ -64,26 +64,6 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
         return
       }
 
-      // Try to recover the original code path
-      const source_path = resolve_source_path(node)
-
-      if (!source_path) {
-        logger.error(
-          `Could not determine source path for Lambda function ${node.node.path}`
-        )
-      } else {
-        logger.debug(`Adding function mapping for ${function_path}`)
-        logger.debug(`Source path: ${source_path}`)
-        logger.debug(`Handler: ${cfn_function.handler}`)
-        logger.debug(`Role ARN: ${cfn_function.role}`)
-
-        new cdk.CfnOutput(node.stack, `${node.node.id}SourcePath`, {
-          value: path.relative(process.cwd(), source_path),
-          description: `Source path of the Lambda function ${node.node.path}`,
-          exportName: `${node.stack.stackName}-${node.node.id}-SourcePath`
-        })
-      }
-
       // Use a more unique ID for the imported layer version per function to avoid conflicts
       const layer_import_id =
         `LiveLambdaProxyLayerImport-${node.node.id.replace(
@@ -272,33 +252,4 @@ function should_skip_function(
   }
 
   return false
-}
-
-function resolve_source_path(fn: lambda.Function): string | undefined {
-  // ① specialised constructs that expose '.entry'
-  if ('entry' in fn && typeof (fn as any).entry === 'string') {
-    return (fn as any).entry
-  }
-
-  // ② plain AssetCode keeps 'path' (older CDK) or 'assetPath' (CDK ≥2.130)
-  // @ts-ignore
-  const code = fn.code as any
-  if (typeof code?.path === 'string') return code.path
-  if (typeof code?.assetPath === 'string') return code.assetPath
-
-  // ③ look at metadata injected by CDK synth (always exists for asset-based code)
-  const cfn = fn.node.defaultChild as lambda.CfnFunction
-  logger.trace('fn.node.metadata:', JSON.stringify(fn.node.metadata, null, 2))
-  logger.trace('cfn.node.metadata:', JSON.stringify(cfn.node.metadata, null, 2))
-  for (const meta of cfn.node.metadata) {
-    if (
-      meta.type === 'aws:asset:path' &&
-      typeof meta.data === 'string' &&
-      meta.data.trim() !== ''
-    ) {
-      return meta.data
-    }
-  }
-
-  return undefined
 }
