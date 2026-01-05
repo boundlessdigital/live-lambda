@@ -7,10 +7,10 @@ export interface LiveLambdaInstallProps {
   env: cdk.Environment
   skip_layer?: boolean
   /**
-   * IAM principal ARNs that should be allowed to assume Lambda execution roles
-   * for local development. This enables the local dev server to run handlers
-   * with the same permissions as the deployed Lambda.
-   * Example: ['arn:aws:iam::123456789012:user/developer']
+   * Additional IAM principal ARNs that should be allowed to assume Lambda execution roles.
+   * By default, any principal in the same AWS account can assume the role (using account root).
+   * Use this to add cross-account principals if needed.
+   * Example: ['arn:aws:iam::OTHER_ACCOUNT:user/developer']
    */
   developer_principal_arns?: string[]
 }

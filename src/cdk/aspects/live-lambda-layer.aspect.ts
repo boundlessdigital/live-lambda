@@ -15,10 +15,10 @@ export interface LiveLambdaLayerAspectProps {
   include_patterns?: string[]
   exclude_patterns?: string[]
   /**
-   * IAM principal ARNs that should be allowed to assume Lambda execution roles
-   * for local development. This enables the local dev server to run handlers
-   * with the same permissions as the deployed Lambda.
-   * Example: ['arn:aws:iam::123456789012:user/developer']
+   * Additional IAM principal ARNs that should be allowed to assume Lambda execution roles.
+   * By default, any principal in the same AWS account can assume the role (using account root).
+   * Use this to add cross-account principals if needed.
+   * Example: ['arn:aws:iam::OTHER_ACCOUNT:user/developer']
    */
   developer_principal_arns?: string[]
 }
@@ -113,19 +113,35 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
         })
       )
 
-      // Add trust relationship for developer principals to assume the Lambda execution role
-      // This enables local development by allowing developers to run handlers locally
-      // with the same permissions as the deployed Lambda
-      if (this.props.developer_principal_arns?.length && node.role) {
+      // Add trust relationship to allow assuming the Lambda execution role for local development
+      // This enables the local dev server to run handlers with the same permissions as the deployed Lambda
+      if (node.role) {
         const role = node.role as iam.Role
-        for (const principal_arn of this.props.developer_principal_arns) {
-          role.assumeRolePolicy?.addStatements(
-            new iam.PolicyStatement({
-              effect: iam.Effect.ALLOW,
-              principals: [new iam.ArnPrincipal(principal_arn)],
-              actions: ['sts:AssumeRole']
-            })
-          )
+        const account_id = cdk.Stack.of(node).account
+
+        // By default, allow any principal in the same account to assume the role
+        // This is required for live-lambda local development to work
+        const account_root_principal = `arn:aws:iam::${account_id}:root`
+
+        role.assumeRolePolicy?.addStatements(
+          new iam.PolicyStatement({
+            effect: iam.Effect.ALLOW,
+            principals: [new iam.ArnPrincipal(account_root_principal)],
+            actions: ['sts:AssumeRole']
+          })
+        )
+
+        // If specific developer principals are provided, add those as well
+        if (this.props.developer_principal_arns?.length) {
+          for (const principal_arn of this.props.developer_principal_arns) {
+            role.assumeRolePolicy?.addStatements(
+              new iam.PolicyStatement({
+                effect: iam.Effect.ALLOW,
+                principals: [new iam.ArnPrincipal(principal_arn)],
+                actions: ['sts:AssumeRole']
+              })
+            )
+          }
         }
       }
 
