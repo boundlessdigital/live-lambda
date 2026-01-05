@@ -16,7 +16,7 @@ const MAX_CONCURRENCY = 5
 export async function main(command: Command) {
   const custom_io_host = new CustomIoHost()
   const cdk = new Toolkit({
-    ioHost: custom_io_host,
+    ioHost: custom_io_host
   })
 
   const cleanup_tasks = async () => {
@@ -51,8 +51,11 @@ export async function main(command: Command) {
       } catch (error) {
         // Attempt to destroy stacks on error during start, then re-run server
         // This might be specific to your workflow, adjust as needed
-        logger.error('Error during initial server run, attempting cleanup and restart:', error)
-        await destroy_stacks(cdk, assembly) 
+        logger.error(
+          'Error during initial server run, attempting cleanup and restart:',
+          error
+        )
+        await destroy_stacks(cdk, assembly)
         await run_server(cdk, assembly, watch_config)
       }
     }
@@ -80,6 +83,11 @@ async function run_server(
   await serve(config)
   await watch_file_changes(cdk, assembly)
   await watch_stacks(cdk, assembly, watch_config)
+
+  // watcher.on('change', async (path: string) => {
+  //   logger.info(`File ${path} changes detected, redeploying...`)
+  //   // await deploy_stacks(cdk, assembly)
+  // })
 }
 
 async function watch_file_changes(
@@ -120,7 +128,7 @@ async function watch_stacks(
   assembly: ICloudAssemblySource,
   watch_config: any
 ) {
-  await cdk.watch(assembly, {
+  return await cdk.watch(assembly, {
     concurrency: MAX_CONCURRENCY,
     deploymentMethod: {
       method: 'change-set'
