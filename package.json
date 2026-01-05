@@ -17,7 +17,10 @@
     "build": "tsc -p tsconfig.json && bash src/cdk/layer/extension-go/build-extension-artifacts.sh",
     "watch": "tsc -w -p tsconfig.json",
     "prepublishOnly": "pnpm run build",
-    "dev": "tsx src/cli/index.ts"
+    "dev": "tsx src/cli/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [],
   "author": "",
@@ -31,6 +34,7 @@
     "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "^8.32.0",
     "@typescript-eslint/parser": "^8.32.0",
+    "@vitest/coverage-v8": "^4.0.16",
     "aws-cdk-lib": "^2.195.0",
     "cpy-cli": "^5.0.0",
     "esbuild": "^0.25.4",
@@ -39,11 +43,11 @@
     "pkg": "^5.8.1",
     "tsx": "^4.19.4",
     "typescript": "^5.5.2",
-    "typescript-eslint": "^8.32.0"
+    "typescript-eslint": "^8.32.0",
+    "vitest": "^4.0.16"
   },
   "dependencies": {
     "@aws-cdk/toolkit-lib": "latest",
-    "commander": "^13.1.0",
     "@aws-crypto/sha256-js": "^5.2.0",
     "@aws-sdk/client-lambda": "^3.806.0",
     "@aws-sdk/client-sqs": "^3.806.0",
@@ -56,6 +60,7 @@
     "@smithy/signature-v4": "^5.1.0",
     "chokidar": "^4.0.3",
     "colors": "^1.4.0",
+    "commander": "^13.1.0",
     "consola": "^3.4.2",
     "constructs": "^10.0.0",
     "lodash": "^4.17.21",

@@ -10,6 +10,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 
 interface LiveLambdaLayerStackProps extends cdk.StackProps {
   readonly api: appsync.EventApi
+  /** Override asset path for testing. If not provided, uses the default dist directory. */
+  readonly asset_path?: string
 }
 
 export class LiveLambdaLayerStack extends cdk.Stack {
@@ -26,7 +28,7 @@ export class LiveLambdaLayerStack extends cdk.Stack {
     // and 'live-lambda-runtime-wrapper.sh' for the layer.
     // The asset for the layer is the entire compiled 'dist' directory.
     // After refactoring, __dirname is '.../dist/cdk/stacks', so we go up two levels.
-    const extension_path = join(__dirname, '..', '..')
+    const extension_path = props.asset_path ?? join(__dirname, '..', '..')
 
     const logical_id = 'LiveLambdaProxyLayer'
 
