@@ -68,7 +68,9 @@ function extract_source_from_sourcemap(
   }
 
   try {
-    const sourcemap: SourceMap = JSON.parse(fs.readFileSync(sourcemap_path, 'utf-8'))
+    const sourcemap: SourceMap = JSON.parse(
+      fs.readFileSync(sourcemap_path, 'utf-8')
+    )
 
     // Find the source that's a .ts file and not in node_modules (the user's handler file)
     const user_source = sourcemap.sources.find(
@@ -99,7 +101,9 @@ function extract_source_from_sourcemap(
 function resolve_handler_from_outputs(
   outputs: OutputsJson,
   function_arn: string
-): { handler_path: string; handler_name: string; is_typescript: boolean } | undefined {
+):
+  | { handler_path: string; handler_name: string; is_typescript: boolean }
+  | undefined {
   // Search through all stacks to find the matching function ARN
   for (const stack_name of Object.keys(outputs)) {
     const stack_outputs = outputs[stack_name]
@@ -132,7 +136,11 @@ function resolve_handler_from_outputs(
         logger.info(`Using TypeScript source for ${function_arn}`)
         logger.debug(`  handler_path: ${source_path}`)
         logger.debug(`  handler_name: ${export_name}`)
-        return { handler_path: source_path, handler_name: export_name, is_typescript: true }
+        return {
+          handler_path: source_path,
+          handler_name: export_name,
+          is_typescript: true
+        }
       }
 
       // Fall back to compiled .mjs/.js files
@@ -145,9 +153,7 @@ function resolve_handler_from_outputs(
       } else if (fs.existsSync(js_path)) {
         handler_path = js_path
       } else {
-        logger.warn(
-          `Could not find handler file at ${mjs_path} or ${js_path}`
-        )
+        logger.warn(`Could not find handler file at ${mjs_path} or ${js_path}`)
         continue
       }
 
@@ -244,7 +250,10 @@ export async function execute_module_handler({
 
     // Write to temp file and import
     const temp_dir = os.tmpdir()
-    const temp_file = path.join(temp_dir, `live-lambda-handler-${Date.now()}.mjs`)
+    const temp_file = path.join(
+      temp_dir,
+      `live-lambda-handler-${Date.now()}.mjs`
+    )
     fs.writeFileSync(temp_file, result.outputFiles[0].text)
 
     logger.debug(`Transformed to: ${temp_file}`)
@@ -266,12 +275,3 @@ export async function execute_module_handler({
 
   return handler(event, context)
 }
-// const handlers = {
-//   'web-handler': './src/code/web.handler.ts',
-//   'listener-handler': './src/code/listener.handler.ts'
-// }
-
-//   const function_name = 'web-handler'
-//   const execution_role_arn =
-//     'arn:aws:iam::942189704687:role/WebLambda-WebLambdaConstructFunctionServiceRoleBFCE-NqyWgyqPfh32'
-//   const region = 'us-west-1'
