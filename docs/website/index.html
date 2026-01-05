@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Lambda - Real-time AWS Lambda Development</title>
+  <meta name="description" content="Debug and develop AWS Lambda functions locally in real-time. No redeployment needed. Get instant feedback with live-lambda.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="container">
+      <div class="header-content">
+        <div class="logo">
+          <span class="logo-icon">&#955;</span>
+          <span class="logo-text">live-lambda</span>
+        </div>
+        <nav class="nav">
+          <a href="#features">Features</a>
+          <a href="#how-it-works">How It Works</a>
+          <a href="#comparison">Comparison</a>
+          <a href="https://github.com/boundlessdigital/live-lambda" class="btn btn-secondary">GitHub</a>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-content">
+        <h1>Stop Waiting for Lambda Deployments</h1>
+        <p class="hero-subtitle">
+          Debug and develop AWS Lambda functions locally in real-time.
+          Your code runs on your machine while Lambda invocations are proxied through the cloud.
+        </p>
+        <div class="hero-cta">
+          <a href="#getting-started" class="btn btn-primary">Get Started</a>
+          <a href="https://github.com/boundlessdigital/live-lambda" class="btn btn-outline">View on GitHub</a>
+        </div>
+        <div class="hero-terminal">
+          <div class="terminal-header">
+            <span class="terminal-dot red"></span>
+            <span class="terminal-dot yellow"></span>
+            <span class="terminal-dot green"></span>
+            <span class="terminal-title">Terminal</span>
+          </div>
+          <div class="terminal-body">
+            <pre><code><span class="prompt">$</span> <span class="command">pnpm run dev server --profile my-aws-profile</span>
+<span class="output">[live-lambda] Connecting to AppSync WebSocket...</span>
+<span class="output success">[live-lambda] Connected! Listening for Lambda invocations...</span>
+<span class="output">[live-lambda] Received invocation for: MyFunction</span>
+<span class="output">[live-lambda] Executing local handler...</span>
+<span class="output success">[live-lambda] Response sent in 42ms</span></code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Problem Section -->
+  <section class="problem">
+    <div class="container">
+      <h2>The Lambda Development Problem</h2>
+      <div class="problem-grid">
+        <div class="problem-card">
+          <div class="problem-icon">&#9201;</div>
+          <h3>Slow Feedback Loops</h3>
+          <p>Every code change requires redeployment. Wait 30 seconds to 2 minutes just to test a single line change.</p>
+        </div>
+        <div class="problem-card">
+          <div class="problem-icon">&#128296;</div>
+          <h3>No Real Debugging</h3>
+          <p>CloudWatch logs are the only debugging tool. No breakpoints, no stepping through code, no local IDE integration.</p>
+        </div>
+        <div class="problem-card">
+          <div class="problem-icon">&#127919;</div>
+          <h3>Environment Mismatch</h3>
+          <p>Local mocks don't replicate real IAM permissions, VPC configurations, or AWS service integrations.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Solution Section -->
+  <section class="solution">
+    <div class="container">
+      <h2>The Live Lambda Solution</h2>
+      <p class="section-subtitle">
+        Live Lambda proxies real AWS Lambda invocations to your local machine,
+        letting you execute and debug code with your IDE while using real cloud resources.
+      </p>
+
+      <div class="architecture">
+        <div class="arch-flow">
+          <div class="arch-step">
+            <div class="arch-box">
+              <span class="arch-icon">&#9729;</span>
+              <span class="arch-label">Lambda Invocation</span>
+            </div>
+            <div class="arch-arrow">&#8594;</div>
+          </div>
+          <div class="arch-step">
+            <div class="arch-box highlight">
+              <span class="arch-icon">&#128268;</span>
+              <span class="arch-label">Go Extension</span>
+            </div>
+            <div class="arch-arrow">&#8594;</div>
+          </div>
+          <div class="arch-step">
+            <div class="arch-box">
+              <span class="arch-icon">&#128225;</span>
+              <span class="arch-label">AppSync WebSocket</span>
+            </div>
+            <div class="arch-arrow">&#8594;</div>
+          </div>
+          <div class="arch-step">
+            <div class="arch-box highlight">
+              <span class="arch-icon">&#128187;</span>
+              <span class="arch-label">Your Machine</span>
+            </div>
+          </div>
+        </div>
+        <p class="arch-caption">
+          A lightweight Go extension intercepts Lambda Runtime API calls and forwards them through
+          AWS AppSync's real-time WebSocket API to your local development server.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section id="features" class="features">
+    <div class="container">
+      <h2>Features</h2>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">&#9889;</div>
+          <h3>Instant Feedback</h3>
+          <p>Test Lambda changes in milliseconds. No redeployment required&mdash;just save and trigger.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#128269;</div>
+          <h3>Full Debugging Support</h3>
+          <p>Set breakpoints, inspect variables, and step through code using your favorite IDE.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#128274;</div>
+          <h3>Real IAM Permissions</h3>
+          <p>Execute with actual Lambda role credentials. Catch permission issues before deployment.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#128230;</div>
+          <h3>AWS CDK Integration</h3>
+          <p>Simple CDK aspect auto-configures all your NodejsFunction constructs with a single line.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#128039;</div>
+          <h3>Go-based Extension</h3>
+          <p>Lightweight, fast Go extension adds minimal overhead to Lambda cold starts.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#128273;</div>
+          <h3>Secure by Design</h3>
+          <p>Uses AWS AppSync with IAM authentication. All traffic stays within your AWS account.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#127793;</div>
+          <h3>TypeScript Source Maps</h3>
+          <p>Debug your original TypeScript code, not compiled JavaScript. Source maps are resolved automatically.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#128640;</div>
+          <h3>Open Source</h3>
+          <p>Fully open source and customizable. Extend and adapt to your specific workflow needs.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How It Works Section -->
+  <section id="how-it-works" class="how-it-works">
+    <div class="container">
+      <h2>How It Works</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <h3>Deploy the Infrastructure</h3>
+            <p>
+              The CLI deploys an AppSync Events API for WebSocket communication and a Lambda Layer
+              containing the Go extension. Your existing Lambdas get the layer attached via a CDK aspect.
+            </p>
+            <div class="code-block">
+              <pre><code>pnpm run dev deploy --profile my-profile</code></pre>
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <h3>Start the Local Server</h3>
+            <p>
+              The local development server connects to AppSync via WebSocket and subscribes to the
+              invocation channel. It waits for events from your Lambda functions.
+            </p>
+            <div class="code-block">
+              <pre><code>pnpm run dev server --profile my-profile</code></pre>
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <h3>Invoke Your Lambda</h3>
+            <p>
+              When your Lambda is invoked (via API Gateway, EventBridge, direct invocation, etc.),
+              the Go extension intercepts the Runtime API call and forwards the event to your machine.
+            </p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-number">4</div>
+          <div class="step-content">
+            <h3>Execute &amp; Debug Locally</h3>
+            <p>
+              Your local handler executes with assumed Lambda role credentials. Set breakpoints,
+              inspect state, and iterate instantly. The response flows back through AppSync to Lambda.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Comparison Section -->
+  <section id="comparison" class="comparison">
+    <div class="container">
+      <h2>How It Compares</h2>
+      <p class="section-subtitle">
+        Live Lambda isn't the only solution for local Lambda development. Here's how it stacks up.
+      </p>
+
+      <div class="comparison-table-wrapper">
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th>Feature</th>
+              <th class="highlight-col">Live Lambda</th>
+              <th>SST Live</th>
+              <th>Lambda Live Debugger</th>
+              <th>SAM Local</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Real cloud invocations</td>
+              <td class="highlight-col"><span class="check">&#10003;</span></td>
+              <td><span class="check">&#10003;</span></td>
+              <td><span class="check">&#10003;</span></td>
+              <td><span class="cross">&#10007;</span></td>
+            </tr>
+            <tr>
+              <td>No redeployment needed</td>
+              <td class="highlight-col"><span class="check">&#10003;</span></td>
+              <td><span class="check">&#10003;</span></td>
+              <td><span class="check">&#10003;</span></td>
+              <td><span class="cross">&#10007;</span></td>
+            </tr>
+            <tr>
+              <td>Real IAM permissions</td>
+              <td class="highlight-col"><span class="check">&#10003;</span></td>
+              <td><span class="check">&#10003;</span></td>
+              <td><span class="check">&#10003;</span></td>
+              <td><span class="cross">&#10007;</span></td>
+            </tr>
+            <tr>
+              <td>IDE debugging</td>
+              <td class="highlight-col"><span class="check">&#10003;</span></td>
+              <td><span class="check">&#10003;</span></td>
+              <td><span class="check">&#10003;</span></td>
+              <td><span class="check">&#10003;</span></td>
+            </tr>
+            <tr>
+              <td>Framework agnostic</td>
+              <td class="highlight-col"><span class="check">&#10003;</span></td>
+              <td><span class="cross">&#10007;</span></td>
+              <td><span class="partial">~</span></td>
+              <td><span class="cross">&#10007;</span></td>
+            </tr>
+            <tr>
+              <td>Works with plain CDK</td>
+              <td class="highlight-col"><span class="check">&#10003;</span></td>
+              <td><span class="cross">&#10007;</span></td>
+              <td><span class="check">&#10003;</span></td>
+              <td><span class="cross">&#10007;</span></td>
+            </tr>
+            <tr>
+              <td>No external services</td>
+              <td class="highlight-col"><span class="check">&#10003;</span></td>
+              <td><span class="check">&#10003;</span></td>
+              <td><span class="cross">&#10007;</span></td>
+              <td><span class="check">&#10003;</span></td>
+            </tr>
+            <tr>
+              <td>WebSocket transport</td>
+              <td class="highlight-col">AppSync Events</td>
+              <td>AppSync Events</td>
+              <td>AWS IoT</td>
+              <td>N/A</td>
+            </tr>
+            <tr>
+              <td>Extension language</td>
+              <td class="highlight-col">Go</td>
+              <td>Node.js</td>
+              <td>Node.js</td>
+              <td>N/A</td>
+            </tr>
+            <tr>
+              <td>Open source</td>
+              <td class="highlight-col"><span class="check">&#10003;</span></td>
+              <td><span class="check">&#10003;</span></td>
+              <td><span class="check">&#10003;</span></td>
+              <td><span class="check">&#10003;</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="comparison-details">
+        <div class="comparison-card">
+          <h3>vs SST Live</h3>
+          <p>
+            SST Live is tightly coupled to the SST framework. Live Lambda works with any AWS CDK project
+            without requiring migration to a different framework. Both use AppSync Events for transport.
+          </p>
+        </div>
+        <div class="comparison-card">
+          <h3>vs Lambda Live Debugger</h3>
+          <p>
+            Lambda Live Debugger uses AWS IoT for message transport, which requires additional setup
+            and IoT permissions. Live Lambda uses AppSync Events with IAM auth&mdash;simpler and stays
+            within your existing IAM policies.
+          </p>
+        </div>
+        <div class="comparison-card">
+          <h3>vs SAM Local</h3>
+          <p>
+            SAM Local runs Lambda in Docker containers locally, simulating the environment. It doesn't
+            use real cloud invocations, so you miss IAM permission issues and can't test real integrations.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Getting Started Section -->
+  <section id="getting-started" class="getting-started">
+    <div class="container">
+      <h2>Getting Started</h2>
+      <div class="getting-started-content">
+        <div class="install-steps">
+          <h3>Installation</h3>
+          <div class="code-block">
+            <pre><code><span class="comment"># Clone the repository</span>
+git clone https://github.com/boundlessdigital/live-lambda
+cd live-lambda
+
+<span class="comment"># Install dependencies</span>
+pnpm install
+
+<span class="comment"># Build the project (compiles TypeScript + Go extension)</span>
+pnpm build</code></pre>
+          </div>
+
+          <h3>Deploy Infrastructure</h3>
+          <div class="code-block">
+            <pre><code><span class="comment"># Deploy AppSync API and Lambda Layer</span>
+pnpm run dev deploy --profile your-aws-profile</code></pre>
+          </div>
+
+          <h3>Integrate with Your CDK App</h3>
+          <div class="code-block">
+            <pre><code><span class="keyword">import</span> { LiveLambda } <span class="keyword">from</span> <span class="string">'live-lambda'</span>
+
+<span class="keyword">const</span> app = <span class="keyword">new</span> cdk.App()
+
+<span class="comment">// Apply to all NodejsFunction constructs</span>
+LiveLambda.install(app, {
+  env: { region: <span class="string">'us-west-2'</span> }
+})</code></pre>
+          </div>
+
+          <h3>Start Developing</h3>
+          <div class="code-block">
+            <pre><code><span class="comment"># Start the local development server</span>
+pnpm run dev server --profile your-aws-profile
+
+<span class="comment"># In another terminal, invoke your Lambda</span>
+curl https://your-api-gateway-url/endpoint</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Technical Details Section -->
+  <section class="technical">
+    <div class="container">
+      <h2>Under the Hood</h2>
+      <div class="technical-grid">
+        <div class="technical-card">
+          <h3>Go Lambda Extension</h3>
+          <p>
+            The extension intercepts calls to the Lambda Runtime API using the
+            <code>AWS_LAMBDA_EXEC_WRAPPER</code> mechanism. It acts as a proxy, forwarding
+            invocation events to AppSync and waiting for responses.
+          </p>
+          <ul>
+            <li>Compiled for both amd64 and arm64</li>
+            <li>Minimal cold start overhead (~5-10ms)</li>
+            <li>Conditional build (only recompiles when source changes)</li>
+          </ul>
+        </div>
+        <div class="technical-card">
+          <h3>AppSync Events API</h3>
+          <p>
+            AWS AppSync Events provides managed WebSocket infrastructure with IAM authentication.
+            The extension publishes to <code>/live-lambda/requests</code> and subscribes to
+            <code>/live-lambda/response/{request_id}</code>.
+          </p>
+          <ul>
+            <li>Sub-millisecond message delivery</li>
+            <li>~$1 per million messages</li>
+            <li>All traffic within your AWS account</li>
+          </ul>
+        </div>
+        <div class="technical-card">
+          <h3>Local Development Server</h3>
+          <p>
+            A TypeScript server connects to AppSync, receives invocation events, and executes
+            your local handler code. It assumes the Lambda's IAM role for authentic permissions.
+          </p>
+          <ul>
+            <li>TypeScript source map resolution</li>
+            <li>Hot reload (file watching)</li>
+            <li>Full Lambda context simulation</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-logo">
+          <span class="logo-icon">&#955;</span>
+          <span class="logo-text">live-lambda</span>
+        </div>
+        <p class="footer-tagline">Real-time Lambda development for AWS CDK projects</p>
+        <div class="footer-links">
+          <a href="https://github.com/boundlessdigital/live-lambda">GitHub</a>
+          <a href="https://github.com/boundlessdigital/live-lambda/issues">Issues</a>
+          <a href="https://github.com/boundlessdigital/live-lambda/blob/main/README.md">Documentation</a>
+        </div>
+        <p class="footer-copyright">
+          Built with &#10084; by <a href="https://boundless.digital">Boundless Digital</a>
+        </p>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
