@@ -6,6 +6,8 @@ import { fromTemporaryCredentials } from '@aws-sdk/credential-providers'
 import * as path from 'path'
 import { LambdaContext } from './types.js'
 import * as fs from 'fs'
+import * as esbuild from 'esbuild'
+import * as os from 'os'
 export interface ExecuteHandlerOptions {
   region: string
   function_arn: string
@@ -35,13 +37,68 @@ interface OutputsJson {
   }
 }
 
+interface SourceMap {
+  sources: string[]
+  [key: string]: unknown
+}
+
 /**
- * Resolves handler path and export name from outputs.json based on function ARN
+ * Extracts the original TypeScript source file path from a source map.
+ * Looks for .ts files that are not in node_modules (user's handler code).
+ */
+function extract_source_from_sourcemap(
+  asset_path: string,
+  handler_file: string
+): string | undefined {
+  // Try .mjs.map first (ESM), then .js.map
+  const mjs_map_path = path.join(asset_path, `${handler_file}.mjs.map`)
+  const js_map_path = path.join(asset_path, `${handler_file}.js.map`)
+
+  let sourcemap_path: string | undefined
+  if (fs.existsSync(mjs_map_path)) {
+    sourcemap_path = mjs_map_path
+  } else if (fs.existsSync(js_map_path)) {
+    sourcemap_path = js_map_path
+  }
+
+  if (!sourcemap_path) {
+    console.log(`[live-lambda] No source map found at ${mjs_map_path} or ${js_map_path}`)
+    return undefined
+  }
+
+  try {
+    const sourcemap: SourceMap = JSON.parse(fs.readFileSync(sourcemap_path, 'utf-8'))
+
+    // Find the source that's a .ts file and not in node_modules (the user's handler file)
+    const user_source = sourcemap.sources.find(
+      (s: string) => s.endsWith('.ts') && !s.includes('node_modules')
+    )
+
+    if (!user_source) {
+      console.log(`[live-lambda] No user TypeScript source found in source map`)
+      return undefined
+    }
+
+    // Resolve relative path from asset directory
+    const resolved_path = path.resolve(asset_path, user_source)
+    console.log(`[live-lambda] Found source from source map: ${user_source}`)
+    console.log(`[live-lambda] Resolved to: ${resolved_path}`)
+
+    return resolved_path
+  } catch (error) {
+    console.warn(`[live-lambda] Error parsing source map: ${error}`)
+    return undefined
+  }
+}
+
+/**
+ * Resolves handler path and export name from outputs.json based on function ARN.
+ * Prefers TypeScript source files (via source map) over compiled .mjs files.
  */
 function resolve_handler_from_outputs(
   outputs: OutputsJson,
   function_arn: string
-): { handler_path: string; handler_name: string } | undefined {
+): { handler_path: string; handler_name: string; is_typescript: boolean } | undefined {
   // Search through all stacks to find the matching function ARN
   for (const stack_name of Object.keys(outputs)) {
     const stack_outputs = outputs[stack_name]
@@ -68,7 +125,16 @@ function resolve_handler_from_outputs(
       const file_name = handler_string.substring(0, last_dot_index)
       const export_name = handler_string.substring(last_dot_index + 1)
 
-      // Try both .mjs (ESM) and .js extensions - CDK's NodejsFunction uses .mjs by default
+      // First, try to get the original TypeScript source from source map
+      const source_path = extract_source_from_sourcemap(asset_path, file_name)
+      if (source_path && fs.existsSync(source_path)) {
+        console.log(`[live-lambda] ✨ Using TypeScript source for ${function_arn}:`)
+        console.log(`  handler_path: ${source_path}`)
+        console.log(`  handler_name: ${export_name}`)
+        return { handler_path: source_path, handler_name: export_name, is_typescript: true }
+      }
+
+      // Fall back to compiled .mjs/.js files
       const mjs_path = path.join(asset_path, `${file_name}.mjs`)
       const js_path = path.join(asset_path, `${file_name}.js`)
 
@@ -84,11 +150,11 @@ function resolve_handler_from_outputs(
         continue
       }
 
-      console.log(`[live-lambda] Resolved handler for ${function_arn}:`)
+      console.log(`[live-lambda] Resolved handler for ${function_arn} (compiled):`)
       console.log(`  handler_path: ${handler_path}`)
       console.log(`  handler_name: ${export_name}`)
 
-      return { handler_path, handler_name: export_name }
+      return { handler_path, handler_name: export_name, is_typescript: false }
     }
   }
 
@@ -119,7 +185,7 @@ export async function execute_module_handler({
     )
   }
 
-  const { handler_path, handler_name } = resolved_handler
+  const { handler_path, handler_name, is_typescript } = resolved_handler
 
   const lambda_client = new LambdaClient({ region })
   const config = await lambda_client.send(
@@ -158,7 +224,37 @@ export async function execute_module_handler({
     ? handler_path
     : path.resolve(process.cwd(), handler_path)
 
-  const handler_module = await import(abs_path)
+  let handler_module: Record<string, unknown>
+
+  if (is_typescript) {
+    console.log(`[live-lambda] ✨ Loading TypeScript source directly: ${abs_path}`)
+
+    // Transform TypeScript to JavaScript using esbuild
+    const result = await esbuild.build({
+      entryPoints: [abs_path],
+      bundle: true,
+      format: 'esm',
+      platform: 'node',
+      target: 'node20',
+      write: false,
+      sourcemap: 'inline',
+      external: ['@aws-sdk/*', 'aws-lambda']
+    })
+
+    // Write to temp file and import
+    const temp_dir = os.tmpdir()
+    const temp_file = path.join(temp_dir, `live-lambda-handler-${Date.now()}.mjs`)
+    fs.writeFileSync(temp_file, result.outputFiles[0].text)
+
+    console.log(`[live-lambda] Transformed to: ${temp_file}`)
+    handler_module = await import(temp_file)
+
+    // Clean up temp file
+    fs.unlinkSync(temp_file)
+  } else {
+    console.log(`[live-lambda] Loading compiled handler: ${abs_path}`)
+    handler_module = await import(abs_path)
+  }
   const handler = handler_module[handler_name]
 
   if (typeof handler !== 'function') {

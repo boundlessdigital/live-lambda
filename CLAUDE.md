@@ -62,6 +62,11 @@ Lambda Response  ← Go Extension ← AppSync WebSocket ← Response
 - `APPSYNC_ENDPOINT_URL`, `APPSYNC_API_ID`, `APPSYNC_REGION`
 - `LIVE_LAMBDA_LAYER_ARN`, `LRAP_LISTENER_PORT`
 
+## Workflow
+
+- **Do not commit** unless explicitly asked - always test changes first
+- Test the full flow (deploy → start server → curl endpoint) before considering changes complete
+
 ## Code Style
 
 - **Naming**: snake_case for functions/variables, CamelCase for classes/interfaces/types
