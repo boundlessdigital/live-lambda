@@ -14,6 +14,13 @@ export interface LiveLambdaLayerAspectProps {
   readonly api: appsync.EventApi
   include_patterns?: string[]
   exclude_patterns?: string[]
+  /**
+   * IAM principal ARNs that should be allowed to assume Lambda execution roles
+   * for local development. This enables the local dev server to run handlers
+   * with the same permissions as the deployed Lambda.
+   * Example: ['arn:aws:iam::123456789012:user/developer']
+   */
+  developer_principal_arns?: string[]
 }
 
 interface LiveLambdaMapEntryForCDK {
@@ -105,6 +112,22 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
           resources: [`${this.props.api.apiArn}/*`, `${this.props.api.apiArn}`]
         })
       )
+
+      // Add trust relationship for developer principals to assume the Lambda execution role
+      // This enables local development by allowing developers to run handlers locally
+      // with the same permissions as the deployed Lambda
+      if (this.props.developer_principal_arns?.length && node.role) {
+        const role = node.role as iam.Role
+        for (const principal_arn of this.props.developer_principal_arns) {
+          role.assumeRolePolicy?.addStatements(
+            new iam.PolicyStatement({
+              effect: iam.Effect.ALLOW,
+              principals: [new iam.ArnPrincipal(principal_arn)],
+              actions: ['sts:AssumeRole']
+            })
+          )
+        }
+      }
 
       node.addEnvironment(
         'AWS_LAMBDA_EXEC_WRAPPER',

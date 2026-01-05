@@ -6,6 +6,13 @@ import { LiveLambdaLayerAspect } from './aspects/live-lambda-layer.aspect.js'
 export interface LiveLambdaInstallProps {
   env: cdk.Environment
   skip_layer?: boolean
+  /**
+   * IAM principal ARNs that should be allowed to assume Lambda execution roles
+   * for local development. This enables the local dev server to run handlers
+   * with the same permissions as the deployed Lambda.
+   * Example: ['arn:aws:iam::123456789012:user/developer']
+   */
+  developer_principal_arns?: string[]
 }
 
 export class LiveLambda {
@@ -19,7 +26,11 @@ export class LiveLambda {
       env
     })
 
-    const aspect = new LiveLambdaLayerAspect({ api, layer_stack })
+    const aspect = new LiveLambdaLayerAspect({
+      api,
+      layer_stack,
+      developer_principal_arns: props?.developer_principal_arns
+    })
 
     if (!props?.skip_layer) {
       cdk.Aspects.of(app).add(aspect)

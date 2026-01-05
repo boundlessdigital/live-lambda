@@ -11,15 +11,15 @@ program
 program
   .command('start')
   .description('Starts the development server')
-  .action(async (command: Command) => {
-    await main(command)
+  .action(async function (this: Command) {
+    await main(this)
   })
 
 program
   .command('destroy')
   .description('Destroys the development stacks')
-  .action(async (command: Command) => {
-    await main(command)
+  .action(async function (this: Command) {
+    await main(this)
   })
 
 program.parse(process.argv)
