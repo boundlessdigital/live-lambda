@@ -8,6 +8,7 @@ import * as iam from 'aws-cdk-lib/aws-iam'
 import { IConstruct } from 'constructs'
 import path from 'node:path'
 import { LiveLambdaLayerStack } from '../stacks/layer.stack.js'
+import { logger } from '../../lib/logger.js'
 
 export interface LiveLambdaLayerAspectProps {
   readonly layer_stack: LiveLambdaLayerStack
@@ -67,14 +68,14 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
       const source_path = resolve_source_path(node)
 
       if (!source_path) {
-        console.error(
+        logger.error(
           `Could not determine source path for Lambda function ${node.node.path}`
         )
       } else {
-        console.log(`Adding function mapping for ${function_path}`)
-        console.log(`Source path: ${source_path}`)
-        console.log(`Handler: ${cfn_function.handler}`)
-        console.log(`Role ARN: ${cfn_function.role}`)
+        logger.debug(`Adding function mapping for ${function_path}`)
+        logger.debug(`Source path: ${source_path}`)
+        logger.debug(`Handler: ${cfn_function.handler}`)
+        logger.debug(`Role ARN: ${cfn_function.role}`)
 
         new cdk.CfnOutput(node.stack, `${node.node.id}SourcePath`, {
           value: path.relative(process.cwd(), source_path),
@@ -193,8 +194,8 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
           exportName: `${node.stack.stackName}-${node.node.id}-Handler`
         })
       } else {
-        console.warn(
-          `[Live Lambda Aspect] Handler string not found for ${node.node.path}. Cannot output Handler.`
+        logger.warn(
+          `Handler string not found for ${node.node.path}. Cannot output Handler.`
         )
       }
 
@@ -226,8 +227,8 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
           })
         } else {
           // If both methods fail, log the warning.
-          console.warn(
-            `[Live Lambda Aspect] Could not find 'aws:asset:path' metadata for ${node.node.path} using cfnOptions.metadata or node.metadata. Cannot output cdk.out asset path.`
+          logger.warn(
+            `Could not find 'aws:asset:path' metadata for ${node.node.path} using cfnOptions.metadata or node.metadata. Cannot output cdk.out asset path.`
           )
         }
       }
@@ -287,8 +288,8 @@ function resolve_source_path(fn: lambda.Function): string | undefined {
 
   // ③ look at metadata injected by CDK synth (always exists for asset-based code)
   const cfn = fn.node.defaultChild as lambda.CfnFunction
-  console.log(JSON.stringify(fn.node.metadata, null, 2))
-  console.log(JSON.stringify(cfn.node.metadata, null, 2))
+  logger.trace('fn.node.metadata:', JSON.stringify(fn.node.metadata, null, 2))
+  logger.trace('cfn.node.metadata:', JSON.stringify(cfn.node.metadata, null, 2))
   for (const meta of cfn.node.metadata) {
     if (
       meta.type === 'aws:asset:path' &&

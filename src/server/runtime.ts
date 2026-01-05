@@ -8,6 +8,7 @@ import { LambdaContext } from './types.js'
 import * as fs from 'fs'
 import * as esbuild from 'esbuild'
 import * as os from 'os'
+import { logger } from '../lib/logger.js'
 export interface ExecuteHandlerOptions {
   region: string
   function_arn: string
@@ -19,7 +20,7 @@ export async function execute_handler(
   event: AWSLambda.APIGatewayProxyEventV2,
   context: LambdaContext
 ) {
-  console.log(JSON.stringify(event))
+  logger.trace('Received event:', JSON.stringify(event, null, 2))
 
   return execute_module_handler({
     region: context.aws_region as string,
@@ -62,7 +63,7 @@ function extract_source_from_sourcemap(
   }
 
   if (!sourcemap_path) {
-    console.log(`[live-lambda] No source map found at ${mjs_map_path} or ${js_map_path}`)
+    logger.debug(`No source map found at ${mjs_map_path} or ${js_map_path}`)
     return undefined
   }
 
@@ -75,18 +76,18 @@ function extract_source_from_sourcemap(
     )
 
     if (!user_source) {
-      console.log(`[live-lambda] No user TypeScript source found in source map`)
+      logger.debug('No user TypeScript source found in source map')
       return undefined
     }
 
     // Resolve relative path from asset directory
     const resolved_path = path.resolve(asset_path, user_source)
-    console.log(`[live-lambda] Found source from source map: ${user_source}`)
-    console.log(`[live-lambda] Resolved to: ${resolved_path}`)
+    logger.debug(`Found source from source map: ${user_source}`)
+    logger.debug(`Resolved to: ${resolved_path}`)
 
     return resolved_path
   } catch (error) {
-    console.warn(`[live-lambda] Error parsing source map: ${error}`)
+    logger.warn(`Error parsing source map: ${error}`)
     return undefined
   }
 }
@@ -107,8 +108,8 @@ function resolve_handler_from_outputs(
       const asset_path = stack_outputs.FunctionCdkOutAssetPath
 
       if (!handler_string || !asset_path) {
-        console.warn(
-          `[live-lambda] Found matching stack ${stack_name} but missing FunctionHandler or FunctionCdkOutAssetPath`
+        logger.warn(
+          `Found matching stack ${stack_name} but missing FunctionHandler or FunctionCdkOutAssetPath`
         )
         continue
       }
@@ -116,8 +117,8 @@ function resolve_handler_from_outputs(
       // Parse handler string like "index.handler" → file="index", export="handler"
       const last_dot_index = handler_string.lastIndexOf('.')
       if (last_dot_index === -1) {
-        console.warn(
-          `[live-lambda] Invalid handler format: ${handler_string}. Expected format: "file.export"`
+        logger.warn(
+          `Invalid handler format: ${handler_string}. Expected format: "file.export"`
         )
         continue
       }
@@ -128,9 +129,9 @@ function resolve_handler_from_outputs(
       // First, try to get the original TypeScript source from source map
       const source_path = extract_source_from_sourcemap(asset_path, file_name)
       if (source_path && fs.existsSync(source_path)) {
-        console.log(`[live-lambda] ✨ Using TypeScript source for ${function_arn}:`)
-        console.log(`  handler_path: ${source_path}`)
-        console.log(`  handler_name: ${export_name}`)
+        logger.info(`Using TypeScript source for ${function_arn}`)
+        logger.debug(`  handler_path: ${source_path}`)
+        logger.debug(`  handler_name: ${export_name}`)
         return { handler_path: source_path, handler_name: export_name, is_typescript: true }
       }
 
@@ -144,15 +145,15 @@ function resolve_handler_from_outputs(
       } else if (fs.existsSync(js_path)) {
         handler_path = js_path
       } else {
-        console.warn(
-          `[live-lambda] Could not find handler file at ${mjs_path} or ${js_path}`
+        logger.warn(
+          `Could not find handler file at ${mjs_path} or ${js_path}`
         )
         continue
       }
 
-      console.log(`[live-lambda] Resolved handler for ${function_arn} (compiled):`)
-      console.log(`  handler_path: ${handler_path}`)
-      console.log(`  handler_name: ${export_name}`)
+      logger.info(`Resolved handler for ${function_arn} (compiled)`)
+      logger.debug(`  handler_path: ${handler_path}`)
+      logger.debug(`  handler_name: ${export_name}`)
 
       return { handler_path, handler_name: export_name, is_typescript: false }
     }
@@ -227,7 +228,7 @@ export async function execute_module_handler({
   let handler_module: Record<string, unknown>
 
   if (is_typescript) {
-    console.log(`[live-lambda] ✨ Loading TypeScript source directly: ${abs_path}`)
+    logger.info(`Loading TypeScript source: ${abs_path}`)
 
     // Transform TypeScript to JavaScript using esbuild
     const result = await esbuild.build({
@@ -246,13 +247,13 @@ export async function execute_module_handler({
     const temp_file = path.join(temp_dir, `live-lambda-handler-${Date.now()}.mjs`)
     fs.writeFileSync(temp_file, result.outputFiles[0].text)
 
-    console.log(`[live-lambda] Transformed to: ${temp_file}`)
+    logger.debug(`Transformed to: ${temp_file}`)
     handler_module = await import(temp_file)
 
     // Clean up temp file
     fs.unlinkSync(temp_file)
   } else {
-    console.log(`[live-lambda] Loading compiled handler: ${abs_path}`)
+    logger.info(`Loading compiled handler: ${abs_path}`)
     handler_module = await import(abs_path)
   }
   const handler = handler_module[handler_name]

@@ -1,15 +1,15 @@
-import 'colors'; // For potential colored console output if NonInteractiveIoHost uses it
 import {
   NonInteractiveIoHost,
   NonInteractiveIoHostProps,
   IoMessage, // Included for potential direct use or future overrides
   IoRequest  // Included for potential direct use or future overrides
 } from '@aws-cdk/toolkit-lib';
+import { logger } from '../../lib/logger.js';
 
 export class CustomIoHost extends NonInteractiveIoHost {
   constructor(props?: NonInteractiveIoHostProps) {
     super(props);
-    console.log('Basic CustomIoHost Initialized (using default behaviors)'.blue);
+    logger.debug('CustomIoHost initialized');
   }
 
   // Override notify to add custom logging before calling the base implementation.
@@ -46,7 +46,7 @@ export class CustomIoHost extends NonInteractiveIoHost {
       const approvalLogMessage = `Auto-approving security sensitive changes: ${
         (typeof request.message === 'string' ? request.message.split('\n')[0] : 'Unknown security prompt')
       }`;
-      console.log(`ℹ️  ${approvalLogMessage}`.blue); // Log to console directly
+      logger.info(approvalLogMessage);
       return true as unknown as ResponseType; // Auto-approve
     }
     
@@ -55,7 +55,7 @@ export class CustomIoHost extends NonInteractiveIoHost {
   }
 
   public cleanup() {
-    console.log('Basic CustomIoHost Cleaned Up'.blue);
+    logger.debug('CustomIoHost cleaned up');
     // No ink_instance to unmount.
     // Add any other cleanup specific to this host if necessary.
   }

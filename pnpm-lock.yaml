@@ -47,12 +47,21 @@ importers:
       colors:
         specifier: ^1.4.0
         version: 1.4.0
+      commander:
+        specifier: ^13.1.0
+        version: 13.1.0
+      consola:
+        specifier: ^3.4.2
+        version: 3.4.2
       constructs:
         specifier: ^10.0.0
         version: 10.4.2
       lodash:
         specifier: ^4.17.21
         version: 4.17.21
+      tsx:
+        specifier: ^4.19.4
+        version: 4.19.4
       undici:
         specifier: ^7.9.0
         version: 7.9.0
@@ -84,9 +93,6 @@ importers:
       aws-cdk-lib:
         specifier: ^2.195.0
         version: 2.195.0(constructs@10.4.2)
-      commander:
-        specifier: ^13.1.0
-        version: 13.1.0
       cpy-cli:
         specifier: ^5.0.0
         version: 5.0.0
@@ -102,9 +108,6 @@ importers:
       pkg:
         specifier: ^5.8.1
         version: 5.8.1
-      tsx:
-        specifier: ^4.19.4
-        version: 4.19.4
       typescript:
         specifier: ^5.5.2
         version: 5.8.3
@@ -1897,6 +1900,10 @@ packages:
 
   concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
+
+  consola@3.4.2:
+    resolution: {integrity: sha512-5IKcdX0nnYavi6G7TtOhwkYzyjfJlatbjMjuLSfE2kYT5pMDOilZ4OvMhi637CcDICTmz3wARPoyhqyX1Y+XvA==}
+    engines: {node: ^14.18.0 || >=16.10.0}
 
   constructs@10.4.2:
     resolution: {integrity: sha512-wsNxBlAott2qg8Zv87q3eYZYgheb9lchtBfjHzzLHtXbttwSrHPs1NNQbBrmbb1YZvYg2+Vh0Dor76w4mFxJkA==}
@@ -7174,6 +7181,8 @@ snapshots:
       readable-stream: 4.7.0
 
   concat-map@0.0.1: {}
+
+  consola@3.4.2: {}
 
   constructs@10.4.2: {}
 

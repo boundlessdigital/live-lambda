@@ -9,6 +9,7 @@ import { Command } from 'commander'
 import * as fs from 'fs'
 import chokidar from 'chokidar'
 import { CustomIoHost } from '../cdk/toolkit/iohost.js'
+import { logger } from '../lib/logger.js'
 
 const CDK_OUTPUTS_FILE = 'cdk.out/outputs.json'
 const MAX_CONCURRENCY = 5
@@ -19,7 +20,7 @@ export async function main(command: Command) {
   })
 
   const cleanup_tasks = async () => {
-    console.log('\nCleaning up UI and CDK resources...'.gray)
+    logger.info('Cleaning up UI and CDK resources...')
     custom_io_host.cleanup()
     // Potentially add other cleanup tasks here if needed
     // For example, ensuring any child processes are terminated
@@ -50,18 +51,18 @@ export async function main(command: Command) {
       } catch (error) {
         // Attempt to destroy stacks on error during start, then re-run server
         // This might be specific to your workflow, adjust as needed
-        console.error('Error during initial server run, attempting cleanup and restart:'.red, error)
+        logger.error('Error during initial server run, attempting cleanup and restart:', error)
         await destroy_stacks(cdk, assembly) 
         await run_server(cdk, assembly, watch_config)
       }
     }
 
     if (command_name === 'destroy') {
-      console.log('Destroying development stacks...'.yellow)
+      logger.info('Destroying development stacks...')
       await destroy_stacks(cdk, assembly)
     }
   } catch (error) {
-    console.error('An unexpected error occurred:'.red, error)
+    logger.error('An unexpected error occurred:', error)
     // Ensure cleanup is called even for unhandled top-level errors
   } finally {
     await cleanup_tasks()
@@ -91,7 +92,7 @@ async function watch_file_changes(
     }
   })
   watcher.on('change', async (path: string) => {
-    console.log(`File ${path} changes detected, redeploying...`.yellow)
+    logger.info(`File ${path} changes detected, redeploying...`)
     // await deploy_stacks(cdk, assembly)
   })
 }

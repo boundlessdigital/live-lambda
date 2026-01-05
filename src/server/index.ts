@@ -1,13 +1,13 @@
-import 'colors'
 import { AppSyncEventWebSocketClient } from '@boundlessdigital/aws-appsync-events-websockets-client'
 import { APPSYNC_EVENTS_API_NAMESPACE } from '../constants.js'
 import { execute_handler } from './runtime.js'
 import * as path from 'node:path'
+import { logger } from '../lib/logger.js'
 
 import { ServerConfig } from './types.js'
 
 export async function serve(config: ServerConfig): Promise<void> {
-  console.log('Starting LiveLambda server...'.yellow)
+  logger.start('Starting LiveLambda server...')
 
   const client = new AppSyncEventWebSocketClient(config)
 

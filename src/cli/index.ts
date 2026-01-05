@@ -1,5 +1,6 @@
 import { Command } from 'commander'
 import { main } from './main.js'
+import { set_log_level, LOG_LEVELS } from '../lib/logger.js'
 
 const program = new Command()
 
@@ -7,6 +8,16 @@ program
   .name('live-lambda')
   .version('1.0.0')
   .description('Live Lambda CLI for serverless development')
+  .option('-v, --verbose', 'Enable verbose logging (debug level)')
+  .option('-q, --quiet', 'Suppress most output (warn level only)')
+  .hook('preAction', (thisCommand) => {
+    const opts = thisCommand.opts()
+    if (opts.verbose) {
+      set_log_level(LOG_LEVELS.debug)
+    } else if (opts.quiet) {
+      set_log_level(LOG_LEVELS.warn)
+    }
+  })
 
 program
   .command('start')
