@@ -17,10 +17,6 @@ import {
   OUTPUT_EVENT_API_HTTP_HOST,
   OUTPUT_EVENT_API_REALTIME_HOST
 } from '../lib/constants.js'
-import {
-  DeployEventEmitter,
-  run_deploy_with_ui
-} from './listr-deploy.js'
 import { format_project_outputs } from './output-table.js'
 
 const CDK_OUTPUTS_FILE = 'cdk.out/outputs.json'
@@ -34,8 +30,6 @@ export async function main(command: Command) {
   const cleanup_tasks = async () => {
     logger.info('Cleaning up UI and CDK resources...')
     custom_io_host.cleanup()
-    // Potentially add other cleanup tasks here if needed
-    // For example, ensuring any child processes are terminated
   }
 
   // Handle graceful shutdown
@@ -62,7 +56,6 @@ export async function main(command: Command) {
         await run_server(cdk, assembly, watch_config, custom_io_host)
       } catch (error) {
         // Attempt to destroy stacks on error during start, then re-run server
-        // This might be specific to your workflow, adjust as needed
         logger.error(
           'Error during initial server run, attempting cleanup and restart:',
           error
@@ -78,7 +71,6 @@ export async function main(command: Command) {
     }
   } catch (error) {
     logger.error('An unexpected error occurred:', error)
-    // Ensure cleanup is called even for unhandled top-level errors
   } finally {
     await cleanup_tasks()
   }
@@ -90,17 +82,12 @@ async function run_server(
   watch_config: any,
   custom_io_host: CustomIoHost
 ): Promise<void> {
-  const deployment = await deploy_stacks(cdk, assembly, custom_io_host)
+  const deployment = await deploy_stacks(cdk, assembly)
 
   const config = extract_server_config(deployment)
   await serve(config)
   await watch_file_changes(cdk, assembly)
   await watch_stacks(cdk, assembly, watch_config)
-
-  // watcher.on('change', async (path: string) => {
-  //   logger.info(`File ${path} changes detected, redeploying...`)
-  //   // await deploy_stacks(cdk, assembly)
-  // })
 }
 
 async function watch_file_changes(
@@ -114,44 +101,28 @@ async function watch_file_changes(
   })
   watcher.on('change', async (path: string) => {
     logger.info(`File ${path} changes detected, redeploying...`)
-    // await deploy_stacks(cdk, assembly)
   })
 }
+
 async function deploy_stacks(
   cdk: Toolkit,
-  assembly: ICloudAssemblySource,
-  custom_io_host: CustomIoHost
+  assembly: ICloudAssemblySource
 ): Promise<DeployResult> {
-  // Get stack names from the cloud assembly
-  const cloud_assembly = await assembly.produce()
-  const stack_names = cloud_assembly.cloudAssembly.stacks.map(
-    (s) => s.stackName
-  )
+  logger.info('Deploying stacks...')
 
-  // Create emitter and connect to iohost
-  const emitter = new DeployEventEmitter()
-  custom_io_host.set_emitter(emitter)
+  // Run the deployment - CDK will handle assembly production internally
+  const result = await cdk.deploy(assembly, {
+    outputsFile: CDK_OUTPUTS_FILE,
+    concurrency: MAX_CONCURRENCY,
+    deploymentMethod: {
+      method: 'change-set'
+    }
+  })
 
-  try {
-    // Run deployment with Listr2 UI
-    const result = await run_deploy_with_ui(stack_names, emitter, () =>
-      cdk.deploy(assembly, {
-        outputsFile: CDK_OUTPUTS_FILE,
-        concurrency: MAX_CONCURRENCY,
-        deploymentMethod: {
-          method: 'change-set'
-        }
-      })
-    )
+  // Display project outputs in table format
+  console.log('\n' + format_project_outputs(result))
 
-    // Display project outputs in table format
-    console.log('\n' + format_project_outputs(result))
-
-    return result
-  } finally {
-    // Disconnect emitter to restore normal output
-    custom_io_host.set_emitter(null)
-  }
+  return result
 }
 
 async function destroy_stacks(cdk: Toolkit, assembly: ICloudAssemblySource) {
