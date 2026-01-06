@@ -466,4 +466,105 @@ describe('server index', () => {
       )
     })
   })
+
+  describe('WebSocket resilience', () => {
+    it('should handle publish failure gracefully', async () => {
+      const mock_payload = JSON.stringify({
+        request_id: 'publish-fail-123',
+        event_payload: { test: 'event' },
+        context: { function_name: 'test' }
+      })
+
+      const publish_error = new Error('WebSocket publish failed')
+      mock_execute_handler.mockResolvedValue({ statusCode: 200, body: 'ok' })
+      mock_publish.mockRejectedValue(publish_error)
+
+      let subscribe_callback: ((payload: string) => Promise<any>) | undefined
+      mock_subscribe.mockImplementation((channel: string, callback: (payload: string) => Promise<any>) => {
+        subscribe_callback = callback
+        return Promise.resolve()
+      })
+
+      await serve(mock_config)
+
+      // The publish error should propagate
+      await expect(subscribe_callback!(mock_payload)).rejects.toThrow('WebSocket publish failed')
+    })
+
+    it('should handle rapid sequential requests without race conditions', async () => {
+      const request_count = 10
+      const requests = Array.from({ length: request_count }, (_, i) => ({
+        request_id: `rapid-req-${i}`,
+        event_payload: { index: i },
+        context: { function_name: `fn-${i}` }
+      }))
+
+      // Set up mock to return unique response for each request
+      requests.forEach((req, i) => {
+        mock_execute_handler.mockResolvedValueOnce({ statusCode: 200, body: `response-${i}` })
+      })
+
+      let subscribe_callback: ((payload: string) => Promise<any>) | undefined
+      mock_subscribe.mockImplementation((channel: string, callback: (payload: string) => Promise<any>) => {
+        subscribe_callback = callback
+        return Promise.resolve()
+      })
+
+      await serve(mock_config)
+
+      // Fire all requests rapidly without awaiting each individually
+      const promises = requests.map(req => subscribe_callback!(JSON.stringify(req)))
+
+      // Wait for all to complete
+      await Promise.all(promises)
+
+      // Verify all requests were handled
+      expect(mock_execute_handler).toHaveBeenCalledTimes(request_count)
+
+      // Verify all responses were published to correct channels
+      requests.forEach((req, i) => {
+        expect(mock_publish).toHaveBeenCalledWith(
+          `/live-lambda/response/${req.request_id}`,
+          [{ statusCode: 200, body: `response-${i}` }]
+        )
+      })
+    })
+
+    it('should handle very large payload', async () => {
+      // Create a 6MB payload (Lambda max is 6MB for synchronous invocations)
+      const large_body = 'x'.repeat(6 * 1024 * 1024)
+      const large_payload = JSON.stringify({
+        request_id: 'large-payload-123',
+        event_payload: {
+          body: large_body,
+          headers: { 'content-type': 'application/octet-stream' }
+        },
+        context: { function_name: 'large-handler' }
+      })
+
+      const large_response = { statusCode: 200, body: large_body }
+      mock_execute_handler.mockResolvedValue(large_response)
+
+      let subscribe_callback: ((payload: string) => Promise<any>) | undefined
+      mock_subscribe.mockImplementation((channel: string, callback: (payload: string) => Promise<any>) => {
+        subscribe_callback = callback
+        return Promise.resolve()
+      })
+
+      await serve(mock_config)
+      await subscribe_callback!(large_payload)
+
+      // Verify the large event was passed to the handler
+      expect(mock_execute_handler).toHaveBeenCalledWith(
+        expect.objectContaining({ body: large_body }),
+        expect.any(Object)
+      )
+
+      // Verify the large response was published
+      expect(mock_publish).toHaveBeenCalledWith(
+        '/live-lambda/response/large-payload-123',
+        [large_response]
+      )
+    })
+  })
 })
