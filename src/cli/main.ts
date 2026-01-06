@@ -160,19 +160,18 @@ function extract_server_config(deployment: DeployResult) {
     (stack) => stack.stackName === LAYER_STACK_NAME
   )
 
-  // Validate required stacks exist
-  const missing_stacks: string[] = []
-  if (!events) missing_stacks.push(APPSYNC_STACK_NAME)
-  if (!layer) missing_stacks.push(LAYER_STACK_NAME)
-
-  if (missing_stacks.length > 0) {
+  // Validate required stacks exist - use direct check for TypeScript narrowing
+  if (!events || !layer) {
+    const missing_stacks: string[] = []
+    if (!events) missing_stacks.push(APPSYNC_STACK_NAME)
+    if (!layer) missing_stacks.push(LAYER_STACK_NAME)
     throw new ServerConfigError(
       `Missing required stacks: ${missing_stacks.join(', ')}. ` +
         `Ensure 'LiveLambda.install(app)' is called in your CDK app and all stacks deployed successfully.`
     )
   }
 
-  // Extract values
+  // Extract values - events and layer are now guaranteed to be defined
   const region = events.environment?.region
   const http = events.outputs[OUTPUT_EVENT_API_HTTP_HOST]
   const realtime = events.outputs[OUTPUT_EVENT_API_REALTIME_HOST]
