@@ -16,10 +16,12 @@ const {
   mock_from_cdk_app,
   mock_serve,
   mock_cleanup,
+  mock_set_emitter,
   mock_read_file_sync,
   mock_chokidar_watch,
   mock_watcher_on,
-  mock_logger
+  mock_logger,
+  mock_run_deploy_with_ui
 } = vi.hoisted(() => ({
   mock_deploy: vi.fn(),
   mock_destroy: vi.fn(),
@@ -27,6 +29,7 @@ const {
   mock_from_cdk_app: vi.fn(),
   mock_serve: vi.fn(),
   mock_cleanup: vi.fn(),
+  mock_set_emitter: vi.fn(),
   mock_read_file_sync: vi.fn(),
   mock_chokidar_watch: vi.fn(),
   mock_watcher_on: vi.fn(),
@@ -36,7 +39,8 @@ const {
     debug: vi.fn(),
     start: vi.fn(),
     warn: vi.fn()
-  }
+  },
+  mock_run_deploy_with_ui: vi.fn()
 }))
 
 // Mock dependencies
@@ -66,9 +70,25 @@ vi.mock('../cdk/toolkit/iohost.js', () => {
   return {
     CustomIoHost: vi.fn().mockImplementation(function () {
       return {
-        cleanup: mock_cleanup
+        cleanup: mock_cleanup,
+        set_emitter: mock_set_emitter
       }
     })
+  }
+})
+
+vi.mock('./listr-deploy.js', () => {
+  return {
+    DeployEventEmitter: vi.fn().mockImplementation(function () {
+      return { emit: vi.fn(), on: vi.fn() }
+    }),
+    run_deploy_with_ui: mock_run_deploy_with_ui
+  }
+})
+
+vi.mock('./output-table.js', () => {
+  return {
+    format_project_outputs: vi.fn().mockReturnValue('Mock table output')
   }
 })
 
@@ -101,7 +121,6 @@ import * as toolkit_lib from '@aws-cdk/toolkit-lib'
 import * as iohost_module from '../cdk/toolkit/iohost.js'
 
 describe('main', () => {
-  const mock_assembly = { mockAssembly: true }
   let original_process_on: typeof process.on
   let sigint_handler: (() => Promise<void>) | null = null
   let sigterm_handler: (() => Promise<void>) | null = null
@@ -115,6 +134,16 @@ describe('main', () => {
   function create_mock_deployment(stacks: any[] = []) {
     return {
       stacks
+    }
+  }
+
+  function create_mock_assembly(stacks: any[] = []) {
+    return {
+      produce: vi.fn().mockResolvedValue({
+        cloudAssembly: {
+          stacks: stacks.map((s) => ({ stackName: s.stackName }))
+        }
+      })
     }
   }
 
@@ -148,11 +177,18 @@ describe('main', () => {
 
     // Default mock implementations
     mock_read_file_sync.mockReturnValue(create_default_cdk_json())
-    mock_from_cdk_app.mockResolvedValue(mock_assembly)
+    mock_from_cdk_app.mockResolvedValue(create_mock_assembly())
     mock_deploy.mockResolvedValue(create_mock_deployment())
     mock_destroy.mockResolvedValue(undefined)
     mock_watch.mockResolvedValue(undefined)
     mock_serve.mockResolvedValue(undefined)
+
+    // run_deploy_with_ui calls the deploy_fn and returns its result
+    mock_run_deploy_with_ui.mockImplementation(
+      async (_stack_names: string[], _emitter: any, deploy_fn: () => Promise<any>) => {
+        return await deploy_fn()
+      }
+    )
   })
 
   afterEach(() => {
@@ -162,24 +198,24 @@ describe('main', () => {
   describe('cdk.json configuration', () => {
     it('should read cdk.json configuration', async () => {
       const command = create_mock_command('start')
-      mock_deploy.mockResolvedValue(
-        create_mock_deployment([
-          {
-            stackName: APPSYNC_STACK_NAME,
-            environment: { region: 'us-east-1' },
-            outputs: {
-              [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host',
-              [OUTPUT_EVENT_API_REALTIME_HOST]: 'realtime-host'
-            }
-          },
-          {
-            stackName: LAYER_STACK_NAME,
-            outputs: {
-              [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]: 'arn:aws:lambda:us-east-1:123:layer:test:1'
-            }
+      const stacks = [
+        {
+          stackName: APPSYNC_STACK_NAME,
+          environment: { region: 'us-east-1' },
+          outputs: {
+            [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host',
+            [OUTPUT_EVENT_API_REALTIME_HOST]: 'realtime-host'
           }
-        ])
-      )
+        },
+        {
+          stackName: LAYER_STACK_NAME,
+          outputs: {
+            [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]: 'arn:aws:lambda:us-east-1:123:layer:test:1'
+          }
+        }
+      ]
+      mock_from_cdk_app.mockResolvedValue(create_mock_assembly(stacks))
+      mock_deploy.mockResolvedValue(create_mock_deployment(stacks))
 
       await main(command)
 
@@ -195,24 +231,24 @@ describe('main', () => {
         })
       )
       const command = create_mock_command('start')
-      mock_deploy.mockResolvedValue(
-        create_mock_deployment([
-          {
-            stackName: APPSYNC_STACK_NAME,
-            environment: { region: 'us-east-1' },
-            outputs: {
-              [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host',
-              [OUTPUT_EVENT_API_REALTIME_HOST]: 'realtime-host'
-            }
-          },
-          {
-            stackName: LAYER_STACK_NAME,
-            outputs: {
-              [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]: 'arn:aws:lambda:us-east-1:123:layer:test:1'
-            }
+      const stacks = [
+        {
+          stackName: APPSYNC_STACK_NAME,
+          environment: { region: 'us-east-1' },
+          outputs: {
+            [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host',
+            [OUTPUT_EVENT_API_REALTIME_HOST]: 'realtime-host'
           }
-        ])
-      )
+        },
+        {
+          stackName: LAYER_STACK_NAME,
+          outputs: {
+            [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]: 'arn:aws:lambda:us-east-1:123:layer:test:1'
+          }
+        }
+      ]
+      mock_from_cdk_app.mockResolvedValue(create_mock_assembly(stacks))
+      mock_deploy.mockResolvedValue(create_mock_deployment(stacks))
 
       await main(command)
 
@@ -223,24 +259,25 @@ describe('main', () => {
   describe('start command', () => {
     it('should call deploy for start command', async () => {
       const command = create_mock_command('start')
-      mock_deploy.mockResolvedValue(
-        create_mock_deployment([
-          {
-            stackName: APPSYNC_STACK_NAME,
-            environment: { region: 'us-east-1' },
-            outputs: {
-              [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host',
-              [OUTPUT_EVENT_API_REALTIME_HOST]: 'realtime-host'
-            }
-          },
-          {
-            stackName: LAYER_STACK_NAME,
-            outputs: {
-              [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]: 'arn:aws:lambda:us-east-1:123:layer:test:1'
-            }
+      const stacks = [
+        {
+          stackName: APPSYNC_STACK_NAME,
+          environment: { region: 'us-east-1' },
+          outputs: {
+            [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host',
+            [OUTPUT_EVENT_API_REALTIME_HOST]: 'realtime-host'
           }
-        ])
-      )
+        },
+        {
+          stackName: LAYER_STACK_NAME,
+          outputs: {
+            [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]: 'arn:aws:lambda:us-east-1:123:layer:test:1'
+          }
+        }
+      ]
+      const mock_assembly = create_mock_assembly(stacks)
+      mock_from_cdk_app.mockResolvedValue(mock_assembly)
+      mock_deploy.mockResolvedValue(create_mock_deployment(stacks))
 
       await main(command)
 
@@ -255,25 +292,25 @@ describe('main', () => {
 
     it('should start server after deployment', async () => {
       const command = create_mock_command('start')
-      mock_deploy.mockResolvedValue(
-        create_mock_deployment([
-          {
-            stackName: APPSYNC_STACK_NAME,
-            environment: { region: 'us-east-1' },
-            outputs: {
-              [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host.appsync.aws',
-              [OUTPUT_EVENT_API_REALTIME_HOST]: 'realtime-host.appsync.aws'
-            }
-          },
-          {
-            stackName: LAYER_STACK_NAME,
-            outputs: {
-              [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]:
-                'arn:aws:lambda:us-east-1:123456789012:layer:LiveLambdaProxy:1'
-            }
+      const stacks = [
+        {
+          stackName: APPSYNC_STACK_NAME,
+          environment: { region: 'us-east-1' },
+          outputs: {
+            [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host.appsync.aws',
+            [OUTPUT_EVENT_API_REALTIME_HOST]: 'realtime-host.appsync.aws'
           }
-        ])
-      )
+        },
+        {
+          stackName: LAYER_STACK_NAME,
+          outputs: {
+            [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]:
+              'arn:aws:lambda:us-east-1:123456789012:layer:LiveLambdaProxy:1'
+          }
+        }
+      ]
+      mock_from_cdk_app.mockResolvedValue(create_mock_assembly(stacks))
+      mock_deploy.mockResolvedValue(create_mock_deployment(stacks))
 
       await main(command)
 
@@ -295,24 +332,25 @@ describe('main', () => {
         })
       )
       const command = create_mock_command('start')
-      mock_deploy.mockResolvedValue(
-        create_mock_deployment([
-          {
-            stackName: APPSYNC_STACK_NAME,
-            environment: { region: 'us-east-1' },
-            outputs: {
-              [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host',
-              [OUTPUT_EVENT_API_REALTIME_HOST]: 'realtime-host'
-            }
-          },
-          {
-            stackName: LAYER_STACK_NAME,
-            outputs: {
-              [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]: 'arn:aws:lambda:us-east-1:123:layer:test:1'
-            }
+      const stacks = [
+        {
+          stackName: APPSYNC_STACK_NAME,
+          environment: { region: 'us-east-1' },
+          outputs: {
+            [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host',
+            [OUTPUT_EVENT_API_REALTIME_HOST]: 'realtime-host'
           }
-        ])
-      )
+        },
+        {
+          stackName: LAYER_STACK_NAME,
+          outputs: {
+            [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]: 'arn:aws:lambda:us-east-1:123:layer:test:1'
+          }
+        }
+      ]
+      const mock_assembly = create_mock_assembly(stacks)
+      mock_from_cdk_app.mockResolvedValue(mock_assembly)
+      mock_deploy.mockResolvedValue(create_mock_deployment(stacks))
 
       await main(command)
 
@@ -327,24 +365,24 @@ describe('main', () => {
 
     it('should set up file watcher with chokidar', async () => {
       const command = create_mock_command('start')
-      mock_deploy.mockResolvedValue(
-        create_mock_deployment([
-          {
-            stackName: APPSYNC_STACK_NAME,
-            environment: { region: 'us-east-1' },
-            outputs: {
-              [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host',
-              [OUTPUT_EVENT_API_REALTIME_HOST]: 'realtime-host'
-            }
-          },
-          {
-            stackName: LAYER_STACK_NAME,
-            outputs: {
-              [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]: 'arn:aws:lambda:us-east-1:123:layer:test:1'
-            }
+      const stacks = [
+        {
+          stackName: APPSYNC_STACK_NAME,
+          environment: { region: 'us-east-1' },
+          outputs: {
+            [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host',
+            [OUTPUT_EVENT_API_REALTIME_HOST]: 'realtime-host'
           }
-        ])
-      )
+        },
+        {
+          stackName: LAYER_STACK_NAME,
+          outputs: {
+            [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]: 'arn:aws:lambda:us-east-1:123:layer:test:1'
+          }
+        }
+      ]
+      mock_from_cdk_app.mockResolvedValue(create_mock_assembly(stacks))
+      mock_deploy.mockResolvedValue(create_mock_deployment(stacks))
 
       await main(command)
 
@@ -355,6 +393,8 @@ describe('main', () => {
   describe('destroy command', () => {
     it('should call destroy for destroy command', async () => {
       const command = create_mock_command('destroy')
+      const mock_assembly = create_mock_assembly()
+      mock_from_cdk_app.mockResolvedValue(mock_assembly)
 
       await main(command)
 
@@ -389,27 +429,27 @@ describe('main', () => {
   describe('server config extraction', () => {
     it('should extract server config from deployment outputs', async () => {
       const command = create_mock_command('start')
-      mock_deploy.mockResolvedValue(
-        create_mock_deployment([
-          {
-            stackName: APPSYNC_STACK_NAME,
-            environment: { region: 'eu-west-1' },
-            outputs: {
-              [OUTPUT_EVENT_API_HTTP_HOST]:
-                'abc123.appsync-api.eu-west-1.amazonaws.com',
-              [OUTPUT_EVENT_API_REALTIME_HOST]:
-                'abc123.appsync-realtime.eu-west-1.amazonaws.com'
-            }
-          },
-          {
-            stackName: LAYER_STACK_NAME,
-            outputs: {
-              [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]:
-                'arn:aws:lambda:eu-west-1:123456789012:layer:LiveLambdaProxy:5'
-            }
+      const stacks = [
+        {
+          stackName: APPSYNC_STACK_NAME,
+          environment: { region: 'eu-west-1' },
+          outputs: {
+            [OUTPUT_EVENT_API_HTTP_HOST]:
+              'abc123.appsync-api.eu-west-1.amazonaws.com',
+            [OUTPUT_EVENT_API_REALTIME_HOST]:
+              'abc123.appsync-realtime.eu-west-1.amazonaws.com'
           }
-        ])
-      )
+        },
+        {
+          stackName: LAYER_STACK_NAME,
+          outputs: {
+            [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]:
+              'arn:aws:lambda:eu-west-1:123456789012:layer:LiveLambdaProxy:5'
+          }
+        }
+      ]
+      mock_from_cdk_app.mockResolvedValue(create_mock_assembly(stacks))
+      mock_deploy.mockResolvedValue(create_mock_deployment(stacks))
 
       await main(command)
 
@@ -424,19 +464,19 @@ describe('main', () => {
 
     it('should throw ServerConfigError when AppSync stack outputs are missing', async () => {
       const command = create_mock_command('start')
-      mock_deploy.mockResolvedValue(
-        create_mock_deployment([
-          {
-            stackName: APPSYNC_STACK_NAME,
-            environment: { region: 'us-east-1' },
-            outputs: {}
-          },
-          {
-            stackName: LAYER_STACK_NAME,
-            outputs: {}
-          }
-        ])
-      )
+      const stacks = [
+        {
+          stackName: APPSYNC_STACK_NAME,
+          environment: { region: 'us-east-1' },
+          outputs: {}
+        },
+        {
+          stackName: LAYER_STACK_NAME,
+          outputs: {}
+        }
+      ]
+      mock_from_cdk_app.mockResolvedValue(create_mock_assembly(stacks))
+      mock_deploy.mockResolvedValue(create_mock_deployment(stacks))
 
       await main(command)
 
@@ -453,6 +493,7 @@ describe('main', () => {
 
     it('should throw ServerConfigError when stacks are missing from deployment', async () => {
       const command = create_mock_command('start')
+      mock_from_cdk_app.mockResolvedValue(create_mock_assembly([]))
       mock_deploy.mockResolvedValue(create_mock_deployment([]))
 
       await main(command)
@@ -470,6 +511,7 @@ describe('main', () => {
 
     it('should list all missing stacks in error message', async () => {
       const command = create_mock_command('start')
+      mock_from_cdk_app.mockResolvedValue(create_mock_assembly([]))
       mock_deploy.mockResolvedValue(create_mock_deployment([]))
 
       await main(command)
@@ -485,22 +527,22 @@ describe('main', () => {
 
     it('should list all missing outputs in error message', async () => {
       const command = create_mock_command('start')
-      mock_deploy.mockResolvedValue(
-        create_mock_deployment([
-          {
-            stackName: APPSYNC_STACK_NAME,
-            environment: { region: 'us-east-1' },
-            outputs: {
-              [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host'
-              // Missing realtime host
-            }
-          },
-          {
-            stackName: LAYER_STACK_NAME,
-            outputs: {} // Missing layer ARN
+      const stacks = [
+        {
+          stackName: APPSYNC_STACK_NAME,
+          environment: { region: 'us-east-1' },
+          outputs: {
+            [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host'
+            // Missing realtime host
           }
-        ])
-      )
+        },
+        {
+          stackName: LAYER_STACK_NAME,
+          outputs: {} // Missing layer ARN
+        }
+      ]
+      mock_from_cdk_app.mockResolvedValue(create_mock_assembly(stacks))
+      mock_deploy.mockResolvedValue(create_mock_deployment(stacks))
 
       await main(command)
 

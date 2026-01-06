@@ -17,6 +17,11 @@ import {
   OUTPUT_EVENT_API_HTTP_HOST,
   OUTPUT_EVENT_API_REALTIME_HOST
 } from '../lib/constants.js'
+import {
+  DeployEventEmitter,
+  run_deploy_with_ui
+} from './listr-deploy.js'
+import { format_project_outputs } from './output-table.js'
 
 const CDK_OUTPUTS_FILE = 'cdk.out/outputs.json'
 const MAX_CONCURRENCY = 5
@@ -54,7 +59,7 @@ export async function main(command: Command) {
 
     if (command_name === 'start') {
       try {
-        await run_server(cdk, assembly, watch_config)
+        await run_server(cdk, assembly, watch_config, custom_io_host)
       } catch (error) {
         // Attempt to destroy stacks on error during start, then re-run server
         // This might be specific to your workflow, adjust as needed
@@ -63,7 +68,7 @@ export async function main(command: Command) {
           error
         )
         await destroy_stacks(cdk, assembly)
-        await run_server(cdk, assembly, watch_config)
+        await run_server(cdk, assembly, watch_config, custom_io_host)
       }
     }
 
@@ -82,9 +87,10 @@ export async function main(command: Command) {
 async function run_server(
   cdk: Toolkit,
   assembly: ICloudAssemblySource,
-  watch_config: any
+  watch_config: any,
+  custom_io_host: CustomIoHost
 ): Promise<void> {
-  const deployment = await deploy_stacks(cdk, assembly)
+  const deployment = await deploy_stacks(cdk, assembly, custom_io_host)
 
   const config = extract_server_config(deployment)
   await serve(config)
@@ -111,14 +117,41 @@ async function watch_file_changes(
     // await deploy_stacks(cdk, assembly)
   })
 }
-async function deploy_stacks(cdk: Toolkit, assembly: ICloudAssemblySource) {
-  return cdk.deploy(assembly, {
-    outputsFile: CDK_OUTPUTS_FILE,
-    concurrency: MAX_CONCURRENCY,
-    deploymentMethod: {
-      method: 'change-set'
-    }
-  })
+async function deploy_stacks(
+  cdk: Toolkit,
+  assembly: ICloudAssemblySource,
+  custom_io_host: CustomIoHost
+): Promise<DeployResult> {
+  // Get stack names from the cloud assembly
+  const cloud_assembly = await assembly.produce()
+  const stack_names = cloud_assembly.cloudAssembly.stacks.map(
+    (s) => s.stackName
+  )
+
+  // Create emitter and connect to iohost
+  const emitter = new DeployEventEmitter()
+  custom_io_host.set_emitter(emitter)
+
+  try {
+    // Run deployment with Listr2 UI
+    const result = await run_deploy_with_ui(stack_names, emitter, () =>
+      cdk.deploy(assembly, {
+        outputsFile: CDK_OUTPUTS_FILE,
+        concurrency: MAX_CONCURRENCY,
+        deploymentMethod: {
+          method: 'change-set'
+        }
+      })
+    )
+
+    // Display project outputs in table format
+    console.log('\n' + format_project_outputs(result))
+
+    return result
+  } finally {
+    // Disconnect emitter to restore normal output
+    custom_io_host.set_emitter(null)
+  }
 }
 
 async function destroy_stacks(cdk: Toolkit, assembly: ICloudAssemblySource) {
