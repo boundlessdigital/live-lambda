@@ -37,6 +37,8 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run TypeScript check
         run: pnpm exec tsc --noEmit
