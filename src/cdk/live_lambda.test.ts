@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import * as cdk from 'aws-cdk-lib'
 import { Template, Match } from 'aws-cdk-lib/assertions'
 import * as lambda from 'aws-cdk-lib/aws-lambda'
-import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
+import { NodejsFunction, LogLevel } from 'aws-cdk-lib/aws-lambda-nodejs'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
@@ -70,7 +70,8 @@ describe('LiveLambda.install()', () => {
       test_function = new NodejsFunction(app_stack, 'TestFunction', {
         entry: entry_file_path,
         handler: 'handler',
-        runtime: lambda.Runtime.NODEJS_20_X
+        runtime: lambda.Runtime.NODEJS_20_X,
+        bundling: { logLevel: LogLevel.SILENT }
       })
     }
 
@@ -285,7 +286,8 @@ describe('LiveLambda.install()', () => {
       new NodejsFunction(app_stack, 'TestFunction', {
         entry: entry_file_path,
         handler: 'handler',
-        runtime: lambda.Runtime.NODEJS_20_X
+        runtime: lambda.Runtime.NODEJS_20_X,
+        bundling: { logLevel: LogLevel.SILENT }
       })
 
       app.synth()

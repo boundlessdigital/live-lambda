@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import * as cdk from 'aws-cdk-lib'
 import { Template, Match } from 'aws-cdk-lib/assertions'
 import * as lambda from 'aws-cdk-lib/aws-lambda'
 import * as appsync from 'aws-cdk-lib/aws-appsync'
 import * as ssm from 'aws-cdk-lib/aws-ssm'
-import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
+import { NodejsFunction, LogLevel } from 'aws-cdk-lib/aws-lambda-nodejs'
 import { Construct } from 'constructs'
 import * as fs from 'fs'
 import * as path from 'path'
@@ -133,7 +133,8 @@ describe('LiveLambdaLayerAspect', () => {
     const test_function = new NodejsFunction(app_stack, function_id, {
       entry: entry_file_path,
       handler: 'handler',
-      runtime: lambda.Runtime.NODEJS_20_X
+      runtime: lambda.Runtime.NODEJS_20_X,
+      bundling: { logLevel: LogLevel.SILENT }
     })
 
     // Create and apply aspect
@@ -361,7 +362,8 @@ describe('LiveLambdaLayerAspect', () => {
       new NodejsFunction(target_stack, options.function_id, {
         entry: entry_file_path,
         handler: 'handler',
-        runtime: lambda.Runtime.NODEJS_20_X
+        runtime: lambda.Runtime.NODEJS_20_X,
+        bundling: { logLevel: LogLevel.SILENT }
       })
 
       const aspect = new LiveLambdaLayerAspect({
@@ -483,7 +485,8 @@ describe('LiveLambdaLayerAspect', () => {
       new NodejsFunction(app_stack, 'OtherFunction', {
         entry: entry_file_path,
         handler: 'handler',
-        runtime: lambda.Runtime.NODEJS_20_X
+        runtime: lambda.Runtime.NODEJS_20_X,
+        bundling: { logLevel: LogLevel.SILENT }
       })
 
       const aspect = new LiveLambdaLayerAspect({
@@ -541,7 +544,8 @@ describe('LiveLambdaLayerAspect', () => {
       new NodejsFunction(app_stack, 'AdminHandler', {
         entry: entry_file_path,
         handler: 'handler',
-        runtime: lambda.Runtime.NODEJS_20_X
+        runtime: lambda.Runtime.NODEJS_20_X,
+        bundling: { logLevel: LogLevel.SILENT }
       })
 
       const aspect = new LiveLambdaLayerAspect({
@@ -601,19 +605,22 @@ describe('LiveLambdaLayerAspect', () => {
       new NodejsFunction(app_stack, 'ApiHandler', {
         entry: entry_file_path,
         handler: 'handler',
-        runtime: lambda.Runtime.NODEJS_20_X
+        runtime: lambda.Runtime.NODEJS_20_X,
+        bundling: { logLevel: LogLevel.SILENT }
       })
 
       new NodejsFunction(app_stack, 'ApiAdminHandler', {
         entry: entry_file_path,
         handler: 'handler',
-        runtime: lambda.Runtime.NODEJS_20_X
+        runtime: lambda.Runtime.NODEJS_20_X,
+        bundling: { logLevel: LogLevel.SILENT }
       })
 
       new NodejsFunction(app_stack, 'WorkerFunction', {
         entry: entry_file_path,
         handler: 'handler',
-        runtime: lambda.Runtime.NODEJS_20_X
+        runtime: lambda.Runtime.NODEJS_20_X,
+        bundling: { logLevel: LogLevel.SILENT }
       })
 
       const aspect = new LiveLambdaLayerAspect({
@@ -690,13 +697,15 @@ describe('LiveLambdaLayerAspect', () => {
       new NodejsFunction(app_stack, 'Function1', {
         entry: entry_file_path,
         handler: 'handler',
-        runtime: lambda.Runtime.NODEJS_20_X
+        runtime: lambda.Runtime.NODEJS_20_X,
+        bundling: { logLevel: LogLevel.SILENT }
       })
 
       new NodejsFunction(app_stack, 'Function2', {
         entry: entry_file_path,
         handler: 'handler',
-        runtime: lambda.Runtime.NODEJS_20_X
+        runtime: lambda.Runtime.NODEJS_20_X,
+        bundling: { logLevel: LogLevel.SILENT }
       })
 
       const aspect = new LiveLambdaLayerAspect({

@@ -122,6 +122,7 @@ import * as iohost_module from '../cdk/toolkit/iohost.js'
 
 describe('main', () => {
   let original_process_on: typeof process.on
+  let console_log_spy: ReturnType<typeof vi.spyOn>
   let sigint_handler: (() => Promise<void>) | null = null
   let sigterm_handler: (() => Promise<void>) | null = null
 
@@ -160,6 +161,9 @@ describe('main', () => {
   beforeEach(() => {
     vi.clearAllMocks()
 
+    // Suppress console.log output during tests
+    console_log_spy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
     // Capture signal handlers
     original_process_on = process.on
     sigint_handler = null
@@ -193,6 +197,7 @@ describe('main', () => {
 
   afterEach(() => {
     process.on = original_process_on
+    console_log_spy.mockRestore()
   })
 
   describe('cdk.json configuration', () => {
