@@ -11,7 +11,7 @@ require (
 
 require (
 	github.com/boundlessdigital/aws-appsync-events-websockets-client-go v0.2.1
-	github.com/go-chi/chi/v5 v5.2.1
+	github.com/go-chi/chi/v5 v5.2.2
 )
 
 require (
