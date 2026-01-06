@@ -3,21 +3,23 @@ import {
   GetFunctionConfigurationCommand
 } from '@aws-sdk/client-lambda'
 import { fromTemporaryCredentials } from '@aws-sdk/credential-providers'
+import type { APIGatewayProxyEventV2 } from 'aws-lambda'
 import * as path from 'path'
 import { LambdaContext } from './types.js'
 import * as fs from 'fs'
 import * as esbuild from 'esbuild'
 import * as os from 'os'
 import { logger } from '../lib/logger.js'
+
 export interface ExecuteHandlerOptions {
   region: string
   function_arn: string
-  event: AWSLambda.APIGatewayProxyEventV2
+  event: APIGatewayProxyEventV2
   context: LambdaContext
 }
 
 export async function execute_handler(
-  event: AWSLambda.APIGatewayProxyEventV2,
+  event: APIGatewayProxyEventV2,
   context: LambdaContext
 ) {
   logger.trace('Received event:', JSON.stringify(event, null, 2))

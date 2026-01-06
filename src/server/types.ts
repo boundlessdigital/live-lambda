@@ -1,3 +1,5 @@
+import type { APIGatewayProxyEventV2 } from 'aws-lambda'
+
 export interface ServerConfig {
   region: string
   http: string
@@ -9,7 +11,7 @@ export interface ServerConfig {
 export interface ProxiedLambdaInvocation {
   request_id: string // The request_id for AppSync response channel
 
-  event_payload: AWSLambda.APIGatewayProxyEventV2
+  event_payload: APIGatewayProxyEventV2
   context: LambdaContext
 }
 

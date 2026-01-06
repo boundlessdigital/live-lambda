@@ -10,6 +10,13 @@ import * as fs from 'fs'
 import chokidar from 'chokidar'
 import { CustomIoHost } from '../cdk/toolkit/iohost.js'
 import { logger } from '../lib/logger.js'
+import {
+  APPSYNC_STACK_NAME,
+  LAYER_STACK_NAME,
+  OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN,
+  OUTPUT_EVENT_API_HTTP_HOST,
+  OUTPUT_EVENT_API_REALTIME_HOST
+} from '../lib/constants.js'
 
 const CDK_OUTPUTS_FILE = 'cdk.out/outputs.json'
 const MAX_CONCURRENCY = 5
@@ -139,19 +146,19 @@ async function watch_stacks(
 
 function extract_server_config(deployment: DeployResult) {
   const events = deployment.stacks.find(
-    (stack) => stack.stackName === 'AppSyncStack'
+    (stack) => stack.stackName === APPSYNC_STACK_NAME
   )
 
   const layer = deployment.stacks.find(
-    (stack) => stack.stackName === 'LiveLambda-LayerStack'
+    (stack) => stack.stackName === LAYER_STACK_NAME
   )
 
   const region = events?.environment?.region as string
 
   return {
     region,
-    http: events?.outputs['LiveLambdaEventApiHttpHost'] as string,
-    realtime: events?.outputs['LiveLambdaEventApiRealtimeHost'] as string,
-    layer_arn: layer?.outputs['LiveLambdaProxyLayerArn'] as string
+    http: events?.outputs[OUTPUT_EVENT_API_HTTP_HOST] as string,
+    realtime: events?.outputs[OUTPUT_EVENT_API_REALTIME_HOST] as string,
+    layer_arn: layer?.outputs[OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN] as string
   }
 }

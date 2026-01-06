@@ -9,7 +9,14 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],
       include: ['src/**/*.ts'],
-      exclude: ['src/**/*.test.ts', 'src/cdk/layer/**']
+      exclude: [
+        'src/**/*.test.ts',
+        'src/cdk/layer/**',
+        'src/**/types.ts',       // Type-only files have no runtime code
+        'src/cli/index.ts',      // CLI entry point (Commander.js wiring)
+        'src/cdk/toolkit/**',    // CDK Toolkit I/O customization
+        'src/index.ts'           // Re-export barrel file
+      ]
     },
     testTimeout: 30000,
     hookTimeout: 30000

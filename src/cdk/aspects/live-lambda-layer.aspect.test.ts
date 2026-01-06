@@ -13,6 +13,14 @@ import {
   LiveLambdaLayerAspect,
   LiveLambdaLayerAspectProps
 } from './live-lambda-layer.aspect.js'
+import {
+  LAYER_VERSION_NAME,
+  LAYER_ARN_SSM_PARAMETER,
+  LAYER_DESCRIPTION,
+  ENV_LAMBDA_EXEC_WRAPPER,
+  ENV_LRAP_LISTENER_PORT,
+  ENV_EXTENSION_NAME
+} from '../../lib/constants.js'
 
 /**
  * Test version of the LiveLambdaLayerStack that uses fromAsset with a temp directory
@@ -29,19 +37,18 @@ class TestableLayerStack extends cdk.Stack {
   ) {
     super(scope, id, props)
 
-    this.layer_arn_ssm_parameter = `/live-lambda/layer/arn`
+    this.layer_arn_ssm_parameter = LAYER_ARN_SSM_PARAMETER
 
     const logical_id = 'LiveLambdaProxyLayer'
 
     this.layer = new lambda.LayerVersion(this, logical_id, {
-      layerVersionName: 'live-lambda-proxy',
+      layerVersionName: LAYER_VERSION_NAME,
       code: lambda.Code.fromAsset(props.asset_path),
       compatibleArchitectures: [
         lambda.Architecture.ARM_64,
         lambda.Architecture.X86_64
       ],
-      description:
-        'Conditionally forwards Lambda invocations to AppSync for live development.'
+      description: LAYER_DESCRIPTION
     })
 
     new cdk.CfnOutput(this, 'LiveLambdaProxyLayerArn', {
@@ -239,7 +246,7 @@ describe('LiveLambdaLayerAspect', () => {
       template.hasResourceProperties('AWS::Lambda::Function', {
         Environment: {
           Variables: Match.objectLike({
-            AWS_LAMBDA_EXEC_WRAPPER: '/opt/live-lambda-runtime-wrapper.sh'
+            AWS_LAMBDA_EXEC_WRAPPER: ENV_LAMBDA_EXEC_WRAPPER
           })
         }
       })
@@ -251,7 +258,7 @@ describe('LiveLambdaLayerAspect', () => {
       template.hasResourceProperties('AWS::Lambda::Function', {
         Environment: {
           Variables: Match.objectLike({
-            LRAP_LISTENER_PORT: '8082'
+            LRAP_LISTENER_PORT: ENV_LRAP_LISTENER_PORT
           })
         }
       })
@@ -263,7 +270,7 @@ describe('LiveLambdaLayerAspect', () => {
       template.hasResourceProperties('AWS::Lambda::Function', {
         Environment: {
           Variables: Match.objectLike({
-            AWS_LAMBDA_EXTENSION_NAME: 'live-lambda-extension'
+            AWS_LAMBDA_EXTENSION_NAME: ENV_EXTENSION_NAME
           })
         }
       })
@@ -380,9 +387,7 @@ describe('LiveLambdaLayerAspect', () => {
       const fn = functions[function_keys[0]]
       // Function should not have Environment.Variables.AWS_LAMBDA_EXEC_WRAPPER
       const env_vars = fn.Properties?.Environment?.Variables
-      expect(
-        env_vars?.AWS_LAMBDA_EXEC_WRAPPER !== '/opt/live-lambda-runtime-wrapper.sh'
-      ).toBe(true)
+      expect(env_vars?.AWS_LAMBDA_EXEC_WRAPPER).toBeUndefined()
     })
 
     it('should skip functions in SSTBootstrap stacks', () => {
@@ -423,9 +428,7 @@ describe('LiveLambdaLayerAspect', () => {
 
       const fn = functions[function_keys[0]]
       const env_vars = fn.Properties?.Environment?.Variables
-      expect(
-        env_vars?.AWS_LAMBDA_EXEC_WRAPPER !== '/opt/live-lambda-runtime-wrapper.sh'
-      ).toBe(true)
+      expect(env_vars?.AWS_LAMBDA_EXEC_WRAPPER).toBeUndefined()
     })
 
     it('should skip functions in CDKToolkit stacks', () => {
@@ -466,9 +469,7 @@ describe('LiveLambdaLayerAspect', () => {
 
       const fn = functions[function_keys[0]]
       const env_vars = fn.Properties?.Environment?.Variables
-      expect(
-        env_vars?.AWS_LAMBDA_EXEC_WRAPPER !== '/opt/live-lambda-runtime-wrapper.sh'
-      ).toBe(true)
+      expect(env_vars?.AWS_LAMBDA_EXEC_WRAPPER).toBeUndefined()
     })
 
     it('should skip CustomResourceHandler functions', () => {
@@ -509,9 +510,7 @@ describe('LiveLambdaLayerAspect', () => {
 
       const fn = functions[function_keys[0]]
       const env_vars = fn.Properties?.Environment?.Variables
-      expect(
-        env_vars?.AWS_LAMBDA_EXEC_WRAPPER !== '/opt/live-lambda-runtime-wrapper.sh'
-      ).toBe(true)
+      expect(env_vars?.AWS_LAMBDA_EXEC_WRAPPER).toBeUndefined()
     })
 
     it('should skip LogRetention functions', () => {
@@ -552,9 +551,7 @@ describe('LiveLambdaLayerAspect', () => {
 
       const fn = functions[function_keys[0]]
       const env_vars = fn.Properties?.Environment?.Variables
-      expect(
-        env_vars?.AWS_LAMBDA_EXEC_WRAPPER !== '/opt/live-lambda-runtime-wrapper.sh'
-      ).toBe(true)
+      expect(env_vars?.AWS_LAMBDA_EXEC_WRAPPER).toBeUndefined()
     })
 
     it('should skip SingletonLambda functions', () => {
@@ -595,9 +592,7 @@ describe('LiveLambdaLayerAspect', () => {
 
       const fn = functions[function_keys[0]]
       const env_vars = fn.Properties?.Environment?.Variables
-      expect(
-        env_vars?.AWS_LAMBDA_EXEC_WRAPPER !== '/opt/live-lambda-runtime-wrapper.sh'
-      ).toBe(true)
+      expect(env_vars?.AWS_LAMBDA_EXEC_WRAPPER).toBeUndefined()
     })
   })
 
@@ -612,7 +607,7 @@ describe('LiveLambdaLayerAspect', () => {
       template.hasResourceProperties('AWS::Lambda::Function', {
         Environment: {
           Variables: Match.objectLike({
-            AWS_LAMBDA_EXEC_WRAPPER: '/opt/live-lambda-runtime-wrapper.sh'
+            AWS_LAMBDA_EXEC_WRAPPER: ENV_LAMBDA_EXEC_WRAPPER
           })
         }
       })
@@ -657,9 +652,7 @@ describe('LiveLambdaLayerAspect', () => {
 
       const fn = functions[function_keys[0]]
       const env_vars = fn.Properties?.Environment?.Variables
-      expect(
-        env_vars?.AWS_LAMBDA_EXEC_WRAPPER !== '/opt/live-lambda-runtime-wrapper.sh'
-      ).toBe(true)
+      expect(env_vars?.AWS_LAMBDA_EXEC_WRAPPER).toBeUndefined()
     })
 
     it('should process all functions when no include patterns specified', () => {
@@ -672,10 +665,146 @@ describe('LiveLambdaLayerAspect', () => {
       template.hasResourceProperties('AWS::Lambda::Function', {
         Environment: {
           Variables: Match.objectLike({
-            AWS_LAMBDA_EXEC_WRAPPER: '/opt/live-lambda-runtime-wrapper.sh'
+            AWS_LAMBDA_EXEC_WRAPPER: ENV_LAMBDA_EXEC_WRAPPER
           })
         }
       })
+    })
+
+    it('should skip functions matching exclude patterns', () => {
+      const app = new cdk.App()
+      const env = { account: '123456789012', region: 'us-east-1' }
+
+      const api_stack = new cdk.Stack(app, 'ApiStack', { env })
+      const mock_api = new appsync.EventApi(api_stack, 'MockApi', {
+        apiName: 'test-api'
+      })
+
+      const layer_stack = new TestableLayerStack(app, 'TestLayerStack', {
+        env,
+        asset_path: temp_asset_dir
+      })
+
+      const app_stack = new cdk.Stack(app, 'AppStack', { env })
+      new NodejsFunction(app_stack, 'AdminHandler', {
+        entry: entry_file_path,
+        handler: 'handler',
+        runtime: lambda.Runtime.NODEJS_20_X
+      })
+
+      const aspect = new LiveLambdaLayerAspect({
+        layer_stack: layer_stack as any,
+        api: mock_api,
+        exclude_patterns: ['Admin'] // AdminHandler matches this
+      })
+      cdk.Aspects.of(app).add(aspect)
+
+      app.synth()
+
+      const template = Template.fromStack(app_stack)
+
+      // Verify that the function exists but does NOT have live-lambda env vars
+      const functions = template.findResources('AWS::Lambda::Function')
+      const function_keys = Object.keys(functions)
+      expect(function_keys.length).toBe(1)
+
+      const fn = functions[function_keys[0]]
+      const env_vars = fn.Properties?.Environment?.Variables
+      expect(env_vars?.AWS_LAMBDA_EXEC_WRAPPER).toBeUndefined()
+    })
+
+    it('should process functions not matching exclude patterns', () => {
+      const { template } = create_test_setup({
+        function_id: 'PublicApiHandler',
+        exclude_patterns: ['Admin', 'Internal']
+      })
+
+      // Function should be processed (PublicApiHandler doesn't match Admin or Internal)
+      template.hasResourceProperties('AWS::Lambda::Function', {
+        Environment: {
+          Variables: Match.objectLike({
+            AWS_LAMBDA_EXEC_WRAPPER: ENV_LAMBDA_EXEC_WRAPPER
+          })
+        }
+      })
+    })
+
+    it('should combine include and exclude patterns correctly', () => {
+      const app = new cdk.App()
+      const env = { account: '123456789012', region: 'us-east-1' }
+
+      const api_stack = new cdk.Stack(app, 'ApiStack', { env })
+      const mock_api = new appsync.EventApi(api_stack, 'MockApi', {
+        apiName: 'test-api'
+      })
+
+      const layer_stack = new TestableLayerStack(app, 'TestLayerStack', {
+        env,
+        asset_path: temp_asset_dir
+      })
+
+      const app_stack = new cdk.Stack(app, 'AppStack', { env })
+
+      // Create multiple functions
+      new NodejsFunction(app_stack, 'ApiHandler', {
+        entry: entry_file_path,
+        handler: 'handler',
+        runtime: lambda.Runtime.NODEJS_20_X
+      })
+
+      new NodejsFunction(app_stack, 'ApiAdminHandler', {
+        entry: entry_file_path,
+        handler: 'handler',
+        runtime: lambda.Runtime.NODEJS_20_X
+      })
+
+      new NodejsFunction(app_stack, 'WorkerFunction', {
+        entry: entry_file_path,
+        handler: 'handler',
+        runtime: lambda.Runtime.NODEJS_20_X
+      })
+
+      const aspect = new LiveLambdaLayerAspect({
+        layer_stack: layer_stack as any,
+        api: mock_api,
+        include_patterns: ['Api'], // Include functions with Api
+        exclude_patterns: ['Admin'] // But exclude Admin functions
+      })
+      cdk.Aspects.of(app).add(aspect)
+
+      app.synth()
+
+      const template = Template.fromStack(app_stack)
+
+      const functions = template.findResources('AWS::Lambda::Function')
+
+      // Find each function and check its configuration
+      let api_handler_processed = false
+      let api_admin_handler_processed = false
+      let worker_function_processed = false
+
+      for (const [, fn] of Object.entries(functions)) {
+        const env_vars = (fn as any).Properties?.Environment?.Variables
+        const has_wrapper = env_vars?.AWS_LAMBDA_EXEC_WRAPPER === ENV_LAMBDA_EXEC_WRAPPER
+
+        // We can identify functions by their handler output or other unique properties
+        // Since all use same handler, check the wrapper status
+        if (has_wrapper) {
+          // Only ApiHandler should be processed (matches Api, doesn't match Admin)
+          api_handler_processed = true
+        }
+      }
+
+      // At least one function should be processed
+      expect(api_handler_processed).toBe(true)
+
+      // Verify outputs - only ApiHandler should have outputs
+      template.hasOutput('ApiHandlerArn', {})
+
+      // ApiAdminHandler and WorkerFunction should NOT have outputs
+      const outputs = template.toJSON().Outputs
+      expect(outputs['ApiAdminHandlerArn']).toBeUndefined()
+      expect(outputs['WorkerFunctionArn']).toBeUndefined()
     })
   })
 
@@ -685,7 +814,7 @@ describe('LiveLambdaLayerAspect', () => {
 
       // Check that app_stack depends on layer_stack
       const dependencies = app_stack.dependencies
-      expect(dependencies.some((dep) => dep === layer_stack)).toBe(true)
+      expect(dependencies).toContain(layer_stack)
     })
   })
 

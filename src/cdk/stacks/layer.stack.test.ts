@@ -6,6 +6,11 @@ import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
 import { LiveLambdaLayerStack } from './layer.stack.js'
+import {
+  LAYER_VERSION_NAME,
+  LAYER_ARN_SSM_PARAMETER,
+  LAYER_DESCRIPTION
+} from '../../lib/constants.js'
 
 describe('LiveLambdaLayerStack', () => {
   let app: cdk.App
@@ -55,14 +60,13 @@ describe('LiveLambdaLayerStack', () => {
 
     it('should set correct layer version name', () => {
       template.hasResourceProperties('AWS::Lambda::LayerVersion', {
-        LayerName: 'live-lambda-proxy'
+        LayerName: LAYER_VERSION_NAME
       })
     })
 
     it('should set correct description', () => {
       template.hasResourceProperties('AWS::Lambda::LayerVersion', {
-        Description:
-          'Conditionally forwards Lambda invocations to AppSync for live development.'
+        Description: LAYER_DESCRIPTION
       })
     })
 
@@ -80,7 +84,7 @@ describe('LiveLambdaLayerStack', () => {
 
     it('should set correct parameter name', () => {
       template.hasResourceProperties('AWS::SSM::Parameter', {
-        Name: '/live-lambda/layer/arn'
+        Name: LAYER_ARN_SSM_PARAMETER
       })
     })
 
@@ -100,19 +104,23 @@ describe('LiveLambdaLayerStack', () => {
   })
 
   describe('Stack properties', () => {
-    it('should expose layer property', () => {
+    it('should expose layer property as LayerVersion with ARN', () => {
       expect(stack.layer).toBeDefined()
+      // LayerVersion exposes layerVersionArn as CDK token for cross-stack references
+      expect(stack.layer.layerVersionArn).toBeDefined()
+      // Verify layer ARN format is a CDK token (not a static string)
+      expect(typeof stack.layer.layerVersionArn).toBe('string')
     })
 
-    it('should expose layer_arn_ssm_parameter property', () => {
-      expect(stack.layer_arn_ssm_parameter).toBe('/live-lambda/layer/arn')
+    it('should expose layer_arn_ssm_parameter property with correct path', () => {
+      expect(stack.layer_arn_ssm_parameter).toBe(LAYER_ARN_SSM_PARAMETER)
+      expect(stack.layer_arn_ssm_parameter).toMatch(/^\/live-lambda\//)
     })
   })
 })
 
 describe('LiveLambdaLayerStack interface contract', () => {
   it('should define correct SSM parameter path', () => {
-    const expected_path = '/live-lambda/layer/arn'
-    expect(expected_path).toBe('/live-lambda/layer/arn')
+    expect(LAYER_ARN_SSM_PARAMETER).toBe('/live-lambda/layer/arn')
   })
 })

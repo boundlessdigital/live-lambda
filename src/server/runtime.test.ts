@@ -82,9 +82,10 @@ import {
   ExecuteHandlerOptions
 } from './runtime.js'
 import { LambdaContext } from './types.js'
+import type { APIGatewayProxyEventV2 } from 'aws-lambda'
 
 describe('runtime', () => {
-  const mock_event: AWSLambda.APIGatewayProxyEventV2 = {
+  const mock_event: APIGatewayProxyEventV2 = {
     version: '2.0',
     routeKey: '$default',
     rawPath: '/test',
@@ -186,11 +187,9 @@ describe('runtime', () => {
         outputFiles: [{ text: 'export const handler = () => ({ statusCode: 200 })' }]
       })
 
-      try {
-        await execute_handler(mock_event, mock_context)
-      } catch {
-        // Expected to fail on dynamic import in test environment
-      }
+      // The function will fail on dynamic import since we can't mock it
+      // but we can verify the setup code runs correctly
+      await expect(execute_handler(mock_event, mock_context)).rejects.toThrow()
 
       // Verify LambdaClient was instantiated with correct region
       expect(mock_lambda_client_constructor).toHaveBeenCalledWith({ region: 'us-east-1' })
@@ -226,11 +225,8 @@ describe('runtime', () => {
         context: mock_context
       }
 
-      try {
-        await execute_module_handler(options)
-      } catch {
-        // Expected to fail on dynamic import
-      }
+      // The function will fail on dynamic import, but we verify outputs.json was read
+      await expect(execute_module_handler(options)).rejects.toThrow()
 
       // Verify outputs.json was read
       expect(mock_read_file_sync).toHaveBeenCalledWith(
@@ -239,7 +235,7 @@ describe('runtime', () => {
       )
     })
 
-    it('should return undefined for non-matching ARN and throw error', async () => {
+    it('should throw descriptive error for non-matching ARN', async () => {
       mock_read_file_sync.mockImplementation((file_path: string) => {
         if (file_path.endsWith('outputs.json')) {
           return JSON.stringify(mock_outputs)
@@ -254,9 +250,11 @@ describe('runtime', () => {
         context: mock_context
       }
 
-      await expect(execute_module_handler(options)).rejects.toThrow(
-        'Could not find handler info for function ARN'
-      )
+      const error = await execute_module_handler(options).catch(e => e) as Error
+
+      expect(error).toBeInstanceOf(Error)
+      expect(error.message).toContain('Could not find handler info for function ARN')
+      expect(error.message).toContain('non-existent-function')
     })
   })
 
@@ -296,11 +294,8 @@ describe('runtime', () => {
         context: mock_context
       }
 
-      try {
-        await execute_module_handler(options)
-      } catch {
-        // Expected to fail on dynamic import
-      }
+      // The function will fail on dynamic import, but we verify source map handling
+      await expect(execute_module_handler(options)).rejects.toThrow()
 
       // Verify .mjs.map was read
       expect(mock_read_file_sync).toHaveBeenCalledWith(
@@ -354,11 +349,8 @@ describe('runtime', () => {
         context: mock_context
       }
 
-      try {
-        await execute_module_handler(options)
-      } catch {
-        // Expected to fail on dynamic import
-      }
+      // The function will fail on dynamic import, but we verify fallback behavior
+      await expect(execute_module_handler(options)).rejects.toThrow()
 
       expect(mjs_map_checked).toBe(true)
       expect(js_map_checked).toBe(true)
@@ -390,11 +382,8 @@ describe('runtime', () => {
         context: mock_context
       }
 
-      try {
-        await execute_module_handler(options)
-      } catch {
-        // Expected to fail on dynamic import
-      }
+      // The function will fail on dynamic import, but we verify compiled file handling
+      await expect(execute_module_handler(options)).rejects.toThrow()
 
       // esbuild should NOT be called for compiled files
       expect(mock_esbuild_build).not.toHaveBeenCalled()
@@ -437,11 +426,8 @@ describe('runtime', () => {
         context: mock_context
       }
 
-      try {
-        await execute_module_handler(options)
-      } catch {
-        // Expected to fail on dynamic import
-      }
+      // The function will fail on dynamic import, but we verify role assumption
+      await expect(execute_module_handler(options)).rejects.toThrow()
 
       // Verify fromTemporaryCredentials was called with correct role
       expect(mock_from_temporary_credentials).toHaveBeenCalledWith(
@@ -496,11 +482,8 @@ describe('runtime', () => {
         context: mock_context
       }
 
-      try {
-        await execute_module_handler(options)
-      } catch {
-        // Expected to fail on dynamic import
-      }
+      // The function will fail on dynamic import, but we verify env injection
+      await expect(execute_module_handler(options)).rejects.toThrow()
 
       // Verify credentials were injected to process.env
       expect(process.env.AWS_ACCESS_KEY_ID).toBe(mock_credentials.accessKeyId)
@@ -512,7 +495,7 @@ describe('runtime', () => {
       expect(process.env.API_KEY).toBe('secret-api-key')
     })
 
-    it('should throw error when Lambda config has no Role', async () => {
+    it('should throw descriptive error when Lambda config has no Role', async () => {
       mock_lambda_send.mockResolvedValue({
         // No Role property
         Environment: { Variables: {} }
@@ -541,12 +524,13 @@ describe('runtime', () => {
         context: mock_context
       }
 
-      await expect(execute_module_handler(options)).rejects.toThrow(
-        'Lambda configuration did not include execution role ARN'
-      )
+      const error = await execute_module_handler(options).catch(e => e) as Error
+
+      expect(error).toBeInstanceOf(Error)
+      expect(error.message).toBe('Lambda configuration did not include execution role ARN.')
     })
 
-    it('should use esbuild for TypeScript files', async () => {
+    it('should use esbuild with correct config for TypeScript files', async () => {
       mock_read_file_sync.mockImplementation((file_path: string) => {
         if (file_path.endsWith('outputs.json')) {
           return JSON.stringify(mock_outputs)
@@ -574,11 +558,8 @@ describe('runtime', () => {
         context: mock_context
       }
 
-      try {
-        await execute_module_handler(options)
-      } catch {
-        // Expected to fail on dynamic import since we can't mock it
-      }
+      // The function will fail on dynamic import, but we verify esbuild was called
+      await expect(execute_module_handler(options)).rejects.toThrow()
 
       // Verify esbuild was called with correct options
       expect(mock_esbuild_build).toHaveBeenCalledWith(
@@ -594,35 +575,7 @@ describe('runtime', () => {
       )
 
       // Verify temp file was written
-      // Note: unlinkSync is called after dynamic import, which fails in tests
-      // since we can't easily mock ESM dynamic imports
       expect(mock_write_file_sync).toHaveBeenCalled()
-    })
-
-    it('should throw error when handler export is not a function', async () => {
-      mock_read_file_sync.mockImplementation((file_path: string) => {
-        if (file_path.endsWith('outputs.json')) {
-          return JSON.stringify(mock_outputs)
-        }
-        return ''
-      })
-
-      mock_exists_sync.mockImplementation((file_path: string) => {
-        if (file_path.endsWith('.mjs.map')) return false
-        if (file_path.endsWith('.js.map')) return false
-        if (file_path.endsWith('.mjs')) return true
-        return false
-      })
-
-      const options: ExecuteHandlerOptions = {
-        region: 'us-east-1',
-        function_arn: 'arn:aws:lambda:us-east-1:123456789012:function:test-function',
-        event: mock_event,
-        context: mock_context
-      }
-
-      // This will fail because the dynamic import won't find a real module
-      await expect(execute_module_handler(options)).rejects.toThrow()
     })
   })
 
@@ -657,15 +610,168 @@ describe('runtime', () => {
         context: mock_context
       }
 
-      try {
-        await execute_module_handler(options)
-      } catch {
-        // Expected to fail on dynamic import
-      }
+      // The function will fail on dynamic import, but we verify path parsing
+      await expect(execute_module_handler(options)).rejects.toThrow()
 
       // Verify the path includes the full handler file path
       expect(mock_exists_sync).toHaveBeenCalledWith(
         expect.stringContaining('src/handlers/api.mjs')
+      )
+    })
+  })
+
+  describe('error handling', () => {
+    it('should include function ARN in error message when handler not found', async () => {
+      mock_read_file_sync.mockImplementation((file_path: string) => {
+        if (file_path.endsWith('outputs.json')) {
+          return JSON.stringify({
+            OtherStack: {
+              FunctionArn: 'arn:aws:lambda:us-east-1:123456789012:function:other-function',
+              FunctionHandler: 'index.handler',
+              FunctionCdkOutAssetPath: '/path/to/cdk.out/asset.12345'
+            }
+          })
+        }
+        return ''
+      })
+
+      const options: ExecuteHandlerOptions = {
+        region: 'us-east-1',
+        function_arn: 'arn:aws:lambda:us-east-1:123456789012:function:missing-function',
+        event: mock_event,
+        context: mock_context
+      }
+
+      const error = await execute_module_handler(options).catch(e => e) as Error
+
+      expect(error.message).toContain('missing-function')
+      expect(error.message).toContain('Could not find handler info')
+    })
+
+    it('should suggest checking outputs.json in error message', async () => {
+      mock_read_file_sync.mockImplementation((file_path: string) => {
+        if (file_path.endsWith('outputs.json')) {
+          return JSON.stringify({})
+        }
+        return ''
+      })
+
+      const options: ExecuteHandlerOptions = {
+        region: 'us-east-1',
+        function_arn: 'arn:aws:lambda:us-east-1:123456789012:function:test-function',
+        event: mock_event,
+        context: mock_context
+      }
+
+      const error = await execute_module_handler(options).catch(e => e) as Error
+
+      expect(error.message).toContain('outputs.json')
+    })
+
+    it('should handle outputs.json read errors gracefully', async () => {
+      mock_read_file_sync.mockImplementation((file_path: string) => {
+        if (file_path.endsWith('outputs.json')) {
+          throw new Error('ENOENT: no such file or directory')
+        }
+        return ''
+      })
+
+      const options: ExecuteHandlerOptions = {
+        region: 'us-east-1',
+        function_arn: 'arn:aws:lambda:us-east-1:123456789012:function:test-function',
+        event: mock_event,
+        context: mock_context
+      }
+
+      const error = await execute_module_handler(options).catch(e => e) as Error
+
+      expect(error).toBeInstanceOf(Error)
+      expect(error.message).toContain('ENOENT')
+    })
+
+    it('should handle invalid JSON in outputs.json', async () => {
+      mock_read_file_sync.mockImplementation((file_path: string) => {
+        if (file_path.endsWith('outputs.json')) {
+          return 'invalid json {'
+        }
+        return ''
+      })
+
+      const options: ExecuteHandlerOptions = {
+        region: 'us-east-1',
+        function_arn: 'arn:aws:lambda:us-east-1:123456789012:function:test-function',
+        event: mock_event,
+        context: mock_context
+      }
+
+      const error = await execute_module_handler(options).catch(e => e)
+
+      expect(error).toBeInstanceOf(SyntaxError)
+    })
+  })
+
+  describe('region handling', () => {
+    it('should pass region to LambdaClient', async () => {
+      mock_read_file_sync.mockImplementation((file_path: string) => {
+        if (file_path.endsWith('outputs.json')) {
+          return JSON.stringify(mock_outputs)
+        }
+        return ''
+      })
+
+      mock_exists_sync.mockImplementation((file_path: string) => {
+        if (file_path.endsWith('.mjs.map')) return false
+        if (file_path.endsWith('.js.map')) return false
+        if (file_path.endsWith('.mjs')) return true
+        return false
+      })
+
+      const options: ExecuteHandlerOptions = {
+        region: 'eu-west-1',
+        function_arn: 'arn:aws:lambda:us-east-1:123456789012:function:test-function',
+        event: mock_event,
+        context: mock_context
+      }
+
+      await expect(execute_module_handler(options)).rejects.toThrow()
+
+      expect(mock_lambda_client_constructor).toHaveBeenCalledWith({ region: 'eu-west-1' })
+    })
+
+    it('should pass region to credential provider', async () => {
+      mock_read_file_sync.mockImplementation((file_path: string) => {
+        if (file_path.endsWith('outputs.json')) {
+          return JSON.stringify(mock_outputs)
+        }
+        if (file_path.endsWith('.mjs.map')) {
+          return JSON.stringify({ sources: ['../../src/test.ts'] })
+        }
+        return ''
+      })
+
+      mock_exists_sync.mockImplementation((file_path: string) => {
+        if (file_path.endsWith('.mjs.map')) return true
+        if (file_path.endsWith('.ts')) return true
+        return false
+      })
+
+      mock_esbuild_build.mockResolvedValue({
+        outputFiles: [{ text: 'export const handler = async () => ({ statusCode: 200 })' }]
+      })
+
+      const options: ExecuteHandlerOptions = {
+        region: 'ap-northeast-1',
+        function_arn: 'arn:aws:lambda:us-east-1:123456789012:function:test-function',
+        event: mock_event,
+        context: mock_context
+      }
+
+      await expect(execute_module_handler(options)).rejects.toThrow()
+
+      expect(mock_from_temporary_credentials).toHaveBeenCalledWith(
+        expect.objectContaining({
+          clientConfig: { region: 'ap-northeast-1' }
+        })
       )
     })
   })

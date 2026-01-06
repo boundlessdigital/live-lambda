@@ -1,14 +1,20 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import * as cdk from 'aws-cdk-lib'
 import { Template, Match } from 'aws-cdk-lib/assertions'
 import { AppSyncStack } from './appsync.stack.js'
 
 describe('AppSyncStack', () => {
-  const app = new cdk.App()
-  const stack = new AppSyncStack(app, 'TestAppSyncStack', {
-    env: { account: '123456789012', region: 'us-east-1' }
+  let app: cdk.App
+  let stack: AppSyncStack
+  let template: Template
+
+  beforeEach(() => {
+    app = new cdk.App()
+    stack = new AppSyncStack(app, 'TestAppSyncStack', {
+      env: { account: '123456789012', region: 'us-east-1' }
+    })
+    template = Template.fromStack(stack)
   })
-  const template = Template.fromStack(stack)
 
   describe('EventApi', () => {
     it('should create EventApi with correct name', () => {
@@ -94,12 +100,28 @@ describe('AppSyncStack', () => {
   })
 
   describe('Stack properties', () => {
-    it('should expose api property', () => {
+    it('should expose api property as EventApi with CDK token properties', () => {
       expect(stack.api).toBeDefined()
+      // EventApi exposes apiId and apiArn as CDK tokens for cross-stack references
+      expect(stack.api.apiId).toBeDefined()
+      expect(stack.api.apiArn).toBeDefined()
+      // Verify it has HTTP and realtime DNS properties
+      expect(stack.api.httpDns).toBeDefined()
+      expect(stack.api.realtimeDns).toBeDefined()
     })
 
-    it('should expose api_policy property', () => {
+    it('should expose api_policy property as IAM Policy with correct actions', () => {
       expect(stack.api_policy).toBeDefined()
+      expect(stack.api_policy.policyName).toMatch(/^live-lambda-events-/)
+
+      // Verify the policy has the expected structure
+      const policy_json = stack.api_policy.document.toJSON()
+      expect(policy_json.Statement).toBeDefined()
+      expect(policy_json.Statement.length).toBeGreaterThan(0)
+
+      // Verify the policy targets the EventApi ARN
+      const resource = policy_json.Statement[0].Resource
+      expect(resource).toBeDefined()
     })
   })
 })

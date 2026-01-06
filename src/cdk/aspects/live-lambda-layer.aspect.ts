@@ -221,9 +221,18 @@ function should_skip_function(
   function_path: string,
   stack_name: string
 ): boolean {
+  // Check include patterns first - if specified, function must match at least one
   if (
     props.include_patterns &&
     !props.include_patterns.some((pattern) => function_path.includes(pattern))
+  ) {
+    return true
+  }
+
+  // Check user-defined exclude patterns - if function matches any, skip it
+  if (
+    props.exclude_patterns &&
+    props.exclude_patterns.some((pattern) => function_path.includes(pattern))
   ) {
     return true
   }

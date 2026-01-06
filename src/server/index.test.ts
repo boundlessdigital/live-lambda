@@ -372,6 +372,63 @@ describe('server index', () => {
     })
   })
 
+  describe('error handling edge cases', () => {
+    it('should handle malformed JSON payload gracefully', async () => {
+      const malformed_payload = '{ invalid json }'
+
+      let subscribe_callback: ((payload: string) => Promise<any>) | undefined
+      mock_subscribe.mockImplementation((channel: string, callback: (payload: string) => Promise<any>) => {
+        subscribe_callback = callback
+        return Promise.resolve()
+      })
+
+      await serve(mock_config)
+
+      // Should throw SyntaxError for invalid JSON
+      await expect(subscribe_callback!(malformed_payload)).rejects.toThrow(SyntaxError)
+    })
+
+    it('should handle payload missing request_id field', async () => {
+      const payload_without_request_id = JSON.stringify({
+        event_payload: { test: 'event' },
+        context: { function_name: 'test' }
+      })
+
+      mock_execute_handler.mockResolvedValue({ statusCode: 200 })
+
+      let subscribe_callback: ((payload: string) => Promise<any>) | undefined
+      mock_subscribe.mockImplementation((channel: string, callback: (payload: string) => Promise<any>) => {
+        subscribe_callback = callback
+        return Promise.resolve()
+      })
+
+      await serve(mock_config)
+      await subscribe_callback!(payload_without_request_id)
+
+      // Should still call execute_handler
+      expect(mock_execute_handler).toHaveBeenCalled()
+
+      // Response channel will have "undefined" in path due to missing request_id
+      expect(mock_publish).toHaveBeenCalledWith(
+        '/live-lambda/response/undefined',
+        expect.any(Array)
+      )
+    })
+
+    it('should handle empty string payload', async () => {
+      let subscribe_callback: ((payload: string) => Promise<any>) | undefined
+      mock_subscribe.mockImplementation((channel: string, callback: (payload: string) => Promise<any>) => {
+        subscribe_callback = callback
+        return Promise.resolve()
+      })
+
+      await serve(mock_config)
+
+      // Empty string should cause JSON parse error
+      await expect(subscribe_callback!('')).rejects.toThrow()
+    })
+  })
+
   describe('channel naming', () => {
     it('should use correct namespace for requests channel', async () => {
       await serve(mock_config)

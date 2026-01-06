@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { Command } from 'commander'
+import {
+  APPSYNC_STACK_NAME,
+  LAYER_STACK_NAME,
+  OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN,
+  OUTPUT_EVENT_API_HTTP_HOST,
+  OUTPUT_EVENT_API_REALTIME_HOST
+} from '../lib/constants.js'
 
 // Use vi.hoisted() to ensure mock functions are available when mocks are evaluated
 const {
@@ -158,17 +165,17 @@ describe('main', () => {
       mock_deploy.mockResolvedValue(
         create_mock_deployment([
           {
-            stackName: 'AppSyncStack',
+            stackName: APPSYNC_STACK_NAME,
             environment: { region: 'us-east-1' },
             outputs: {
-              LiveLambdaEventApiHttpHost: 'http-host',
-              LiveLambdaEventApiRealtimeHost: 'realtime-host'
+              [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host',
+              [OUTPUT_EVENT_API_REALTIME_HOST]: 'realtime-host'
             }
           },
           {
-            stackName: 'LiveLambda-LayerStack',
+            stackName: LAYER_STACK_NAME,
             outputs: {
-              LiveLambdaProxyLayerArn: 'arn:aws:lambda:us-east-1:123:layer:test:1'
+              [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]: 'arn:aws:lambda:us-east-1:123:layer:test:1'
             }
           }
         ])
@@ -191,17 +198,17 @@ describe('main', () => {
       mock_deploy.mockResolvedValue(
         create_mock_deployment([
           {
-            stackName: 'AppSyncStack',
+            stackName: APPSYNC_STACK_NAME,
             environment: { region: 'us-east-1' },
             outputs: {
-              LiveLambdaEventApiHttpHost: 'http-host',
-              LiveLambdaEventApiRealtimeHost: 'realtime-host'
+              [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host',
+              [OUTPUT_EVENT_API_REALTIME_HOST]: 'realtime-host'
             }
           },
           {
-            stackName: 'LiveLambda-LayerStack',
+            stackName: LAYER_STACK_NAME,
             outputs: {
-              LiveLambdaProxyLayerArn: 'arn:aws:lambda:us-east-1:123:layer:test:1'
+              [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]: 'arn:aws:lambda:us-east-1:123:layer:test:1'
             }
           }
         ])
@@ -219,17 +226,17 @@ describe('main', () => {
       mock_deploy.mockResolvedValue(
         create_mock_deployment([
           {
-            stackName: 'AppSyncStack',
+            stackName: APPSYNC_STACK_NAME,
             environment: { region: 'us-east-1' },
             outputs: {
-              LiveLambdaEventApiHttpHost: 'http-host',
-              LiveLambdaEventApiRealtimeHost: 'realtime-host'
+              [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host',
+              [OUTPUT_EVENT_API_REALTIME_HOST]: 'realtime-host'
             }
           },
           {
-            stackName: 'LiveLambda-LayerStack',
+            stackName: LAYER_STACK_NAME,
             outputs: {
-              LiveLambdaProxyLayerArn: 'arn:aws:lambda:us-east-1:123:layer:test:1'
+              [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]: 'arn:aws:lambda:us-east-1:123:layer:test:1'
             }
           }
         ])
@@ -251,17 +258,17 @@ describe('main', () => {
       mock_deploy.mockResolvedValue(
         create_mock_deployment([
           {
-            stackName: 'AppSyncStack',
+            stackName: APPSYNC_STACK_NAME,
             environment: { region: 'us-east-1' },
             outputs: {
-              LiveLambdaEventApiHttpHost: 'http-host.appsync.aws',
-              LiveLambdaEventApiRealtimeHost: 'realtime-host.appsync.aws'
+              [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host.appsync.aws',
+              [OUTPUT_EVENT_API_REALTIME_HOST]: 'realtime-host.appsync.aws'
             }
           },
           {
-            stackName: 'LiveLambda-LayerStack',
+            stackName: LAYER_STACK_NAME,
             outputs: {
-              LiveLambdaProxyLayerArn:
+              [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]:
                 'arn:aws:lambda:us-east-1:123456789012:layer:LiveLambdaProxy:1'
             }
           }
@@ -291,17 +298,17 @@ describe('main', () => {
       mock_deploy.mockResolvedValue(
         create_mock_deployment([
           {
-            stackName: 'AppSyncStack',
+            stackName: APPSYNC_STACK_NAME,
             environment: { region: 'us-east-1' },
             outputs: {
-              LiveLambdaEventApiHttpHost: 'http-host',
-              LiveLambdaEventApiRealtimeHost: 'realtime-host'
+              [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host',
+              [OUTPUT_EVENT_API_REALTIME_HOST]: 'realtime-host'
             }
           },
           {
-            stackName: 'LiveLambda-LayerStack',
+            stackName: LAYER_STACK_NAME,
             outputs: {
-              LiveLambdaProxyLayerArn: 'arn:aws:lambda:us-east-1:123:layer:test:1'
+              [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]: 'arn:aws:lambda:us-east-1:123:layer:test:1'
             }
           }
         ])
@@ -323,17 +330,17 @@ describe('main', () => {
       mock_deploy.mockResolvedValue(
         create_mock_deployment([
           {
-            stackName: 'AppSyncStack',
+            stackName: APPSYNC_STACK_NAME,
             environment: { region: 'us-east-1' },
             outputs: {
-              LiveLambdaEventApiHttpHost: 'http-host',
-              LiveLambdaEventApiRealtimeHost: 'realtime-host'
+              [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host',
+              [OUTPUT_EVENT_API_REALTIME_HOST]: 'realtime-host'
             }
           },
           {
-            stackName: 'LiveLambda-LayerStack',
+            stackName: LAYER_STACK_NAME,
             outputs: {
-              LiveLambdaProxyLayerArn: 'arn:aws:lambda:us-east-1:123:layer:test:1'
+              [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]: 'arn:aws:lambda:us-east-1:123:layer:test:1'
             }
           }
         ])
@@ -385,19 +392,19 @@ describe('main', () => {
       mock_deploy.mockResolvedValue(
         create_mock_deployment([
           {
-            stackName: 'AppSyncStack',
+            stackName: APPSYNC_STACK_NAME,
             environment: { region: 'eu-west-1' },
             outputs: {
-              LiveLambdaEventApiHttpHost:
+              [OUTPUT_EVENT_API_HTTP_HOST]:
                 'abc123.appsync-api.eu-west-1.amazonaws.com',
-              LiveLambdaEventApiRealtimeHost:
+              [OUTPUT_EVENT_API_REALTIME_HOST]:
                 'abc123.appsync-realtime.eu-west-1.amazonaws.com'
             }
           },
           {
-            stackName: 'LiveLambda-LayerStack',
+            stackName: LAYER_STACK_NAME,
             outputs: {
-              LiveLambdaProxyLayerArn:
+              [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]:
                 'arn:aws:lambda:eu-west-1:123456789012:layer:LiveLambdaProxy:5'
             }
           }
@@ -415,12 +422,14 @@ describe('main', () => {
       })
     })
 
-    it('should handle missing stack outputs gracefully', async () => {
+    it('should pass undefined values when AppSync stack outputs are missing', async () => {
+      // Note: This tests current behavior - serve receives incomplete config
+      // which will likely fail when trying to connect to AppSync
       const command = create_mock_command('start')
       mock_deploy.mockResolvedValue(
         create_mock_deployment([
           {
-            stackName: 'AppSyncStack',
+            stackName: APPSYNC_STACK_NAME,
             environment: { region: 'us-east-1' },
             outputs: {}
           }
@@ -429,26 +438,36 @@ describe('main', () => {
 
       await main(command)
 
+      // Verify serve is called but with missing config values
       expect(mock_serve).toHaveBeenCalledWith({
         region: 'us-east-1',
         http: undefined,
         realtime: undefined,
         layer_arn: undefined
       })
+
+      // The server will likely fail with these undefined values
+      // TODO: Consider adding validation in extract_server_config to fail fast
     })
 
-    it('should handle missing stacks in deployment', async () => {
+    it('should pass undefined region when no stacks exist in deployment', async () => {
+      // Note: This tests current behavior - an empty deployment results in
+      // completely undefined config which will fail when connecting
       const command = create_mock_command('start')
       mock_deploy.mockResolvedValue(create_mock_deployment([]))
 
       await main(command)
 
+      // Verify serve is called with all undefined values
       expect(mock_serve).toHaveBeenCalledWith({
         region: undefined,
         http: undefined,
         realtime: undefined,
         layer_arn: undefined
       })
+
+      // TODO: Consider adding validation to fail fast with descriptive error
+      // rather than letting the WebSocket connection fail
     })
   })
 
@@ -463,17 +482,17 @@ describe('main', () => {
         .mockResolvedValueOnce(
           create_mock_deployment([
             {
-              stackName: 'AppSyncStack',
+              stackName: APPSYNC_STACK_NAME,
               environment: { region: 'us-east-1' },
               outputs: {
-                LiveLambdaEventApiHttpHost: 'http-host',
-                LiveLambdaEventApiRealtimeHost: 'realtime-host'
+                [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host',
+                [OUTPUT_EVENT_API_REALTIME_HOST]: 'realtime-host'
               }
             },
             {
-              stackName: 'LiveLambda-LayerStack',
+              stackName: LAYER_STACK_NAME,
               outputs: {
-                LiveLambdaProxyLayerArn: 'arn:aws:lambda:us-east-1:123:layer:test:1'
+                [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]: 'arn:aws:lambda:us-east-1:123:layer:test:1'
               }
             }
           ])
@@ -525,6 +544,39 @@ describe('main', () => {
       await main(command)
 
       expect(mock_cleanup).toHaveBeenCalled()
+    })
+
+    it('should handle watch errors gracefully', async () => {
+      const command = create_mock_command('start')
+      const watch_error = new Error('Watch mode failed')
+
+      mock_deploy.mockResolvedValue(
+        create_mock_deployment([
+          {
+            stackName: APPSYNC_STACK_NAME,
+            environment: { region: 'us-east-1' },
+            outputs: {
+              [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host',
+              [OUTPUT_EVENT_API_REALTIME_HOST]: 'realtime-host'
+            }
+          },
+          {
+            stackName: LAYER_STACK_NAME,
+            outputs: {
+              [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]: 'arn:aws:lambda:us-east-1:123:layer:test:1'
+            }
+          }
+        ])
+      )
+      mock_watch.mockRejectedValue(watch_error)
+
+      await main(command)
+
+      // Watch errors bubble up through run_server, triggering cleanup/restart flow
+      expect(mock_logger.error).toHaveBeenCalledWith(
+        'Error during initial server run, attempting cleanup and restart:',
+        watch_error
+      )
     })
   })
 
