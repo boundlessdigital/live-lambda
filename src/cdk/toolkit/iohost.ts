@@ -3,22 +3,56 @@ import {
   NonInteractiveIoHostProps,
   IoMessage, // Included for potential direct use or future overrides
   IoRequest  // Included for potential direct use or future overrides
-} from '@aws-cdk/toolkit-lib';
-import { logger } from '../../lib/logger.js';
+} from '@aws-cdk/toolkit-lib'
+import { logger } from '../../lib/logger.js'
+import {
+  DeployEventEmitter,
+  parse_cdk_message
+} from '../../cli/listr-deploy.js'
 
 export class CustomIoHost extends NonInteractiveIoHost {
+  private emitter: DeployEventEmitter | null = null
+  private suppress_output: boolean = false
+
   constructor(props?: NonInteractiveIoHostProps) {
-    super(props);
-    logger.debug('CustomIoHost initialized');
+    super(props)
+    logger.debug('CustomIoHost initialized')
   }
 
-  // Override notify to add custom logging before calling the base implementation.
+  /**
+   * Set the event emitter to route CDK messages to Listr2
+   * When set, messages will be parsed and emitted instead of logged to console
+   */
+  public set_emitter(emitter: DeployEventEmitter | null): void {
+    this.emitter = emitter
+    this.suppress_output = emitter !== null
+  }
+
+  // Override notify to route messages to Listr2 when emitter is set
   public async notify(msg: IoMessage<unknown>): Promise<void> {
-    // Example: You could add custom logging or filtering here if needed.
-    // console.log(`[CustomIoHost NOTIFY] Level: ${msg.level}, Message: ${msg.message}`);
-    
-    // Call the base class's notify method to get default console output behavior.
-    await super.notify(msg);
+    // If we have an emitter, route messages to it instead of console
+    if (this.emitter && this.suppress_output) {
+      const message_str = typeof msg.message === 'string' ? msg.message : ''
+      const parsed = parse_cdk_message({ message: message_str, level: msg.level })
+
+      if (parsed) {
+        this.emitter.emit_stack_event(parsed)
+
+        // Complete stack if status indicates completion
+        if (parsed.status === 'complete' || parsed.status === 'no_changes') {
+          this.emitter.complete_stack(parsed.stack_name, true)
+        } else if (parsed.status === 'failed') {
+          this.emitter.complete_stack(parsed.stack_name, false)
+        }
+      } else {
+        // Log non-stack messages at debug level
+        logger.debug(`[CDK] ${message_str}`)
+      }
+      return
+    }
+
+    // Fall back to default console output
+    await super.notify(msg)
   }
 
   // Override requestResponse to add custom logging before calling the base implementation.
