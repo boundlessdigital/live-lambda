@@ -144,6 +144,13 @@ async function watch_stacks(
   })
 }
 
+export class ServerConfigError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ServerConfigError'
+  }
+}
+
 function extract_server_config(deployment: DeployResult) {
   const events = deployment.stacks.find(
     (stack) => stack.stackName === APPSYNC_STACK_NAME
@@ -153,12 +160,42 @@ function extract_server_config(deployment: DeployResult) {
     (stack) => stack.stackName === LAYER_STACK_NAME
   )
 
-  const region = events?.environment?.region as string
+  // Validate required stacks exist
+  const missing_stacks: string[] = []
+  if (!events) missing_stacks.push(APPSYNC_STACK_NAME)
+  if (!layer) missing_stacks.push(LAYER_STACK_NAME)
+
+  if (missing_stacks.length > 0) {
+    throw new ServerConfigError(
+      `Missing required stacks: ${missing_stacks.join(', ')}. ` +
+        `Ensure 'LiveLambda.install(app)' is called in your CDK app and all stacks deployed successfully.`
+    )
+  }
+
+  // Extract values
+  const region = events.environment?.region
+  const http = events.outputs[OUTPUT_EVENT_API_HTTP_HOST]
+  const realtime = events.outputs[OUTPUT_EVENT_API_REALTIME_HOST]
+  const layer_arn = layer.outputs[OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]
+
+  // Validate required outputs exist
+  const missing_outputs: string[] = []
+  if (!region) missing_outputs.push('region (from AppSync stack environment)')
+  if (!http) missing_outputs.push(OUTPUT_EVENT_API_HTTP_HOST)
+  if (!realtime) missing_outputs.push(OUTPUT_EVENT_API_REALTIME_HOST)
+  if (!layer_arn) missing_outputs.push(OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN)
+
+  if (missing_outputs.length > 0) {
+    throw new ServerConfigError(
+      `Missing required stack outputs: ${missing_outputs.join(', ')}. ` +
+        `This may indicate a partial deployment. Run 'live-lambda destroy' then 'live-lambda start' to redeploy.`
+    )
+  }
 
   return {
     region,
-    http: events?.outputs[OUTPUT_EVENT_API_HTTP_HOST] as string,
-    realtime: events?.outputs[OUTPUT_EVENT_API_REALTIME_HOST] as string,
-    layer_arn: layer?.outputs[OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN] as string
+    http,
+    realtime,
+    layer_arn
   }
 }

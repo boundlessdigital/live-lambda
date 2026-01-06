@@ -422,9 +422,7 @@ describe('main', () => {
       })
     })
 
-    it('should pass undefined values when AppSync stack outputs are missing', async () => {
-      // Note: This tests current behavior - serve receives incomplete config
-      // which will likely fail when trying to connect to AppSync
+    it('should throw ServerConfigError when AppSync stack outputs are missing', async () => {
       const command = create_mock_command('start')
       mock_deploy.mockResolvedValue(
         create_mock_deployment([
@@ -432,42 +430,87 @@ describe('main', () => {
             stackName: APPSYNC_STACK_NAME,
             environment: { region: 'us-east-1' },
             outputs: {}
+          },
+          {
+            stackName: LAYER_STACK_NAME,
+            outputs: {}
           }
         ])
       )
 
       await main(command)
 
-      // Verify serve is called but with missing config values
-      expect(mock_serve).toHaveBeenCalledWith({
-        region: 'us-east-1',
-        http: undefined,
-        realtime: undefined,
-        layer_arn: undefined
-      })
-
-      // The server will likely fail with these undefined values
-      // TODO: Consider adding validation in extract_server_config to fail fast
+      // Should fail fast with descriptive error listing missing outputs
+      expect(mock_logger.error).toHaveBeenCalledWith(
+        'Error during initial server run, attempting cleanup and restart:',
+        expect.objectContaining({
+          name: 'ServerConfigError',
+          message: expect.stringContaining('Missing required stack outputs')
+        })
+      )
+      expect(mock_serve).not.toHaveBeenCalled()
     })
 
-    it('should pass undefined region when no stacks exist in deployment', async () => {
-      // Note: This tests current behavior - an empty deployment results in
-      // completely undefined config which will fail when connecting
+    it('should throw ServerConfigError when stacks are missing from deployment', async () => {
       const command = create_mock_command('start')
       mock_deploy.mockResolvedValue(create_mock_deployment([]))
 
       await main(command)
 
-      // Verify serve is called with all undefined values
-      expect(mock_serve).toHaveBeenCalledWith({
-        region: undefined,
-        http: undefined,
-        realtime: undefined,
-        layer_arn: undefined
-      })
+      // Should fail fast with descriptive error listing missing stacks
+      expect(mock_logger.error).toHaveBeenCalledWith(
+        'Error during initial server run, attempting cleanup and restart:',
+        expect.objectContaining({
+          name: 'ServerConfigError',
+          message: expect.stringContaining('Missing required stacks')
+        })
+      )
+      expect(mock_serve).not.toHaveBeenCalled()
+    })
 
-      // TODO: Consider adding validation to fail fast with descriptive error
-      // rather than letting the WebSocket connection fail
+    it('should list all missing stacks in error message', async () => {
+      const command = create_mock_command('start')
+      mock_deploy.mockResolvedValue(create_mock_deployment([]))
+
+      await main(command)
+
+      // Verify error message includes both stack names
+      const error_call = mock_logger.error.mock.calls.find(
+        (call: any[]) => call[0] === 'Error during initial server run, attempting cleanup and restart:'
+      )
+      expect(error_call).toBeDefined()
+      expect(error_call![1].message).toContain(APPSYNC_STACK_NAME)
+      expect(error_call![1].message).toContain(LAYER_STACK_NAME)
+    })
+
+    it('should list all missing outputs in error message', async () => {
+      const command = create_mock_command('start')
+      mock_deploy.mockResolvedValue(
+        create_mock_deployment([
+          {
+            stackName: APPSYNC_STACK_NAME,
+            environment: { region: 'us-east-1' },
+            outputs: {
+              [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host'
+              // Missing realtime host
+            }
+          },
+          {
+            stackName: LAYER_STACK_NAME,
+            outputs: {} // Missing layer ARN
+          }
+        ])
+      )
+
+      await main(command)
+
+      // Verify error message includes the missing output names
+      const error_call = mock_logger.error.mock.calls.find(
+        (call: any[]) => call[0] === 'Error during initial server run, attempting cleanup and restart:'
+      )
+      expect(error_call).toBeDefined()
+      expect(error_call![1].message).toContain(OUTPUT_EVENT_API_REALTIME_HOST)
+      expect(error_call![1].message).toContain(OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN)
     })
   })
 

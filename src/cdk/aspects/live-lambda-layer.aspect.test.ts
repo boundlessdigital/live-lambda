@@ -336,61 +336,14 @@ describe('LiveLambdaLayerAspect', () => {
   })
 
   describe('Function skipping logic', () => {
-    it('should skip functions in LiveLambda- prefixed stacks', () => {
-      const app = new cdk.App()
-      const env = { account: '123456789012', region: 'us-east-1' }
-
-      // Create API stack with EventApi
-      const api_stack = new cdk.Stack(app, 'ApiStack', { env })
-      const mock_api = new appsync.EventApi(api_stack, 'MockApi', {
-        apiName: 'test-api'
-      })
-
-      // Create layer stack
-      const layer_stack = new TestableLayerStack(app, 'TestLayerStack', {
-        env,
-        asset_path: temp_asset_dir
-      })
-
-      // Create a stack with LiveLambda- prefix (should be skipped)
-      const live_lambda_stack = new cdk.Stack(app, 'LiveLambda-InternalStack', {
-        env
-      })
-
-      const skipped_function = new NodejsFunction(
-        live_lambda_stack,
-        'SkippedFunction',
-        {
-          entry: entry_file_path,
-          handler: 'handler',
-          runtime: lambda.Runtime.NODEJS_20_X
-        }
-      )
-
-      // Apply aspect
-      const aspect = new LiveLambdaLayerAspect({
-        layer_stack: layer_stack as any,
-        api: mock_api
-      })
-      cdk.Aspects.of(app).add(aspect)
-
-      // Synthesize
-      app.synth()
-
-      const template = Template.fromStack(live_lambda_stack)
-
-      // Verify that the function exists but does NOT have live-lambda env vars
-      const functions = template.findResources('AWS::Lambda::Function')
-      const function_keys = Object.keys(functions)
-      expect(function_keys.length).toBe(1)
-
-      const fn = functions[function_keys[0]]
-      // Function should not have Environment.Variables.AWS_LAMBDA_EXEC_WRAPPER
-      const env_vars = fn.Properties?.Environment?.Variables
-      expect(env_vars?.AWS_LAMBDA_EXEC_WRAPPER).toBeUndefined()
-    })
-
-    it('should skip functions in SSTBootstrap stacks', () => {
+    /**
+     * Helper to create a test app with a function that should be skipped.
+     * Returns the synthesized template for verification.
+     */
+    function create_skip_test_setup(options: {
+      stack_name: string
+      function_id: string
+    }) {
       const app = new cdk.App()
       const env = { account: '123456789012', region: 'us-east-1' }
 
@@ -404,8 +357,8 @@ describe('LiveLambdaLayerAspect', () => {
         asset_path: temp_asset_dir
       })
 
-      const sst_stack = new cdk.Stack(app, 'SSTBootstrapStack', { env })
-      new NodejsFunction(sst_stack, 'SSTFunction', {
+      const target_stack = new cdk.Stack(app, options.stack_name, { env })
+      new NodejsFunction(target_stack, options.function_id, {
         entry: entry_file_path,
         handler: 'handler',
         runtime: lambda.Runtime.NODEJS_20_X
@@ -419,9 +372,14 @@ describe('LiveLambdaLayerAspect', () => {
 
       app.synth()
 
-      const template = Template.fromStack(sst_stack)
+      return Template.fromStack(target_stack)
+    }
 
-      // Verify that the function exists but does NOT have live-lambda env vars
+    /**
+     * Verifies that a function exists but was NOT processed by the aspect
+     * (i.e., doesn't have the live-lambda environment variables)
+     */
+    function assert_function_skipped(template: Template) {
       const functions = template.findResources('AWS::Lambda::Function')
       const function_keys = Object.keys(functions)
       expect(function_keys.length).toBe(1)
@@ -429,171 +387,65 @@ describe('LiveLambdaLayerAspect', () => {
       const fn = functions[function_keys[0]]
       const env_vars = fn.Properties?.Environment?.Variables
       expect(env_vars?.AWS_LAMBDA_EXEC_WRAPPER).toBeUndefined()
-    })
+    }
 
-    it('should skip functions in CDKToolkit stacks', () => {
-      const app = new cdk.App()
-      const env = { account: '123456789012', region: 'us-east-1' }
+    // Parameterized tests for stack-based skip scenarios
+    const stack_skip_scenarios = [
+      {
+        scenario: 'LiveLambda- prefixed stacks',
+        stack_name: 'LiveLambda-InternalStack',
+        function_id: 'SkippedFunction'
+      },
+      {
+        scenario: 'SSTBootstrap stacks',
+        stack_name: 'SSTBootstrapStack',
+        function_id: 'SSTFunction'
+      },
+      {
+        scenario: 'CDKToolkit stacks',
+        stack_name: 'CDKToolkitStack',
+        function_id: 'CDKToolkitFunction'
+      }
+    ]
 
-      const api_stack = new cdk.Stack(app, 'ApiStack', { env })
-      const mock_api = new appsync.EventApi(api_stack, 'MockApi', {
-        apiName: 'test-api'
-      })
+    it.each(stack_skip_scenarios)(
+      'should skip functions in $scenario',
+      ({ stack_name, function_id }) => {
+        const template = create_skip_test_setup({ stack_name, function_id })
+        assert_function_skipped(template)
+      }
+    )
 
-      const layer_stack = new TestableLayerStack(app, 'TestLayerStack', {
-        env,
-        asset_path: temp_asset_dir
-      })
+    // Parameterized tests for function name-based skip scenarios
+    const function_skip_scenarios = [
+      {
+        scenario: 'CustomResourceHandler functions',
+        function_id: 'CustomResourceHandler'
+      },
+      {
+        scenario: 'LogRetention functions',
+        function_id: 'LogRetentionHandler'
+      },
+      {
+        scenario: 'SingletonLambda functions',
+        function_id: 'SingletonLambdaFunction'
+      },
+      {
+        scenario: 'Provider functions',
+        function_id: 'ProviderframeworkonEvent'
+      }
+    ]
 
-      const cdk_toolkit_stack = new cdk.Stack(app, 'CDKToolkitStack', { env })
-      new NodejsFunction(cdk_toolkit_stack, 'CDKToolkitFunction', {
-        entry: entry_file_path,
-        handler: 'handler',
-        runtime: lambda.Runtime.NODEJS_20_X
-      })
-
-      const aspect = new LiveLambdaLayerAspect({
-        layer_stack: layer_stack as any,
-        api: mock_api
-      })
-      cdk.Aspects.of(app).add(aspect)
-
-      app.synth()
-
-      const template = Template.fromStack(cdk_toolkit_stack)
-
-      // Verify that the function exists but does NOT have live-lambda env vars
-      const functions = template.findResources('AWS::Lambda::Function')
-      const function_keys = Object.keys(functions)
-      expect(function_keys.length).toBe(1)
-
-      const fn = functions[function_keys[0]]
-      const env_vars = fn.Properties?.Environment?.Variables
-      expect(env_vars?.AWS_LAMBDA_EXEC_WRAPPER).toBeUndefined()
-    })
-
-    it('should skip CustomResourceHandler functions', () => {
-      const app = new cdk.App()
-      const env = { account: '123456789012', region: 'us-east-1' }
-
-      const api_stack = new cdk.Stack(app, 'ApiStack', { env })
-      const mock_api = new appsync.EventApi(api_stack, 'MockApi', {
-        apiName: 'test-api'
-      })
-
-      const layer_stack = new TestableLayerStack(app, 'TestLayerStack', {
-        env,
-        asset_path: temp_asset_dir
-      })
-
-      const app_stack = new cdk.Stack(app, 'AppStack', { env })
-      new NodejsFunction(app_stack, 'CustomResourceHandler', {
-        entry: entry_file_path,
-        handler: 'handler',
-        runtime: lambda.Runtime.NODEJS_20_X
-      })
-
-      const aspect = new LiveLambdaLayerAspect({
-        layer_stack: layer_stack as any,
-        api: mock_api
-      })
-      cdk.Aspects.of(app).add(aspect)
-
-      app.synth()
-
-      const template = Template.fromStack(app_stack)
-
-      // Verify that the function exists but does NOT have live-lambda env vars
-      const functions = template.findResources('AWS::Lambda::Function')
-      const function_keys = Object.keys(functions)
-      expect(function_keys.length).toBe(1)
-
-      const fn = functions[function_keys[0]]
-      const env_vars = fn.Properties?.Environment?.Variables
-      expect(env_vars?.AWS_LAMBDA_EXEC_WRAPPER).toBeUndefined()
-    })
-
-    it('should skip LogRetention functions', () => {
-      const app = new cdk.App()
-      const env = { account: '123456789012', region: 'us-east-1' }
-
-      const api_stack = new cdk.Stack(app, 'ApiStack', { env })
-      const mock_api = new appsync.EventApi(api_stack, 'MockApi', {
-        apiName: 'test-api'
-      })
-
-      const layer_stack = new TestableLayerStack(app, 'TestLayerStack', {
-        env,
-        asset_path: temp_asset_dir
-      })
-
-      const app_stack = new cdk.Stack(app, 'AppStack', { env })
-      new NodejsFunction(app_stack, 'LogRetentionHandler', {
-        entry: entry_file_path,
-        handler: 'handler',
-        runtime: lambda.Runtime.NODEJS_20_X
-      })
-
-      const aspect = new LiveLambdaLayerAspect({
-        layer_stack: layer_stack as any,
-        api: mock_api
-      })
-      cdk.Aspects.of(app).add(aspect)
-
-      app.synth()
-
-      const template = Template.fromStack(app_stack)
-
-      // Verify that the function exists but does NOT have live-lambda env vars
-      const functions = template.findResources('AWS::Lambda::Function')
-      const function_keys = Object.keys(functions)
-      expect(function_keys.length).toBe(1)
-
-      const fn = functions[function_keys[0]]
-      const env_vars = fn.Properties?.Environment?.Variables
-      expect(env_vars?.AWS_LAMBDA_EXEC_WRAPPER).toBeUndefined()
-    })
-
-    it('should skip SingletonLambda functions', () => {
-      const app = new cdk.App()
-      const env = { account: '123456789012', region: 'us-east-1' }
-
-      const api_stack = new cdk.Stack(app, 'ApiStack', { env })
-      const mock_api = new appsync.EventApi(api_stack, 'MockApi', {
-        apiName: 'test-api'
-      })
-
-      const layer_stack = new TestableLayerStack(app, 'TestLayerStack', {
-        env,
-        asset_path: temp_asset_dir
-      })
-
-      const app_stack = new cdk.Stack(app, 'AppStack', { env })
-      new NodejsFunction(app_stack, 'SingletonLambdaFunction', {
-        entry: entry_file_path,
-        handler: 'handler',
-        runtime: lambda.Runtime.NODEJS_20_X
-      })
-
-      const aspect = new LiveLambdaLayerAspect({
-        layer_stack: layer_stack as any,
-        api: mock_api
-      })
-      cdk.Aspects.of(app).add(aspect)
-
-      app.synth()
-
-      const template = Template.fromStack(app_stack)
-
-      // Verify that the function exists but does NOT have live-lambda env vars
-      const functions = template.findResources('AWS::Lambda::Function')
-      const function_keys = Object.keys(functions)
-      expect(function_keys.length).toBe(1)
-
-      const fn = functions[function_keys[0]]
-      const env_vars = fn.Properties?.Environment?.Variables
-      expect(env_vars?.AWS_LAMBDA_EXEC_WRAPPER).toBeUndefined()
-    })
+    it.each(function_skip_scenarios)(
+      'should skip $scenario',
+      ({ function_id }) => {
+        const template = create_skip_test_setup({
+          stack_name: 'AppStack',
+          function_id
+        })
+        assert_function_skipped(template)
+      }
+    )
   })
 
   describe('Include/Exclude patterns', () => {
