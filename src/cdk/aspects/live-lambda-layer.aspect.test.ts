@@ -1,11 +1,8 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import * as cdk from 'aws-cdk-lib'
 import { Template, Match } from 'aws-cdk-lib/assertions'
 import * as lambda from 'aws-cdk-lib/aws-lambda'
-import * as appsync from 'aws-cdk-lib/aws-appsync'
-import * as ssm from 'aws-cdk-lib/aws-ssm'
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
-import { Construct } from 'constructs'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
@@ -14,71 +11,16 @@ import {
   LiveLambdaLayerAspectProps
 } from './live-lambda-layer.aspect.js'
 import {
-  LAYER_VERSION_NAME,
-  LAYER_ARN_SSM_PARAMETER,
-  LAYER_DESCRIPTION,
   ENV_LAMBDA_EXEC_WRAPPER,
   ENV_LRAP_LISTENER_PORT,
   ENV_EXTENSION_NAME
 } from '../../lib/constants.js'
 
-/**
- * Test version of the LiveLambdaLayerStack that uses fromAsset with a temp directory
- * to avoid path resolution issues in tests
- */
-class TestableLayerStack extends cdk.Stack {
-  public readonly layer_arn_ssm_parameter: string
-  public readonly layer: lambda.LayerVersion
-
-  constructor(
-    scope: Construct,
-    id: string,
-    props: cdk.StackProps & { asset_path: string }
-  ) {
-    super(scope, id, props)
-
-    this.layer_arn_ssm_parameter = LAYER_ARN_SSM_PARAMETER
-
-    const logical_id = 'LiveLambdaProxyLayer'
-
-    this.layer = new lambda.LayerVersion(this, logical_id, {
-      layerVersionName: LAYER_VERSION_NAME,
-      code: lambda.Code.fromAsset(props.asset_path),
-      compatibleArchitectures: [
-        lambda.Architecture.ARM_64,
-        lambda.Architecture.X86_64
-      ],
-      description: LAYER_DESCRIPTION
-    })
-
-    new cdk.CfnOutput(this, 'LiveLambdaProxyLayerArn', {
-      value: this.layer.layerVersionArn,
-      description: 'ARN of the Live Lambda Proxy Layer'
-    })
-
-    new ssm.StringParameter(this, 'LiveLambdaLayerArnParameter', {
-      parameterName: this.layer_arn_ssm_parameter,
-      stringValue: this.layer.layerVersionArn,
-      description: 'ARN of the Live Lambda Proxy Layer for live-lambda'
-    })
-  }
-}
-
 describe('LiveLambdaLayerAspect', () => {
-  let temp_asset_dir: string
   let temp_entry_dir: string
   let entry_file_path: string
 
   beforeAll(() => {
-    // Create a temp directory with a placeholder file for the layer asset
-    temp_asset_dir = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'live-lambda-layer-test-')
-    )
-    fs.writeFileSync(
-      path.join(temp_asset_dir, 'placeholder.txt'),
-      'test layer content'
-    )
-
     // Create a temp directory with a simple TypeScript entry point for NodejsFunction
     temp_entry_dir = fs.mkdtempSync(
       path.join(os.tmpdir(), 'live-lambda-entry-test-')
@@ -92,16 +34,14 @@ describe('LiveLambdaLayerAspect', () => {
 
   afterAll(() => {
     // Clean up temp directories
-    if (temp_asset_dir) {
-      fs.rmSync(temp_asset_dir, { recursive: true, force: true })
-    }
     if (temp_entry_dir) {
       fs.rmSync(temp_entry_dir, { recursive: true, force: true })
     }
   })
 
   /**
-   * Helper to create a test setup with all necessary CDK constructs
+   * Helper to create a test setup with all necessary CDK constructs.
+   * The aspect now reads configuration from SSM parameters, so no layer_stack or api needed.
    */
   function create_test_setup(options?: {
     stack_name?: string
@@ -112,18 +52,6 @@ describe('LiveLambdaLayerAspect', () => {
   }) {
     const app = new cdk.App()
     const env = { account: '123456789012', region: 'us-east-1' }
-
-    // Create API stack with EventApi
-    const api_stack = new cdk.Stack(app, 'ApiStack', { env })
-    const mock_api = new appsync.EventApi(api_stack, 'MockApi', {
-      apiName: 'test-api'
-    })
-
-    // Create layer stack
-    const layer_stack = new TestableLayerStack(app, 'TestLayerStack', {
-      env,
-      asset_path: temp_asset_dir
-    })
 
     // Create application stack with NodejsFunction
     const stack_name = options?.stack_name ?? 'TestAppStack'
@@ -136,10 +64,10 @@ describe('LiveLambdaLayerAspect', () => {
       runtime: lambda.Runtime.NODEJS_20_X
     })
 
-    // Create and apply aspect
+    // Create and apply aspect - it reads from SSM parameters
     const aspect_props: LiveLambdaLayerAspectProps = {
-      layer_stack: layer_stack as any, // Cast to avoid type issues with testable stack
-      api: mock_api,
+      ssm_namespace: 'test-app',
+      stack_namespace: 'TestApp',
       include_patterns: options?.include_patterns,
       exclude_patterns: options?.exclude_patterns,
       developer_principal_arns: options?.developer_principal_arns
@@ -149,15 +77,12 @@ describe('LiveLambdaLayerAspect', () => {
     cdk.Aspects.of(app).add(aspect)
 
     // Synthesize to trigger aspects
-    const assembly = app.synth()
+    app.synth()
 
     const template = Template.fromStack(app_stack)
 
     return {
       app,
-      api_stack,
-      mock_api,
-      layer_stack,
       app_stack,
       test_function,
       aspect,
@@ -347,16 +272,6 @@ describe('LiveLambdaLayerAspect', () => {
       const app = new cdk.App()
       const env = { account: '123456789012', region: 'us-east-1' }
 
-      const api_stack = new cdk.Stack(app, 'ApiStack', { env })
-      const mock_api = new appsync.EventApi(api_stack, 'MockApi', {
-        apiName: 'test-api'
-      })
-
-      const layer_stack = new TestableLayerStack(app, 'TestLayerStack', {
-        env,
-        asset_path: temp_asset_dir
-      })
-
       const target_stack = new cdk.Stack(app, options.stack_name, { env })
       new NodejsFunction(target_stack, options.function_id, {
         entry: entry_file_path,
@@ -365,8 +280,8 @@ describe('LiveLambdaLayerAspect', () => {
       })
 
       const aspect = new LiveLambdaLayerAspect({
-        layer_stack: layer_stack as any,
-        api: mock_api
+        ssm_namespace: 'test-app',
+        stack_namespace: 'TestApp'
       })
       cdk.Aspects.of(app).add(aspect)
 
@@ -392,8 +307,13 @@ describe('LiveLambdaLayerAspect', () => {
     // Parameterized tests for stack-based skip scenarios
     const stack_skip_scenarios = [
       {
-        scenario: 'LiveLambda- prefixed stacks',
-        stack_name: 'LiveLambda-InternalStack',
+        scenario: 'LiveLambda AppSync bootstrap stacks',
+        stack_name: 'TestApp-LiveLambdaAppSyncStack',
+        function_id: 'SkippedFunction'
+      },
+      {
+        scenario: 'LiveLambda Layer bootstrap stacks',
+        stack_name: 'TestApp-LiveLambdaLayerStack',
         function_id: 'SkippedFunction'
       },
       {
@@ -469,16 +389,6 @@ describe('LiveLambdaLayerAspect', () => {
       const app = new cdk.App()
       const env = { account: '123456789012', region: 'us-east-1' }
 
-      const api_stack = new cdk.Stack(app, 'ApiStack', { env })
-      const mock_api = new appsync.EventApi(api_stack, 'MockApi', {
-        apiName: 'test-api'
-      })
-
-      const layer_stack = new TestableLayerStack(app, 'TestLayerStack', {
-        env,
-        asset_path: temp_asset_dir
-      })
-
       const app_stack = new cdk.Stack(app, 'AppStack', { env })
       new NodejsFunction(app_stack, 'OtherFunction', {
         entry: entry_file_path,
@@ -487,8 +397,8 @@ describe('LiveLambdaLayerAspect', () => {
       })
 
       const aspect = new LiveLambdaLayerAspect({
-        layer_stack: layer_stack as any,
-        api: mock_api,
+        ssm_namespace: 'test-app',
+        stack_namespace: 'TestApp',
         include_patterns: ['ApiHandler', 'ProcessorFunction'] // OtherFunction not in list
       })
       cdk.Aspects.of(app).add(aspect)
@@ -527,16 +437,6 @@ describe('LiveLambdaLayerAspect', () => {
       const app = new cdk.App()
       const env = { account: '123456789012', region: 'us-east-1' }
 
-      const api_stack = new cdk.Stack(app, 'ApiStack', { env })
-      const mock_api = new appsync.EventApi(api_stack, 'MockApi', {
-        apiName: 'test-api'
-      })
-
-      const layer_stack = new TestableLayerStack(app, 'TestLayerStack', {
-        env,
-        asset_path: temp_asset_dir
-      })
-
       const app_stack = new cdk.Stack(app, 'AppStack', { env })
       new NodejsFunction(app_stack, 'AdminHandler', {
         entry: entry_file_path,
@@ -545,8 +445,8 @@ describe('LiveLambdaLayerAspect', () => {
       })
 
       const aspect = new LiveLambdaLayerAspect({
-        layer_stack: layer_stack as any,
-        api: mock_api,
+        ssm_namespace: 'test-app',
+        stack_namespace: 'TestApp',
         exclude_patterns: ['Admin'] // AdminHandler matches this
       })
       cdk.Aspects.of(app).add(aspect)
@@ -585,16 +485,6 @@ describe('LiveLambdaLayerAspect', () => {
       const app = new cdk.App()
       const env = { account: '123456789012', region: 'us-east-1' }
 
-      const api_stack = new cdk.Stack(app, 'ApiStack', { env })
-      const mock_api = new appsync.EventApi(api_stack, 'MockApi', {
-        apiName: 'test-api'
-      })
-
-      const layer_stack = new TestableLayerStack(app, 'TestLayerStack', {
-        env,
-        asset_path: temp_asset_dir
-      })
-
       const app_stack = new cdk.Stack(app, 'AppStack', { env })
 
       // Create multiple functions
@@ -617,8 +507,8 @@ describe('LiveLambdaLayerAspect', () => {
       })
 
       const aspect = new LiveLambdaLayerAspect({
-        layer_stack: layer_stack as any,
-        api: mock_api,
+        ssm_namespace: 'test-app',
+        stack_namespace: 'TestApp',
         include_patterns: ['Api'], // Include functions with Api
         exclude_patterns: ['Admin'] // But exclude Admin functions
       })
@@ -660,30 +550,10 @@ describe('LiveLambdaLayerAspect', () => {
     })
   })
 
-  describe('Stack dependencies', () => {
-    it('should add dependency on layer stack', () => {
-      const { app_stack, layer_stack } = create_test_setup()
-
-      // Check that app_stack depends on layer_stack
-      const dependencies = app_stack.dependencies
-      expect(dependencies).toContain(layer_stack)
-    })
-  })
-
   describe('Multiple functions', () => {
     it('should process multiple NodejsFunctions in the same stack', () => {
       const app = new cdk.App()
       const env = { account: '123456789012', region: 'us-east-1' }
-
-      const api_stack = new cdk.Stack(app, 'ApiStack', { env })
-      const mock_api = new appsync.EventApi(api_stack, 'MockApi', {
-        apiName: 'test-api'
-      })
-
-      const layer_stack = new TestableLayerStack(app, 'TestLayerStack', {
-        env,
-        asset_path: temp_asset_dir
-      })
 
       const app_stack = new cdk.Stack(app, 'AppStack', { env })
 
@@ -700,8 +570,8 @@ describe('LiveLambdaLayerAspect', () => {
       })
 
       const aspect = new LiveLambdaLayerAspect({
-        layer_stack: layer_stack as any,
-        api: mock_api
+        ssm_namespace: 'test-app',
+        stack_namespace: 'TestApp'
       })
       cdk.Aspects.of(app).add(aspect)
 
@@ -731,13 +601,6 @@ describe('LiveLambdaLayerAspect', () => {
       template.hasOutput('Function2Arn', {})
       template.hasOutput('Function1RoleArn', {})
       template.hasOutput('Function2RoleArn', {})
-    })
-  })
-
-  describe('Static properties', () => {
-    it('should have static function_mappings property', () => {
-      expect(LiveLambdaLayerAspect.function_mappings).toBeDefined()
-      expect(typeof LiveLambdaLayerAspect.function_mappings).toBe('object')
     })
   })
 })

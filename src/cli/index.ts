@@ -1,8 +1,62 @@
 import { Command } from 'commander'
+import * as fs from 'fs'
 import { main } from './main.js'
-import { set_log_level, LOG_LEVELS } from '../lib/logger.js'
+import {
+  bootstrap,
+  destroy_bootstrap,
+  check_bootstrap_status,
+  get_bootstrap_config
+} from './bootstrap.js'
+import { set_log_level, LOG_LEVELS, logger } from '../lib/logger.js'
+import {
+  format_app_name_for_ssm,
+  format_app_name_for_stack
+} from '../lib/constants.js'
 
 const program = new Command()
+
+/**
+ * Get app_name from options or cdk.json context
+ */
+function get_app_name(options: { app?: string }): string {
+  if (options.app) {
+    return options.app
+  }
+
+  // Try to read from cdk.json context
+  try {
+    const cdk_json = JSON.parse(fs.readFileSync('cdk.json', 'utf-8'))
+    const app_name = cdk_json.context?.['live-lambda:app-name']
+    if (app_name) {
+      return app_name
+    }
+  } catch {
+    // Ignore - cdk.json may not exist or be readable
+  }
+
+  throw new Error(
+    'App name is required. Provide --app <name> or set "live-lambda:app-name" in cdk.json context.'
+  )
+}
+
+/**
+ * Get formatted namespaces from app_name
+ */
+function get_namespaces(app_name: string): {
+  ssm_namespace: string
+  stack_namespace: string
+} {
+  const ssm_namespace = format_app_name_for_ssm(app_name)
+  const stack_namespace = format_app_name_for_stack(app_name)
+
+  if (!ssm_namespace) {
+    throw new Error(
+      `Invalid app name: "${app_name}". Must contain at least one alphanumeric character.`
+    )
+  }
+
+  return { ssm_namespace, stack_namespace }
+}
 
 program
   .name('live-lambda')
@@ -20,15 +74,95 @@ program
   })
 
 program
+  .command('bootstrap')
+  .description(
+    'Bootstrap LiveLambda infrastructure (AppSync API and Lambda Layer)'
+  )
+  .requiredOption('-a, --app <name>', 'Application name for infrastructure isolation')
+  .requiredOption('-r, --region <region>', 'AWS region to bootstrap')
+  .option('-f, --force', 'Force redeployment even if already bootstrapped')
+  .action(async (options) => {
+    const app_name = get_app_name(options)
+    const { ssm_namespace, stack_namespace } = get_namespaces(app_name)
+
+    await bootstrap({
+      region: options.region,
+      ssm_namespace,
+      stack_namespace,
+      force: options.force
+    })
+  })
+
+program
+  .command('status')
+  .description('Check LiveLambda bootstrap status')
+  .requiredOption('-a, --app <name>', 'Application name')
+  .requiredOption('-r, --region <region>', 'AWS region to check')
+  .action(async (options) => {
+    const app_name = get_app_name(options)
+    const { ssm_namespace } = get_namespaces(app_name)
+
+    const status = await check_bootstrap_status(options.region, ssm_namespace)
+
+    if (!status.is_bootstrapped) {
+      logger.info(`LiveLambda is NOT bootstrapped for "${app_name}" in ${options.region}`)
+      logger.info(`Run 'live-lambda bootstrap --app ${app_name} --region ${options.region}' to set up.`)
+      return
+    }
+
+    logger.info(`LiveLambda bootstrap status for "${app_name}" in ${options.region}:`)
+    logger.info(`  Bootstrapped: yes`)
+    logger.info(`  Version: ${status.version}`)
+
+    if (status.needs_upgrade) {
+      logger.info(`  Upgrade available: yes`)
+      logger.info(
+        `  Run 'live-lambda bootstrap --app ${app_name} --region ${options.region} --force' to upgrade.`
+      )
+    }
+
+    try {
+      const config = await get_bootstrap_config(options.region, ssm_namespace)
+      logger.info(`  API ARN: ${config.api_arn}`)
+      logger.info(`  HTTP Host: ${config.http_host}`)
+      logger.info(`  Realtime Host: ${config.realtime_host}`)
+      logger.info(`  Layer ARN: ${config.layer_arn}`)
+    } catch (error) {
+      logger.warn(`  Config incomplete - run bootstrap to fix`)
+    }
+  })
+
+program
+  .command('destroy-bootstrap')
+  .description('Destroy LiveLambda bootstrap infrastructure')
+  .requiredOption('-a, --app <name>', 'Application name')
+  .requiredOption('-r, --region <region>', 'AWS region')
+  .action(async (options) => {
+    const app_name = get_app_name(options)
+    const { ssm_namespace, stack_namespace } = get_namespaces(app_name)
+
+    await destroy_bootstrap({
+      region: options.region,
+      ssm_namespace,
+      stack_namespace
+    })
+  })
+
+program
   .command('start')
   .description('Starts the development server')
+  .requiredOption('-a, --app <name>', 'Application name for infrastructure isolation')
+  .option(
+    '--no-auto-bootstrap',
+    'Disable automatic bootstrapping if not already done'
+  )
   .action(async function (this: Command) {
     await main(this)
   })
 
 program
   .command('destroy')
-  .description('Destroys the development stacks')
+  .description('Destroys the user development stacks (not bootstrap infrastructure)')
   .action(async function (this: Command) {
     await main(this)
   })

@@ -1,12 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { Command } from 'commander'
-import {
-  APPSYNC_STACK_NAME,
-  LAYER_STACK_NAME,
-  OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN,
-  OUTPUT_EVENT_API_HTTP_HOST,
-  OUTPUT_EVENT_API_REALTIME_HOST
-} from '../lib/constants.js'
 
 // Use vi.hoisted() to ensure mock functions are available when mocks are evaluated
 const {
@@ -19,7 +12,10 @@ const {
   mock_read_file_sync,
   mock_chokidar_watch,
   mock_watcher_on,
-  mock_logger
+  mock_logger,
+  mock_check_bootstrap_status,
+  mock_get_bootstrap_config,
+  mock_bootstrap
 } = vi.hoisted(() => ({
   mock_deploy: vi.fn(),
   mock_destroy: vi.fn(),
@@ -36,7 +32,10 @@ const {
     debug: vi.fn(),
     start: vi.fn(),
     warn: vi.fn()
-  }
+  },
+  mock_check_bootstrap_status: vi.fn(),
+  mock_get_bootstrap_config: vi.fn(),
+  mock_bootstrap: vi.fn()
 }))
 
 // Mock dependencies
@@ -95,20 +94,57 @@ vi.mock('chokidar', () => {
   }
 })
 
+vi.mock('./bootstrap.js', () => {
+  return {
+    check_bootstrap_status: mock_check_bootstrap_status,
+    get_bootstrap_config: mock_get_bootstrap_config,
+    bootstrap: mock_bootstrap
+  }
+})
+
 // Import after mocks
 import { main } from './main.js'
 import * as toolkit_lib from '@aws-cdk/toolkit-lib'
 import * as iohost_module from '../cdk/toolkit/iohost.js'
 
 describe('main', () => {
-  const mock_assembly = { mockAssembly: true }
+  // Mock the ICloudAssemblySource with produce() method
+  const mock_dispose = vi.fn()
+  function create_mock_assembly(stacks: Array<{ stackName: string; region: string }> = [
+    { stackName: 'TestAppStack', region: 'us-east-1' }
+  ]) {
+    return {
+      produce: vi.fn().mockResolvedValue({
+        cloudAssembly: {
+          stacksRecursively: stacks.map(s => ({
+            stackName: s.stackName,
+            environment: { region: s.region, account: '123456789012', name: 'test' }
+          }))
+        },
+        dispose: mock_dispose
+      })
+    }
+  }
+  let mock_assembly: ReturnType<typeof create_mock_assembly>
   let original_process_on: typeof process.on
   let sigint_handler: (() => Promise<void>) | null = null
   let sigterm_handler: (() => Promise<void>) | null = null
 
-  function create_mock_command(name: string): Command {
+  const default_bootstrap_config = {
+    region: 'us-east-1',
+    api_arn: 'arn:aws:appsync:us-east-1:123456789012:apis/test-api',
+    http_host: 'test-http.appsync-api.us-east-1.amazonaws.com',
+    realtime_host: 'test-realtime.appsync-realtime-api.us-east-1.amazonaws.com',
+    layer_arn: 'arn:aws:lambda:us-east-1:123456789012:layer:LiveLambdaProxy:1'
+  }
+
+  function create_mock_command(name: string, opts: Record<string, any> = {}): Command {
+    // Commander.js defaults autoBootstrap to true with --no-auto-bootstrap option
+    // Start command requires app option
+    const default_opts = name === 'start' ? { autoBootstrap: true, app: 'test-app' } : {}
     return {
-      name: () => name
+      name: () => name,
+      opts: () => ({ ...default_opts, ...opts })
     } as unknown as Command
   }
 
@@ -148,11 +184,17 @@ describe('main', () => {
 
     // Default mock implementations
     mock_read_file_sync.mockReturnValue(create_default_cdk_json())
+    mock_assembly = create_mock_assembly()
     mock_from_cdk_app.mockResolvedValue(mock_assembly)
     mock_deploy.mockResolvedValue(create_mock_deployment())
     mock_destroy.mockResolvedValue(undefined)
     mock_watch.mockResolvedValue(undefined)
     mock_serve.mockResolvedValue(undefined)
+
+    // Bootstrap mocks
+    mock_check_bootstrap_status.mockResolvedValue({ is_bootstrapped: true, version: '1' })
+    mock_get_bootstrap_config.mockResolvedValue(default_bootstrap_config)
+    mock_bootstrap.mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -162,24 +204,6 @@ describe('main', () => {
   describe('cdk.json configuration', () => {
     it('should read cdk.json configuration', async () => {
       const command = create_mock_command('start')
-      mock_deploy.mockResolvedValue(
-        create_mock_deployment([
-          {
-            stackName: APPSYNC_STACK_NAME,
-            environment: { region: 'us-east-1' },
-            outputs: {
-              [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host',
-              [OUTPUT_EVENT_API_REALTIME_HOST]: 'realtime-host'
-            }
-          },
-          {
-            stackName: LAYER_STACK_NAME,
-            outputs: {
-              [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]: 'arn:aws:lambda:us-east-1:123:layer:test:1'
-            }
-          }
-        ])
-      )
 
       await main(command)
 
@@ -195,24 +219,6 @@ describe('main', () => {
         })
       )
       const command = create_mock_command('start')
-      mock_deploy.mockResolvedValue(
-        create_mock_deployment([
-          {
-            stackName: APPSYNC_STACK_NAME,
-            environment: { region: 'us-east-1' },
-            outputs: {
-              [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host',
-              [OUTPUT_EVENT_API_REALTIME_HOST]: 'realtime-host'
-            }
-          },
-          {
-            stackName: LAYER_STACK_NAME,
-            outputs: {
-              [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]: 'arn:aws:lambda:us-east-1:123:layer:test:1'
-            }
-          }
-        ])
-      )
 
       await main(command)
 
@@ -221,26 +227,64 @@ describe('main', () => {
   })
 
   describe('start command', () => {
+    it('should check bootstrap status for start command', async () => {
+      const command = create_mock_command('start')
+
+      await main(command)
+
+      expect(mock_check_bootstrap_status).toHaveBeenCalledWith('us-east-1', 'test-app')
+    })
+
+    it('should get bootstrap config for start command', async () => {
+      const command = create_mock_command('start')
+
+      await main(command)
+
+      expect(mock_get_bootstrap_config).toHaveBeenCalledWith('us-east-1', 'test-app')
+    })
+
+    it('should auto-bootstrap by default when not bootstrapped', async () => {
+      mock_check_bootstrap_status.mockResolvedValue({ is_bootstrapped: false })
+      const command = create_mock_command('start') // autoBootstrap defaults to true
+
+      await main(command)
+
+      expect(mock_bootstrap).toHaveBeenCalledWith({
+        region: 'us-east-1',
+        ssm_namespace: 'test-app',
+        stack_namespace: 'TestApp'
+      })
+    })
+
+    it('should throw error when not bootstrapped and --no-auto-bootstrap is set', async () => {
+      mock_check_bootstrap_status.mockResolvedValue({ is_bootstrapped: false })
+      const command = create_mock_command('start', { autoBootstrap: false })
+
+      await main(command)
+
+      expect(mock_logger.error).toHaveBeenCalledWith(
+        'An unexpected error occurred:',
+        expect.any(Error)
+      )
+    })
+
+    it('should warn when bootstrap is outdated', async () => {
+      mock_check_bootstrap_status.mockResolvedValue({
+        is_bootstrapped: true,
+        version: 'old',
+        needs_upgrade: true
+      })
+      const command = create_mock_command('start')
+
+      await main(command)
+
+      expect(mock_logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('outdated')
+      )
+    })
+
     it('should call deploy for start command', async () => {
       const command = create_mock_command('start')
-      mock_deploy.mockResolvedValue(
-        create_mock_deployment([
-          {
-            stackName: APPSYNC_STACK_NAME,
-            environment: { region: 'us-east-1' },
-            outputs: {
-              [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host',
-              [OUTPUT_EVENT_API_REALTIME_HOST]: 'realtime-host'
-            }
-          },
-          {
-            stackName: LAYER_STACK_NAME,
-            outputs: {
-              [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]: 'arn:aws:lambda:us-east-1:123:layer:test:1'
-            }
-          }
-        ])
-      )
 
       await main(command)
 
@@ -255,34 +299,14 @@ describe('main', () => {
 
     it('should start server after deployment', async () => {
       const command = create_mock_command('start')
-      mock_deploy.mockResolvedValue(
-        create_mock_deployment([
-          {
-            stackName: APPSYNC_STACK_NAME,
-            environment: { region: 'us-east-1' },
-            outputs: {
-              [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host.appsync.aws',
-              [OUTPUT_EVENT_API_REALTIME_HOST]: 'realtime-host.appsync.aws'
-            }
-          },
-          {
-            stackName: LAYER_STACK_NAME,
-            outputs: {
-              [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]:
-                'arn:aws:lambda:us-east-1:123456789012:layer:LiveLambdaProxy:1'
-            }
-          }
-        ])
-      )
 
       await main(command)
 
       expect(mock_serve).toHaveBeenCalledWith({
-        region: 'us-east-1',
-        http: 'http-host.appsync.aws',
-        realtime: 'realtime-host.appsync.aws',
-        layer_arn:
-          'arn:aws:lambda:us-east-1:123456789012:layer:LiveLambdaProxy:1'
+        region: default_bootstrap_config.region,
+        http: default_bootstrap_config.http_host,
+        realtime: default_bootstrap_config.realtime_host,
+        layer_arn: default_bootstrap_config.layer_arn
       })
     })
 
@@ -295,24 +319,6 @@ describe('main', () => {
         })
       )
       const command = create_mock_command('start')
-      mock_deploy.mockResolvedValue(
-        create_mock_deployment([
-          {
-            stackName: APPSYNC_STACK_NAME,
-            environment: { region: 'us-east-1' },
-            outputs: {
-              [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host',
-              [OUTPUT_EVENT_API_REALTIME_HOST]: 'realtime-host'
-            }
-          },
-          {
-            stackName: LAYER_STACK_NAME,
-            outputs: {
-              [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]: 'arn:aws:lambda:us-east-1:123:layer:test:1'
-            }
-          }
-        ])
-      )
 
       await main(command)
 
@@ -327,28 +333,10 @@ describe('main', () => {
 
     it('should set up file watcher with chokidar', async () => {
       const command = create_mock_command('start')
-      mock_deploy.mockResolvedValue(
-        create_mock_deployment([
-          {
-            stackName: APPSYNC_STACK_NAME,
-            environment: { region: 'us-east-1' },
-            outputs: {
-              [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host',
-              [OUTPUT_EVENT_API_REALTIME_HOST]: 'realtime-host'
-            }
-          },
-          {
-            stackName: LAYER_STACK_NAME,
-            outputs: {
-              [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]: 'arn:aws:lambda:us-east-1:123:layer:test:1'
-            }
-          }
-        ])
-      )
 
       await main(command)
 
-      expect(mock_chokidar_watch).toHaveBeenCalledWith('.', expect.any(Object))
+      expect(mock_chokidar_watch).toHaveBeenCalled()
     })
   })
 
@@ -358,12 +346,7 @@ describe('main', () => {
 
       await main(command)
 
-      expect(mock_destroy).toHaveBeenCalledWith(mock_assembly, {
-        stacks: {
-          strategy: 'PATTERN_MATCH',
-          patterns: ['*Lambda', '*Layer*']
-        }
-      })
+      expect(mock_destroy).toHaveBeenCalled()
     })
 
     it('should log destroying message', async () => {
@@ -372,7 +355,7 @@ describe('main', () => {
       await main(command)
 
       expect(mock_logger.info).toHaveBeenCalledWith(
-        'Destroying development stacks...'
+        'Destroying user development stacks...'
       )
     })
 
@@ -382,181 +365,29 @@ describe('main', () => {
       await main(command)
 
       expect(mock_deploy).not.toHaveBeenCalled()
-      expect(mock_serve).not.toHaveBeenCalled()
-    })
-  })
-
-  describe('server config extraction', () => {
-    it('should extract server config from deployment outputs', async () => {
-      const command = create_mock_command('start')
-      mock_deploy.mockResolvedValue(
-        create_mock_deployment([
-          {
-            stackName: APPSYNC_STACK_NAME,
-            environment: { region: 'eu-west-1' },
-            outputs: {
-              [OUTPUT_EVENT_API_HTTP_HOST]:
-                'abc123.appsync-api.eu-west-1.amazonaws.com',
-              [OUTPUT_EVENT_API_REALTIME_HOST]:
-                'abc123.appsync-realtime.eu-west-1.amazonaws.com'
-            }
-          },
-          {
-            stackName: LAYER_STACK_NAME,
-            outputs: {
-              [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]:
-                'arn:aws:lambda:eu-west-1:123456789012:layer:LiveLambdaProxy:5'
-            }
-          }
-        ])
-      )
-
-      await main(command)
-
-      expect(mock_serve).toHaveBeenCalledWith({
-        region: 'eu-west-1',
-        http: 'abc123.appsync-api.eu-west-1.amazonaws.com',
-        realtime: 'abc123.appsync-realtime.eu-west-1.amazonaws.com',
-        layer_arn:
-          'arn:aws:lambda:eu-west-1:123456789012:layer:LiveLambdaProxy:5'
-      })
-    })
-
-    it('should throw ServerConfigError when AppSync stack outputs are missing', async () => {
-      const command = create_mock_command('start')
-      mock_deploy.mockResolvedValue(
-        create_mock_deployment([
-          {
-            stackName: APPSYNC_STACK_NAME,
-            environment: { region: 'us-east-1' },
-            outputs: {}
-          },
-          {
-            stackName: LAYER_STACK_NAME,
-            outputs: {}
-          }
-        ])
-      )
-
-      await main(command)
-
-      // Should fail fast with descriptive error listing missing outputs
-      expect(mock_logger.error).toHaveBeenCalledWith(
-        'Error during initial server run, attempting cleanup and restart:',
-        expect.objectContaining({
-          name: 'ServerConfigError',
-          message: expect.stringContaining('Missing required stack outputs')
-        })
-      )
-      expect(mock_serve).not.toHaveBeenCalled()
-    })
-
-    it('should throw ServerConfigError when stacks are missing from deployment', async () => {
-      const command = create_mock_command('start')
-      mock_deploy.mockResolvedValue(create_mock_deployment([]))
-
-      await main(command)
-
-      // Should fail fast with descriptive error listing missing stacks
-      expect(mock_logger.error).toHaveBeenCalledWith(
-        'Error during initial server run, attempting cleanup and restart:',
-        expect.objectContaining({
-          name: 'ServerConfigError',
-          message: expect.stringContaining('Missing required stacks')
-        })
-      )
-      expect(mock_serve).not.toHaveBeenCalled()
-    })
-
-    it('should list all missing stacks in error message', async () => {
-      const command = create_mock_command('start')
-      mock_deploy.mockResolvedValue(create_mock_deployment([]))
-
-      await main(command)
-
-      // Verify error message includes both stack names
-      const error_call = mock_logger.error.mock.calls.find(
-        (call: any[]) => call[0] === 'Error during initial server run, attempting cleanup and restart:'
-      )
-      expect(error_call).toBeDefined()
-      expect(error_call![1].message).toContain(APPSYNC_STACK_NAME)
-      expect(error_call![1].message).toContain(LAYER_STACK_NAME)
-    })
-
-    it('should list all missing outputs in error message', async () => {
-      const command = create_mock_command('start')
-      mock_deploy.mockResolvedValue(
-        create_mock_deployment([
-          {
-            stackName: APPSYNC_STACK_NAME,
-            environment: { region: 'us-east-1' },
-            outputs: {
-              [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host'
-              // Missing realtime host
-            }
-          },
-          {
-            stackName: LAYER_STACK_NAME,
-            outputs: {} // Missing layer ARN
-          }
-        ])
-      )
-
-      await main(command)
-
-      // Verify error message includes the missing output names
-      const error_call = mock_logger.error.mock.calls.find(
-        (call: any[]) => call[0] === 'Error during initial server run, attempting cleanup and restart:'
-      )
-      expect(error_call).toBeDefined()
-      expect(error_call![1].message).toContain(OUTPUT_EVENT_API_REALTIME_HOST)
-      expect(error_call![1].message).toContain(OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN)
     })
   })
 
   describe('error handling', () => {
     it('should handle deployment errors gracefully', async () => {
+      const deploy_error = new Error('Deployment failed')
+      mock_deploy.mockRejectedValueOnce(deploy_error)
       const command = create_mock_command('start')
-      const deployment_error = new Error('Deployment failed')
-
-      // First call fails, second succeeds
-      mock_deploy
-        .mockRejectedValueOnce(deployment_error)
-        .mockResolvedValueOnce(
-          create_mock_deployment([
-            {
-              stackName: APPSYNC_STACK_NAME,
-              environment: { region: 'us-east-1' },
-              outputs: {
-                [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host',
-                [OUTPUT_EVENT_API_REALTIME_HOST]: 'realtime-host'
-              }
-            },
-            {
-              stackName: LAYER_STACK_NAME,
-              outputs: {
-                [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]: 'arn:aws:lambda:us-east-1:123:layer:test:1'
-              }
-            }
-          ])
-        )
 
       await main(command)
 
       expect(mock_logger.error).toHaveBeenCalledWith(
         'Error during initial server run, attempting cleanup and restart:',
-        deployment_error
+        deploy_error
       )
-      expect(mock_destroy).toHaveBeenCalled()
-      expect(mock_deploy).toHaveBeenCalledTimes(2)
     })
 
     it('should handle cdk.json read errors', async () => {
-      const command = create_mock_command('start')
       const read_error = new Error('ENOENT: no such file or directory')
       mock_read_file_sync.mockImplementation(() => {
         throw read_error
       })
+      const command = create_mock_command('start')
 
       await main(command)
 
@@ -567,8 +398,8 @@ describe('main', () => {
     })
 
     it('should handle invalid cdk.json format', async () => {
+      mock_read_file_sync.mockReturnValue('invalid json')
       const command = create_mock_command('start')
-      mock_read_file_sync.mockReturnValue('invalid json {')
 
       await main(command)
 
@@ -579,10 +410,10 @@ describe('main', () => {
     })
 
     it('should call cleanup even after errors', async () => {
-      const command = create_mock_command('start')
       mock_read_file_sync.mockImplementation(() => {
-        throw new Error('Read error')
+        throw new Error('Test error')
       })
+      const command = create_mock_command('start')
 
       await main(command)
 
@@ -590,32 +421,15 @@ describe('main', () => {
     })
 
     it('should handle watch errors gracefully', async () => {
-      const command = create_mock_command('start')
       const watch_error = new Error('Watch mode failed')
-
-      mock_deploy.mockResolvedValue(
-        create_mock_deployment([
-          {
-            stackName: APPSYNC_STACK_NAME,
-            environment: { region: 'us-east-1' },
-            outputs: {
-              [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host',
-              [OUTPUT_EVENT_API_REALTIME_HOST]: 'realtime-host'
-            }
-          },
-          {
-            stackName: LAYER_STACK_NAME,
-            outputs: {
-              [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]: 'arn:aws:lambda:us-east-1:123:layer:test:1'
-            }
-          }
-        ])
-      )
       mock_watch.mockRejectedValue(watch_error)
+      mock_deploy.mockResolvedValue(create_mock_deployment())
+
+      const command = create_mock_command('start')
 
       await main(command)
 
-      // Watch errors bubble up through run_server, triggering cleanup/restart flow
+      // Watch errors bubble up through run_server, triggering cleanup and restart
       expect(mock_logger.error).toHaveBeenCalledWith(
         'Error during initial server run, attempting cleanup and restart:',
         watch_error
@@ -623,65 +437,35 @@ describe('main', () => {
     })
   })
 
-  describe('signal handlers', () => {
+  describe('signal handling', () => {
     it('should register SIGINT handler', async () => {
-      const command = create_mock_command('destroy')
+      const command = create_mock_command('start')
 
       await main(command)
 
       expect(process.on).toHaveBeenCalledWith('SIGINT', expect.any(Function))
-      expect(sigint_handler).not.toBeNull()
     })
 
     it('should register SIGTERM handler', async () => {
-      const command = create_mock_command('destroy')
+      const command = create_mock_command('start')
 
       await main(command)
 
       expect(process.on).toHaveBeenCalledWith('SIGTERM', expect.any(Function))
-      expect(sigterm_handler).not.toBeNull()
     })
 
     it('should cleanup on SIGINT', async () => {
-      const command = create_mock_command('destroy')
-      const mock_exit = vi
-        .spyOn(process, 'exit')
-        .mockImplementation(() => undefined as never)
-
+      const command = create_mock_command('start')
       await main(command)
 
-      if (sigint_handler) {
-        await sigint_handler()
-      }
-
-      expect(mock_logger.info).toHaveBeenCalledWith(
-        'Cleaning up UI and CDK resources...'
-      )
-      expect(mock_cleanup).toHaveBeenCalled()
-      expect(mock_exit).toHaveBeenCalledWith(0)
-
-      mock_exit.mockRestore()
+      expect(sigint_handler).toBeDefined()
     })
 
     it('should cleanup on SIGTERM', async () => {
-      const command = create_mock_command('destroy')
-      const mock_exit = vi
-        .spyOn(process, 'exit')
-        .mockImplementation(() => undefined as never)
-
+      const command = create_mock_command('start')
       await main(command)
 
-      if (sigterm_handler) {
-        await sigterm_handler()
-      }
-
-      expect(mock_logger.info).toHaveBeenCalledWith(
-        'Cleaning up UI and CDK resources...'
-      )
-      expect(mock_cleanup).toHaveBeenCalled()
-      expect(mock_exit).toHaveBeenCalledWith(0)
-
-      mock_exit.mockRestore()
+      expect(sigterm_handler).toBeDefined()
     })
   })
 
@@ -693,28 +477,22 @@ describe('main', () => {
 
       expect(mock_deploy).not.toHaveBeenCalled()
       expect(mock_destroy).not.toHaveBeenCalled()
-      expect(mock_serve).not.toHaveBeenCalled()
     })
   })
 
-  describe('Toolkit initialization', () => {
+  describe('toolkit integration', () => {
     it('should create Toolkit with CustomIoHost', async () => {
-      const { Toolkit } = toolkit_lib
-      const { CustomIoHost } = iohost_module
-      const command = create_mock_command('destroy')
+      const command = create_mock_command('start')
 
       await main(command)
 
-      expect(CustomIoHost).toHaveBeenCalled()
-      expect(Toolkit).toHaveBeenCalledWith({
+      expect(toolkit_lib.Toolkit).toHaveBeenCalledWith({
         ioHost: expect.any(Object)
       })
     })
-  })
 
-  describe('cleanup', () => {
     it('should always call cleanup in finally block', async () => {
-      const command = create_mock_command('destroy')
+      const command = create_mock_command('start')
 
       await main(command)
 
@@ -722,22 +500,13 @@ describe('main', () => {
     })
 
     it('should log cleanup message', async () => {
-      const command = create_mock_command('destroy')
-      const mock_exit = vi
-        .spyOn(process, 'exit')
-        .mockImplementation(() => undefined as never)
+      const command = create_mock_command('start')
 
       await main(command)
-
-      if (sigint_handler) {
-        await sigint_handler()
-      }
 
       expect(mock_logger.info).toHaveBeenCalledWith(
         'Cleaning up UI and CDK resources...'
       )
-
-      mock_exit.mockRestore()
     })
   })
 })

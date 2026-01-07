@@ -10,20 +10,10 @@ import { LiveLambda, LiveLambdaInstallProps } from './live_lambda.js'
 import { ENV_LAMBDA_EXEC_WRAPPER } from '../lib/constants.js'
 
 describe('LiveLambda.install()', () => {
-  let temp_asset_dir: string
   let temp_entry_dir: string
   let entry_file_path: string
 
   beforeAll(() => {
-    // Create a temp directory with a placeholder file for the layer asset
-    temp_asset_dir = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'live-lambda-install-test-')
-    )
-    fs.writeFileSync(
-      path.join(temp_asset_dir, 'placeholder.txt'),
-      'test layer content'
-    )
-
     // Create a temp directory with a simple TypeScript entry point for NodejsFunction
     temp_entry_dir = fs.mkdtempSync(
       path.join(os.tmpdir(), 'live-lambda-entry-test-')
@@ -36,10 +26,7 @@ describe('LiveLambda.install()', () => {
   })
 
   afterAll(() => {
-    // Clean up temp directories
-    if (temp_asset_dir) {
-      fs.rmSync(temp_asset_dir, { recursive: true, force: true })
-    }
+    // Clean up temp directory
     if (temp_entry_dir) {
       fs.rmSync(temp_entry_dir, { recursive: true, force: true })
     }
@@ -50,16 +37,19 @@ describe('LiveLambda.install()', () => {
    * and optionally an application stack with a NodejsFunction
    */
   function create_test_app(options?: {
-    props?: LiveLambdaInstallProps
+    props?: Partial<LiveLambdaInstallProps>
     include_app_stack?: boolean
   }) {
     const app = new cdk.App()
     const env = { account: '123456789012', region: 'us-east-1' }
 
-    const props = options?.props ?? { env }
-
     // Call the install method - this is what we're testing
-    LiveLambda.install(app, props)
+    // Always provide app_name, merge with any additional props
+    const install_props: LiveLambdaInstallProps = {
+      app_name: 'test-app',
+      ...options?.props
+    }
+    LiveLambda.install(app, install_props)
 
     let app_stack: cdk.Stack | undefined
     let test_function: NodejsFunction | undefined
@@ -85,34 +75,10 @@ describe('LiveLambda.install()', () => {
     }
   }
 
-  describe('Stack creation', () => {
-    it('should create AppSyncStack when called', () => {
-      const { app } = create_test_app({ include_app_stack: false })
-
-      const appsync_stack = app.node.tryFindChild('AppSyncStack') as cdk.Stack
-      expect(appsync_stack).toBeDefined()
-      expect(appsync_stack).toBeInstanceOf(cdk.Stack)
-
-      const template = Template.fromStack(appsync_stack)
-      template.resourceCountIs('AWS::AppSync::Api', 1)
-    })
-
-    it('should create LiveLambda-LayerStack when called', () => {
-      const { app } = create_test_app({ include_app_stack: false })
-
-      const layer_stack = app.node.tryFindChild('LiveLambda-LayerStack') as cdk.Stack
-      expect(layer_stack).toBeDefined()
-      expect(layer_stack).toBeInstanceOf(cdk.Stack)
-
-      const template = Template.fromStack(layer_stack)
-      template.resourceCountIs('AWS::Lambda::LayerVersion', 1)
-    })
-  })
-
   describe('Aspect application when skip_layer is false', () => {
     it('should apply aspect to NodejsFunction (check for AWS_LAMBDA_EXEC_WRAPPER env var)', () => {
       const { app_stack } = create_test_app({
-        props: { env: { account: '123456789012', region: 'us-east-1' }, skip_layer: false }
+        props: { skip_layer: false }
       })
 
       const template = Template.fromStack(app_stack!)
@@ -127,7 +93,7 @@ describe('LiveLambda.install()', () => {
 
     it('should apply aspect by default when skip_layer is not specified', () => {
       const { app_stack } = create_test_app({
-        props: { env: { account: '123456789012', region: 'us-east-1' } }
+        props: {}
       })
 
       const template = Template.fromStack(app_stack!)
@@ -153,7 +119,7 @@ describe('LiveLambda.install()', () => {
   describe('Aspect skipping when skip_layer is true', () => {
     it('should NOT apply aspect when skip_layer is true', () => {
       const { app_stack } = create_test_app({
-        props: { env: { account: '123456789012', region: 'us-east-1' }, skip_layer: true }
+        props: { skip_layer: true }
       })
 
       const template = Template.fromStack(app_stack!)
@@ -170,7 +136,7 @@ describe('LiveLambda.install()', () => {
 
     it('should NOT add layer to NodejsFunction when skip_layer is true', () => {
       const { app_stack } = create_test_app({
-        props: { env: { account: '123456789012', region: 'us-east-1' }, skip_layer: true }
+        props: { skip_layer: true }
       })
 
       const template = Template.fromStack(app_stack!)
@@ -190,7 +156,6 @@ describe('LiveLambda.install()', () => {
       const developer_arn = 'arn:aws:iam::999999999999:user/developer'
       const { app_stack } = create_test_app({
         props: {
-          env: { account: '123456789012', region: 'us-east-1' },
           developer_principal_arns: [developer_arn]
         }
       })
@@ -218,7 +183,6 @@ describe('LiveLambda.install()', () => {
       const developer_arn_2 = 'arn:aws:iam::888888888888:user/developer2'
       const { app_stack } = create_test_app({
         props: {
-          env: { account: '123456789012', region: 'us-east-1' },
           developer_principal_arns: [developer_arn_1, developer_arn_2]
         }
       })
@@ -256,31 +220,22 @@ describe('LiveLambda.install()', () => {
     })
   })
 
-  describe('undefined props (default behavior)', () => {
-    it('should work with undefined props', () => {
+  describe('minimal props (only required app_name)', () => {
+    it('should work with just app_name', () => {
       const app = new cdk.App()
 
-      // Call install with undefined props - should not throw
+      // Call install with just app_name - should not throw
       expect(() => {
-        LiveLambda.install(app, undefined)
+        LiveLambda.install(app, { app_name: 'test-app' })
       }).not.toThrow()
-
-      // AppSyncStack and LayerStack should still be created
-      const appsync_stack = app.node.tryFindChild('AppSyncStack')
-      expect(appsync_stack).toBeDefined()
-
-      const layer_stack = app.node.tryFindChild('LiveLambda-LayerStack')
-      expect(layer_stack).toBeDefined()
     })
 
-    it('should apply aspect by default when props is undefined', () => {
+    it('should apply aspect by default when only app_name is provided', () => {
       const app = new cdk.App()
 
-      LiveLambda.install(app, undefined)
+      LiveLambda.install(app, { app_name: 'test-app' })
 
       // Create an app stack with a function after install
-      // Note: When env is undefined, cross-stack references work differently
-      // We need to NOT specify env to match the undefined props case
       const app_stack = new cdk.Stack(app, 'TestAppStack')
       new NodejsFunction(app_stack, 'TestFunction', {
         entry: entry_file_path,

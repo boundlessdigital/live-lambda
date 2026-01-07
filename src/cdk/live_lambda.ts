@@ -1,10 +1,25 @@
 import * as cdk from 'aws-cdk-lib'
-import { AppSyncStack } from './stacks/appsync.stack.js'
-import { LiveLambdaLayerStack } from './stacks/layer.stack.js'
 import { LiveLambdaLayerAspect } from './aspects/live-lambda-layer.aspect.js'
+import {
+  format_app_name_for_ssm,
+  format_app_name_for_stack
+} from '../lib/constants.js'
 
 export interface LiveLambdaInstallProps {
-  env: cdk.Environment
+  /**
+   * A unique name for this application's live-lambda infrastructure.
+   * This isolates the bootstrap infrastructure (AppSync API, Lambda Layer)
+   * from other applications using live-lambda in the same account/region.
+   *
+   * The name will be formatted for use in:
+   * - Stack names (CamelCase): "my app" -> "LiveLambdaMyAppAppSyncStack"
+   * - SSM parameters (kebab-case): "my app" -> "/live-lambda/my-app/..."
+   */
+  app_name: string
+  /**
+   * Skip applying the layer aspect. Useful for production deployments
+   * where you don't want the live-lambda layer attached.
+   */
   skip_layer?: boolean
   /**
    * Additional IAM principal ARNs that should be allowed to assume Lambda execution roles.
@@ -13,35 +28,76 @@ export interface LiveLambdaInstallProps {
    * Example: ['arn:aws:iam::OTHER_ACCOUNT:user/developer']
    */
   developer_principal_arns?: string[]
+  /**
+   * Patterns to include specific functions. If specified, only functions
+   * matching at least one pattern will have the layer applied.
+   */
+  include_patterns?: string[]
+  /**
+   * Patterns to exclude specific functions from having the layer applied.
+   */
+  exclude_patterns?: string[]
 }
 
+/**
+ * LiveLambda enables real-time Lambda development by proxying invocations
+ * to a local development server.
+ *
+ * ## Usage
+ *
+ * ```typescript
+ * import { LiveLambda } from 'live-lambda'
+ *
+ * const app = new cdk.App()
+ *
+ * // Install the aspect with a unique app name
+ * // The infrastructure is automatically bootstrapped when running `live-lambda start`
+ * LiveLambda.install(app, { app_name: 'my-app' })
+ *
+ * // Create your stacks
+ * new MyLambdaStack(app, 'MyStack', { env })
+ * ```
+ *
+ * The aspect automatically configures all NodejsFunction constructs with:
+ * - The live-lambda layer
+ * - Required environment variables
+ * - IAM permissions for AppSync
+ * - Role trust relationships for local development
+ */
 export class LiveLambda {
-  public static install(app: cdk.App, props?: LiveLambdaInstallProps): void {
-    const { env } = props ?? {}
+  /**
+   * Install the LiveLambda aspect on a CDK app.
+   *
+   * This adds an aspect that configures all NodejsFunction constructs
+   * to work with the local development server. The aspect reads
+   * configuration from SSM parameters created during bootstrap.
+   *
+   * @param app The CDK app to install on
+   * @param props Configuration including required app_name
+   */
+  public static install(app: cdk.App, props: LiveLambdaInstallProps): void {
+    if (props.skip_layer) {
+      return
+    }
 
-    const { api } = new AppSyncStack(app, 'AppSyncStack', { env })
+    // Format the app_name for different contexts
+    const ssm_namespace = format_app_name_for_ssm(props.app_name)
+    const stack_namespace = format_app_name_for_stack(props.app_name)
 
-    const layer_stack = new LiveLambdaLayerStack(app, 'LiveLambda-LayerStack', {
-      api,
-      env
-    })
+    if (!ssm_namespace) {
+      throw new Error(
+        `Invalid app_name: "${props.app_name}". Must contain at least one alphanumeric character.`
+      )
+    }
 
     const aspect = new LiveLambdaLayerAspect({
-      api,
-      layer_stack,
-      developer_principal_arns: props?.developer_principal_arns
+      ssm_namespace,
+      stack_namespace,
+      developer_principal_arns: props.developer_principal_arns,
+      include_patterns: props.include_patterns,
+      exclude_patterns: props.exclude_patterns
     })
 
-    if (!props?.skip_layer) {
-      cdk.Aspects.of(app).add(aspect)
-
-      // // Ensure all other stacks depend on the layerStack so that the SSM parameter
-      // // it creates is available when other stacks are deployed and the aspect tries to read it.
-      // for (const child of app.node.children) {
-      //   if (child instanceof cdk.Stack && child !== layer_stack) {
-      //     child.addDependency(layer_stack)
-      //   }
-      // }
-    }
+    cdk.Aspects.of(app).add(aspect)
   }
 }

@@ -14,11 +14,13 @@ export class CustomIoHost extends NonInteractiveIoHost {
 
   // Override notify to add custom logging before calling the base implementation.
   public async notify(msg: IoMessage<unknown>): Promise<void> {
-    // Example: You could add custom logging or filtering here if needed.
-    // console.log(`[CustomIoHost NOTIFY] Level: ${msg.level}, Message: ${msg.message}`);
-    
+    // Skip verbose bundling messages
+    if (typeof msg.message === 'string' && msg.message.includes('Bundling asset')) {
+      return
+    }
+
     // Call the base class's notify method to get default console output behavior.
-    await super.notify(msg);
+    await super.notify(msg)
   }
 
   // Override requestResponse to add custom logging before calling the base implementation.
