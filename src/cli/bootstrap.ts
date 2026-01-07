@@ -13,7 +13,6 @@ import { LiveLambdaLayerStack } from '../cdk/stacks/layer.stack.js'
 import { CustomIoHost } from '../cdk/toolkit/iohost.js'
 import { logger } from '../lib/logger.js'
 import {
-  get_ssm_param_prefix,
   get_ssm_param_appsync_api_arn,
   get_ssm_param_appsync_http_host,
   get_ssm_param_appsync_realtime_host,
@@ -22,6 +21,9 @@ import {
   get_layer_arn_ssm_parameter,
   get_appsync_stack_name,
   get_layer_stack_name,
+  get_default_ssm_prefix,
+  format_app_name,
+  format_stage,
   BOOTSTRAP_VERSION
 } from '../lib/constants.js'
 
@@ -41,8 +43,10 @@ export interface BootstrapConfig {
 
 export interface BootstrapProps {
   region: string
-  ssm_namespace: string
-  stack_namespace: string
+  app_name: string
+  stage: string
+  /** Custom SSM prefix. Default: /live-lambda/{app_name}/{stage} */
+  ssm_prefix?: string
   force?: boolean
 }
 
@@ -51,7 +55,7 @@ export interface BootstrapProps {
  */
 export async function check_bootstrap_status(
   region: string,
-  ssm_namespace: string
+  ssm_prefix: string
 ): Promise<BootstrapStatus> {
   const credentials = fromNodeProviderChain()
   const ssm = new SSMClient({ region, credentials })
@@ -59,7 +63,7 @@ export async function check_bootstrap_status(
   try {
     const result = await ssm.send(
       new GetParameterCommand({
-        Name: get_ssm_param_bootstrap_version(ssm_namespace)
+        Name: get_ssm_param_bootstrap_version(ssm_prefix)
       })
     )
 
@@ -88,15 +92,15 @@ export async function check_bootstrap_status(
  */
 export async function get_bootstrap_config(
   region: string,
-  ssm_namespace: string
+  ssm_prefix: string
 ): Promise<BootstrapConfig> {
   const credentials = fromNodeProviderChain()
   const ssm = new SSMClient({ region, credentials })
 
-  // Fetch all parameters under the live-lambda/{namespace} prefix
+  // Fetch all parameters under the SSM prefix
   const result = await ssm.send(
     new GetParametersByPathCommand({
-      Path: get_ssm_param_prefix(ssm_namespace),
+      Path: ssm_prefix,
       Recursive: true
     })
   )
@@ -108,13 +112,13 @@ export async function get_bootstrap_config(
     }
   }
 
-  const api_arn = params.get(get_ssm_param_appsync_api_arn(ssm_namespace))
-  const http_host = params.get(get_ssm_param_appsync_http_host(ssm_namespace))
+  const api_arn = params.get(get_ssm_param_appsync_api_arn(ssm_prefix))
+  const http_host = params.get(get_ssm_param_appsync_http_host(ssm_prefix))
   const realtime_host = params.get(
-    get_ssm_param_appsync_realtime_host(ssm_namespace)
+    get_ssm_param_appsync_realtime_host(ssm_prefix)
   )
-  const layer_arn = params.get(get_layer_arn_ssm_parameter(ssm_namespace))
-  const appsync_region = params.get(get_ssm_param_appsync_region(ssm_namespace))
+  const layer_arn = params.get(get_layer_arn_ssm_parameter(ssm_prefix))
+  const appsync_region = params.get(get_ssm_param_appsync_region(ssm_prefix))
 
   const missing: string[] = []
   if (!api_arn) missing.push('api_arn')
@@ -124,7 +128,7 @@ export async function get_bootstrap_config(
 
   if (missing.length > 0) {
     throw new Error(
-      `LiveLambda bootstrap is incomplete for app "${ssm_namespace}". Missing: ${missing.join(', ')}. ` +
+      `LiveLambda bootstrap is incomplete. Missing: ${missing.join(', ')}. ` +
         `The infrastructure will be automatically deployed when you run 'live-lambda start'.`
     )
   }
@@ -155,14 +159,19 @@ async function get_account_id(): Promise<string> {
  * Bootstrap LiveLambda infrastructure in the given region
  */
 export async function bootstrap(props: BootstrapProps): Promise<void> {
-  const { region, ssm_namespace, stack_namespace, force } = props
+  const { region, app_name, stage, force } = props
+
+  // Compute derived values
+  const formatted_app = format_app_name(app_name)
+  const formatted_stage = format_stage(stage)
+  const ssm_prefix = props.ssm_prefix ?? get_default_ssm_prefix(app_name, stage)
 
   logger.info(
-    `Checking LiveLambda bootstrap status for "${ssm_namespace}" in ${region}...`
+    `Checking LiveLambda bootstrap status for "${formatted_app}-${formatted_stage}" in ${region}...`
   )
 
   // Check if already bootstrapped
-  const status = await check_bootstrap_status(region, ssm_namespace)
+  const status = await check_bootstrap_status(region, ssm_prefix)
 
   if (status.is_bootstrapped && !force) {
     if (status.needs_upgrade) {
@@ -188,21 +197,21 @@ export async function bootstrap(props: BootstrapProps): Promise<void> {
   const account = await get_account_id()
   const env = { account, region }
 
-  const appsync_stack_name = get_appsync_stack_name(stack_namespace)
-  const layer_stack_name = get_layer_stack_name(stack_namespace)
+  const appsync_stack_name = get_appsync_stack_name(app_name, stage)
+  const layer_stack_name = get_layer_stack_name(app_name, stage)
 
   // Create dedicated CDK app for bootstrap infrastructure
   const app = new cdk.App({
-    outdir: `cdk.out.live-lambda-bootstrap-${ssm_namespace}`
+    outdir: `cdk.out.live-lambda-bootstrap-${formatted_app}-${formatted_stage}`
   })
 
-  // Create stacks with namespace-aware names
+  // Create stacks with stage-prefixed names
   const appsync_stack = new AppSyncStack(app, appsync_stack_name, {
-    ssm_namespace,
+    ssm_prefix,
     env
   })
   new LiveLambdaLayerStack(app, layer_stack_name, {
-    ssm_namespace,
+    ssm_prefix,
     api: appsync_stack.api,
     env
   })
@@ -217,13 +226,14 @@ export async function bootstrap(props: BootstrapProps): Promise<void> {
     })
 
     await toolkit.deploy(assembly, {
-      outputsFile: `cdk.out.live-lambda-bootstrap-${ssm_namespace}/outputs.json`,
+      outputsFile: `cdk.out.live-lambda-bootstrap-${formatted_app}-${formatted_stage}/outputs.json`,
       concurrency: 2,
       deploymentMethod: { method: 'change-set' }
     })
 
     logger.info(`LiveLambda bootstrap complete!`)
-    logger.info(`  App: ${ssm_namespace}`)
+    logger.info(`  App: ${formatted_app}`)
+    logger.info(`  Stage: ${formatted_stage}`)
     logger.info(`  Region: ${region}`)
     logger.info(`  Version: ${BOOTSTRAP_VERSION}`)
   } finally {
@@ -233,8 +243,10 @@ export async function bootstrap(props: BootstrapProps): Promise<void> {
 
 export interface DestroyBootstrapProps {
   region: string
-  ssm_namespace: string
-  stack_namespace: string
+  app_name: string
+  stage: string
+  /** Custom SSM prefix. Default: /live-lambda/{app_name}/{stage} */
+  ssm_prefix?: string
 }
 
 /**
@@ -243,16 +255,21 @@ export interface DestroyBootstrapProps {
 export async function destroy_bootstrap(
   props: DestroyBootstrapProps
 ): Promise<void> {
-  const { region, ssm_namespace, stack_namespace } = props
+  const { region, app_name, stage } = props
+
+  // Compute derived values
+  const formatted_app = format_app_name(app_name)
+  const formatted_stage = format_stage(stage)
+  const ssm_prefix = props.ssm_prefix ?? get_default_ssm_prefix(app_name, stage)
 
   logger.info(
-    `Destroying LiveLambda bootstrap infrastructure for "${ssm_namespace}" in ${region}...`
+    `Destroying LiveLambda bootstrap infrastructure for "${formatted_app}-${formatted_stage}" in ${region}...`
   )
 
-  const status = await check_bootstrap_status(region, ssm_namespace)
+  const status = await check_bootstrap_status(region, ssm_prefix)
   if (!status.is_bootstrapped) {
     logger.info(
-      `LiveLambda is not bootstrapped for "${ssm_namespace}" in ${region}. Nothing to destroy.`
+      `LiveLambda is not bootstrapped for "${formatted_app}-${formatted_stage}" in ${region}. Nothing to destroy.`
     )
     return
   }
@@ -260,20 +277,20 @@ export async function destroy_bootstrap(
   const account = await get_account_id()
   const env = { account, region }
 
-  const appsync_stack_name = get_appsync_stack_name(stack_namespace)
-  const layer_stack_name = get_layer_stack_name(stack_namespace)
+  const appsync_stack_name = get_appsync_stack_name(app_name, stage)
+  const layer_stack_name = get_layer_stack_name(app_name, stage)
 
   // Create the same app structure to destroy
   const app = new cdk.App({
-    outdir: `cdk.out.live-lambda-bootstrap-${ssm_namespace}`
+    outdir: `cdk.out.live-lambda-bootstrap-${formatted_app}-${formatted_stage}`
   })
 
   const appsync_stack = new AppSyncStack(app, appsync_stack_name, {
-    ssm_namespace,
+    ssm_prefix,
     env
   })
   new LiveLambdaLayerStack(app, layer_stack_name, {
-    ssm_namespace,
+    ssm_prefix,
     api: appsync_stack.api,
     env
   })
@@ -288,7 +305,7 @@ export async function destroy_bootstrap(
 
     await toolkit.destroy(assembly)
 
-    logger.info(`LiveLambda bootstrap destroyed for "${ssm_namespace}".`)
+    logger.info(`LiveLambda bootstrap destroyed for "${formatted_app}-${formatted_stage}".`)
   } finally {
     custom_io_host.cleanup()
   }

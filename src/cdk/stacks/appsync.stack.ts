@@ -14,7 +14,7 @@ import {
 } from '../../lib/constants.js'
 
 export interface AppSyncStackProps extends cdk.StackProps {
-  readonly ssm_namespace: string
+  readonly ssm_prefix: string
   readonly live_lambda_enabled?: boolean
 }
 
@@ -25,10 +25,14 @@ export class AppSyncStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: AppSyncStackProps) {
     super(scope, id, props)
 
-    const { ssm_namespace } = props
+    const { ssm_prefix } = props
+
+    // Extract a short identifier from the ssm_prefix for naming
+    // /live-lambda/my-app/dev -> my-app-dev
+    const prefix_id = ssm_prefix.replace(/^\/live-lambda\//, '').replace(/\//g, '-').replace(/-$/, '')
 
     this.api = new appsync.EventApi(this, 'LiveLambdaEventApi', {
-      apiName: `live-lambda-events-${ssm_namespace}`,
+      apiName: `live-lambda-events-${prefix_id}`,
       authorizationConfig: {
         authProviders: [
           { authorizationType: appsync.AppSyncAuthorizationType.IAM }
@@ -39,7 +43,7 @@ export class AppSyncStack extends cdk.Stack {
     this.api.addChannelNamespace(APPSYNC_EVENTS_API_NAMESPACE)
 
     this.api_policy = new iam.Policy(this, 'LiveLambdaEventApiPolicy', {
-      policyName: `live-lambda-events-policy-${ssm_namespace}`,
+      policyName: `live-lambda-events-policy-${prefix_id}`,
       statements: [
         new iam.PolicyStatement({
           actions: [
@@ -54,33 +58,33 @@ export class AppSyncStack extends cdk.Stack {
 
     // Store configuration in SSM for discovery by aspect and CLI
     new ssm.StringParameter(this, 'ApiArnParam', {
-      parameterName: get_ssm_param_appsync_api_arn(ssm_namespace),
+      parameterName: get_ssm_param_appsync_api_arn(ssm_prefix),
       stringValue: this.api.apiArn,
-      description: `ARN of the Live Lambda AppSync Event API for ${ssm_namespace}`
+      description: `ARN of the Live Lambda AppSync Event API for ${prefix_id}`
     })
 
     new ssm.StringParameter(this, 'HttpHostParam', {
-      parameterName: get_ssm_param_appsync_http_host(ssm_namespace),
+      parameterName: get_ssm_param_appsync_http_host(ssm_prefix),
       stringValue: this.api.httpDns,
-      description: `HTTP host of the Live Lambda AppSync Event API for ${ssm_namespace}`
+      description: `HTTP host of the Live Lambda AppSync Event API for ${prefix_id}`
     })
 
     new ssm.StringParameter(this, 'RealtimeHostParam', {
-      parameterName: get_ssm_param_appsync_realtime_host(ssm_namespace),
+      parameterName: get_ssm_param_appsync_realtime_host(ssm_prefix),
       stringValue: this.api.realtimeDns,
-      description: `WebSocket host of the Live Lambda AppSync Event API for ${ssm_namespace}`
+      description: `WebSocket host of the Live Lambda AppSync Event API for ${prefix_id}`
     })
 
     new ssm.StringParameter(this, 'RegionParam', {
-      parameterName: get_ssm_param_appsync_region(ssm_namespace),
+      parameterName: get_ssm_param_appsync_region(ssm_prefix),
       stringValue: this.region,
-      description: `Region of the Live Lambda AppSync Event API for ${ssm_namespace}`
+      description: `Region of the Live Lambda AppSync Event API for ${prefix_id}`
     })
 
     new ssm.StringParameter(this, 'BootstrapVersionParam', {
-      parameterName: get_ssm_param_bootstrap_version(ssm_namespace),
+      parameterName: get_ssm_param_bootstrap_version(ssm_prefix),
       stringValue: BOOTSTRAP_VERSION,
-      description: `Bootstrap version of Live Lambda infrastructure for ${ssm_namespace}`
+      description: `Bootstrap version of Live Lambda infrastructure for ${prefix_id}`
     })
 
     // CloudFormation outputs for visibility

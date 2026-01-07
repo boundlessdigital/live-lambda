@@ -66,8 +66,8 @@ describe('LiveLambdaLayerAspect', () => {
 
     // Create and apply aspect - it reads from SSM parameters
     const aspect_props: LiveLambdaLayerAspectProps = {
-      ssm_namespace: 'test-app',
-      stack_namespace: 'TestApp',
+      ssm_prefix: '/live-lambda/test-app/dev',
+      stack_prefix: 'test-app-dev-',
       include_patterns: options?.include_patterns,
       exclude_patterns: options?.exclude_patterns,
       developer_principal_arns: options?.developer_principal_arns
@@ -280,8 +280,8 @@ describe('LiveLambdaLayerAspect', () => {
       })
 
       const aspect = new LiveLambdaLayerAspect({
-        ssm_namespace: 'test-app',
-        stack_namespace: 'TestApp'
+        ssm_prefix: '/live-lambda/test-app/dev',
+        stack_prefix: 'test-app-dev-'
       })
       cdk.Aspects.of(app).add(aspect)
 
@@ -308,12 +308,12 @@ describe('LiveLambdaLayerAspect', () => {
     const stack_skip_scenarios = [
       {
         scenario: 'LiveLambda AppSync bootstrap stacks',
-        stack_name: 'TestApp-LiveLambdaAppSyncStack',
+        stack_name: 'test-app-dev-LiveLambdaAppSyncStack',
         function_id: 'SkippedFunction'
       },
       {
         scenario: 'LiveLambda Layer bootstrap stacks',
-        stack_name: 'TestApp-LiveLambdaLayerStack',
+        stack_name: 'test-app-dev-LiveLambdaLayerStack',
         function_id: 'SkippedFunction'
       },
       {
@@ -397,8 +397,8 @@ describe('LiveLambdaLayerAspect', () => {
       })
 
       const aspect = new LiveLambdaLayerAspect({
-        ssm_namespace: 'test-app',
-        stack_namespace: 'TestApp',
+        ssm_prefix: '/live-lambda/test-app/dev',
+        stack_prefix: 'test-app-dev-',
         include_patterns: ['ApiHandler', 'ProcessorFunction'] // OtherFunction not in list
       })
       cdk.Aspects.of(app).add(aspect)
@@ -445,8 +445,8 @@ describe('LiveLambdaLayerAspect', () => {
       })
 
       const aspect = new LiveLambdaLayerAspect({
-        ssm_namespace: 'test-app',
-        stack_namespace: 'TestApp',
+        ssm_prefix: '/live-lambda/test-app/dev',
+        stack_prefix: 'test-app-dev-',
         exclude_patterns: ['Admin'] // AdminHandler matches this
       })
       cdk.Aspects.of(app).add(aspect)
@@ -507,8 +507,8 @@ describe('LiveLambdaLayerAspect', () => {
       })
 
       const aspect = new LiveLambdaLayerAspect({
-        ssm_namespace: 'test-app',
-        stack_namespace: 'TestApp',
+        ssm_prefix: '/live-lambda/test-app/dev',
+        stack_prefix: 'test-app-dev-',
         include_patterns: ['Api'], // Include functions with Api
         exclude_patterns: ['Admin'] // But exclude Admin functions
       })
@@ -570,8 +570,8 @@ describe('LiveLambdaLayerAspect', () => {
       })
 
       const aspect = new LiveLambdaLayerAspect({
-        ssm_namespace: 'test-app',
-        stack_namespace: 'TestApp'
+        ssm_prefix: '/live-lambda/test-app/dev',
+        stack_prefix: 'test-app-dev-'
       })
       cdk.Aspects.of(app).add(aspect)
 

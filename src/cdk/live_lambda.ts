@@ -1,26 +1,41 @@
 import * as cdk from 'aws-cdk-lib'
 import { LiveLambdaLayerAspect } from './aspects/live-lambda-layer.aspect.js'
+import { StackNamingAspect } from './aspects/stack-naming.aspect.js'
 import {
-  format_app_name_for_ssm,
-  format_app_name_for_stack
+  format_app_name,
+  format_stage,
+  get_default_ssm_prefix,
+  get_stack_prefix
 } from '../lib/constants.js'
 
-export interface LiveLambdaInstallProps {
+/**
+ * Configuration for LiveLambda.
+ */
+export interface LiveLambdaConfig {
   /**
-   * A unique name for this application's live-lambda infrastructure.
-   * This isolates the bootstrap infrastructure (AppSync API, Lambda Layer)
-   * from other applications using live-lambda in the same account/region.
-   *
-   * The name will be formatted for use in:
-   * - Stack names (CamelCase): "my app" -> "LiveLambdaMyAppAppSyncStack"
-   * - SSM parameters (kebab-case): "my app" -> "/live-lambda/my-app/..."
+   * Deployment stage (e.g., 'dev', 'staging', 'prod').
+   * Used for stack naming and SSM parameter namespacing.
+   */
+  stage: string
+
+  /**
+   * Application name for namespace isolation.
+   * Combined with stage to create unique resource names.
    */
   app_name: string
+
+  /**
+   * Custom SSM parameter prefix.
+   * Default: `/live-lambda/{app_name}/{stage}`
+   */
+  ssm_prefix?: string
+
   /**
    * Skip applying the layer aspect. Useful for production deployments
    * where you don't want the live-lambda layer attached.
    */
   skip_layer?: boolean
+
   /**
    * Additional IAM principal ARNs that should be allowed to assume Lambda execution roles.
    * By default, any principal in the same AWS account can assume the role (using account root).
@@ -28,15 +43,42 @@ export interface LiveLambdaInstallProps {
    * Example: ['arn:aws:iam::OTHER_ACCOUNT:user/developer']
    */
   developer_principal_arns?: string[]
+
   /**
    * Patterns to include specific functions. If specified, only functions
    * matching at least one pattern will have the layer applied.
    */
   include_patterns?: string[]
+
   /**
    * Patterns to exclude specific functions from having the layer applied.
    */
   exclude_patterns?: string[]
+}
+
+/**
+ * Resolved configuration with computed values.
+ */
+export interface ResolvedLiveLambdaConfig extends LiveLambdaConfig {
+  /**
+   * Formatted app_name (lowercase, dashes).
+   */
+  formatted_app_name: string
+
+  /**
+   * Formatted stage (lowercase, dashes).
+   */
+  formatted_stage: string
+
+  /**
+   * Resolved SSM prefix (either custom or default).
+   */
+  resolved_ssm_prefix: string
+
+  /**
+   * Stack name prefix: {app_name}-{stage}-
+   */
+  stack_prefix: string
 }
 
 /**
@@ -50,54 +92,110 @@ export interface LiveLambdaInstallProps {
  *
  * const app = new cdk.App()
  *
- * // Install the aspect with a unique app name
- * // The infrastructure is automatically bootstrapped when running `live-lambda start`
- * LiveLambda.install(app, { app_name: 'my-app' })
+ * // Configure LiveLambda with app name and stage
+ * // All stacks will be prefixed with {app_name}-{stage}-
+ * LiveLambda.configure(app, {
+ *   app_name: 'my-app',
+ *   stage: 'dev',
+ * })
  *
- * // Create your stacks
- * new MyLambdaStack(app, 'MyStack', { env })
+ * // Stack will be named 'my-app-dev-ApiStack' in CloudFormation
+ * new MyLambdaStack(app, 'ApiStack', { env })
  * ```
  *
- * The aspect automatically configures all NodejsFunction constructs with:
- * - The live-lambda layer
- * - Required environment variables
- * - IAM permissions for AppSync
- * - Role trust relationships for local development
+ * The configuration automatically:
+ * - Prefixes all stack names with {app_name}-{stage}-
+ * - Configures all NodejsFunction constructs with the live-lambda layer
+ * - Sets up required environment variables and IAM permissions
  */
 export class LiveLambda {
+  private static _config: ResolvedLiveLambdaConfig | null = null
+
   /**
-   * Install the LiveLambda aspect on a CDK app.
+   * Configure LiveLambda on a CDK app.
    *
-   * This adds an aspect that configures all NodejsFunction constructs
-   * to work with the local development server. The aspect reads
-   * configuration from SSM parameters created during bootstrap.
+   * This adds aspects that:
+   * 1. Prefix all stack names with {app_name}-{stage}-
+   * 2. Configure all NodejsFunction constructs for live development
    *
-   * @param app The CDK app to install on
-   * @param props Configuration including required app_name
+   * @param app The CDK app to configure
+   * @param config Configuration including required app_name and stage
    */
-  public static install(app: cdk.App, props: LiveLambdaInstallProps): void {
-    if (props.skip_layer) {
-      return
-    }
+  public static configure(app: cdk.App, config: LiveLambdaConfig): void {
+    // Format and validate inputs
+    const formatted_app_name = format_app_name(config.app_name)
+    const formatted_stage = format_stage(config.stage)
 
-    // Format the app_name for different contexts
-    const ssm_namespace = format_app_name_for_ssm(props.app_name)
-    const stack_namespace = format_app_name_for_stack(props.app_name)
-
-    if (!ssm_namespace) {
+    if (!formatted_app_name) {
       throw new Error(
-        `Invalid app_name: "${props.app_name}". Must contain at least one alphanumeric character.`
+        `Invalid app_name: "${config.app_name}". Must contain at least one alphanumeric character.`
       )
     }
 
-    const aspect = new LiveLambdaLayerAspect({
-      ssm_namespace,
-      stack_namespace,
-      developer_principal_arns: props.developer_principal_arns,
-      include_patterns: props.include_patterns,
-      exclude_patterns: props.exclude_patterns
-    })
+    if (!formatted_stage) {
+      throw new Error(
+        `Invalid stage: "${config.stage}". Must contain at least one alphanumeric character.`
+      )
+    }
 
-    cdk.Aspects.of(app).add(aspect)
+    // Compute derived values
+    const resolved_ssm_prefix = config.ssm_prefix ?? get_default_ssm_prefix(config.app_name, config.stage)
+    const stack_prefix_value = get_stack_prefix(config.app_name, config.stage)
+
+    // Store resolved config
+    LiveLambda._config = {
+      ...config,
+      formatted_app_name,
+      formatted_stage,
+      resolved_ssm_prefix,
+      stack_prefix: stack_prefix_value
+    }
+
+    // Add stack naming aspect (prefixes all stacks with {app_name}-{stage}-)
+    cdk.Aspects.of(app).add(new StackNamingAspect({
+      prefix: stack_prefix_value
+    }))
+
+    // Add layer aspect unless skipped
+    if (!config.skip_layer) {
+      const layer_aspect = new LiveLambdaLayerAspect({
+        ssm_prefix: resolved_ssm_prefix,
+        stack_prefix: stack_prefix_value,
+        developer_principal_arns: config.developer_principal_arns,
+        include_patterns: config.include_patterns,
+        exclude_patterns: config.exclude_patterns
+      })
+
+      cdk.Aspects.of(app).add(layer_aspect)
+    }
+  }
+
+  /**
+   * Get the current LiveLambda configuration.
+   *
+   * @throws Error if configure() has not been called
+   */
+  public static get_config(): ResolvedLiveLambdaConfig {
+    if (!LiveLambda._config) {
+      throw new Error(
+        'LiveLambda.configure() must be called before get_config(). ' +
+        'Ensure your CDK app calls LiveLambda.configure() before synthesis.'
+      )
+    }
+    return LiveLambda._config
+  }
+
+  /**
+   * Check if LiveLambda has been configured.
+   */
+  public static is_configured(): boolean {
+    return LiveLambda._config !== null
+  }
+
+  /**
+   * Reset the configuration (primarily for testing).
+   */
+  public static reset(): void {
+    LiveLambda._config = null
   }
 }

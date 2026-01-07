@@ -6,10 +6,10 @@ import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
-import { LiveLambda, LiveLambdaInstallProps } from './live_lambda.js'
+import { LiveLambda, LiveLambdaConfig } from './live_lambda.js'
 import { ENV_LAMBDA_EXEC_WRAPPER } from '../lib/constants.js'
 
-describe('LiveLambda.install()', () => {
+describe('LiveLambda.configure()', () => {
   let temp_entry_dir: string
   let entry_file_path: string
 
@@ -33,23 +33,24 @@ describe('LiveLambda.install()', () => {
   })
 
   /**
-   * Helper to create an app with LiveLambda.install() called
+   * Helper to create an app with LiveLambda.configure() called
    * and optionally an application stack with a NodejsFunction
    */
   function create_test_app(options?: {
-    props?: Partial<LiveLambdaInstallProps>
+    props?: Partial<LiveLambdaConfig>
     include_app_stack?: boolean
   }) {
     const app = new cdk.App()
     const env = { account: '123456789012', region: 'us-east-1' }
 
-    // Call the install method - this is what we're testing
-    // Always provide app_name, merge with any additional props
-    const install_props: LiveLambdaInstallProps = {
+    // Call the configure method - this is what we're testing
+    // Always provide app_name and stage, merge with any additional props
+    const config: LiveLambdaConfig = {
       app_name: 'test-app',
+      stage: 'dev',
       ...options?.props
     }
-    LiveLambda.install(app, install_props)
+    LiveLambda.configure(app, config)
 
     let app_stack: cdk.Stack | undefined
     let test_function: NodejsFunction | undefined
@@ -220,22 +221,22 @@ describe('LiveLambda.install()', () => {
     })
   })
 
-  describe('minimal props (only required app_name)', () => {
-    it('should work with just app_name', () => {
+  describe('minimal props (required app_name and stage)', () => {
+    it('should work with just app_name and stage', () => {
       const app = new cdk.App()
 
-      // Call install with just app_name - should not throw
+      // Call configure with app_name and stage - should not throw
       expect(() => {
-        LiveLambda.install(app, { app_name: 'test-app' })
+        LiveLambda.configure(app, { app_name: 'test-app', stage: 'dev' })
       }).not.toThrow()
     })
 
-    it('should apply aspect by default when only app_name is provided', () => {
+    it('should apply aspect by default when only app_name and stage are provided', () => {
       const app = new cdk.App()
 
-      LiveLambda.install(app, { app_name: 'test-app' })
+      LiveLambda.configure(app, { app_name: 'test-app', stage: 'dev' })
 
-      // Create an app stack with a function after install
+      // Create an app stack with a function after configure
       const app_stack = new cdk.Stack(app, 'TestAppStack')
       new NodejsFunction(app_stack, 'TestFunction', {
         entry: entry_file_path,

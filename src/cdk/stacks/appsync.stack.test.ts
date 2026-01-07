@@ -12,7 +12,7 @@ describe('AppSyncStack', () => {
     app = new cdk.App()
     stack = new AppSyncStack(app, 'TestAppSyncStack', {
       env: { account: '123456789012', region: 'us-east-1' },
-      ssm_namespace: 'test-app'
+      ssm_prefix: '/live-lambda/test-app/dev'
     })
     template = Template.fromStack(stack)
   })
@@ -20,7 +20,7 @@ describe('AppSyncStack', () => {
   describe('EventApi', () => {
     it('should create EventApi with correct name', () => {
       template.hasResourceProperties('AWS::AppSync::Api', {
-        Name: 'live-lambda-events-test-app'
+        Name: 'live-lambda-events-test-app-dev'
       })
     })
 

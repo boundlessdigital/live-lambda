@@ -12,20 +12,20 @@ import {
   get_ssm_param_appsync_api_arn,
   get_ssm_param_appsync_http_host,
   get_ssm_param_appsync_realtime_host,
-  get_ssm_param_appsync_region,
-  get_appsync_stack_name,
-  get_layer_stack_name
+  get_ssm_param_appsync_region
 } from '../../lib/constants.js'
 
 export interface LiveLambdaLayerAspectProps {
   /**
-   * The namespace for SSM parameter paths (kebab-case formatted app_name).
+   * The SSM parameter prefix for looking up bootstrap values.
+   * Example: /live-lambda/my-app/dev
    */
-  ssm_namespace: string
+  ssm_prefix: string
   /**
-   * The namespace for stack names (CamelCase formatted app_name).
+   * The stack name prefix used for identifying bootstrap stacks.
+   * Pattern: {app_name}-{stage}-
    */
-  stack_namespace: string
+  stack_prefix: string
   /**
    * Patterns to include specific functions. If specified, only functions
    * matching at least one pattern will have the layer applied.
@@ -68,15 +68,12 @@ const stack_ssm_cache = new WeakMap<cdk.Stack, StackSsmCache>()
  */
 export class LiveLambdaLayerAspect implements cdk.IAspect {
   private readonly props: LiveLambdaLayerAspectProps
-  private readonly excluded_stack_names: string[]
+  private readonly bootstrap_stack_prefix: string
 
   constructor(props: LiveLambdaLayerAspectProps) {
     this.props = props
-    // Build list of bootstrap stack names to exclude
-    this.excluded_stack_names = [
-      get_appsync_stack_name(props.stack_namespace),
-      get_layer_stack_name(props.stack_namespace)
-    ]
+    // Bootstrap stacks are named {stack_prefix}LiveLambda*
+    this.bootstrap_stack_prefix = `${props.stack_prefix}LiveLambda`
   }
 
   public visit(node: IConstruct): void {
@@ -87,14 +84,7 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
     const function_path = node.node.path
     const stack_name = node.stack.stackName
 
-    if (
-      should_skip_function(
-        this.props,
-        function_path,
-        stack_name,
-        this.excluded_stack_names
-      )
-    ) {
+    if (should_skip_function(this.props, function_path, stack_name, this.bootstrap_stack_prefix)) {
       return
     }
 
@@ -129,28 +119,28 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
       return cache
     }
 
-    const namespace = this.props.ssm_namespace
+    const ssm_prefix = this.props.ssm_prefix
 
     cache = {
       layer_arn: ssm.StringParameter.valueForStringParameter(
         stack,
-        get_layer_arn_ssm_parameter(namespace)
+        get_layer_arn_ssm_parameter(ssm_prefix)
       ),
       api_arn: ssm.StringParameter.valueForStringParameter(
         stack,
-        get_ssm_param_appsync_api_arn(namespace)
+        get_ssm_param_appsync_api_arn(ssm_prefix)
       ),
       http_host: ssm.StringParameter.valueForStringParameter(
         stack,
-        get_ssm_param_appsync_http_host(namespace)
+        get_ssm_param_appsync_http_host(ssm_prefix)
       ),
       realtime_host: ssm.StringParameter.valueForStringParameter(
         stack,
-        get_ssm_param_appsync_realtime_host(namespace)
+        get_ssm_param_appsync_realtime_host(ssm_prefix)
       ),
       region: ssm.StringParameter.valueForStringParameter(
         stack,
-        get_ssm_param_appsync_region(namespace)
+        get_ssm_param_appsync_region(ssm_prefix)
       )
     }
 
@@ -325,7 +315,7 @@ function should_skip_function(
   props: LiveLambdaLayerAspectProps,
   function_path: string,
   stack_name: string,
-  excluded_stack_names: string[]
+  bootstrap_stack_prefix: string
 ): boolean {
   // Check include patterns first - if specified, function must match at least one
   if (
@@ -343,8 +333,8 @@ function should_skip_function(
     return true
   }
 
-  // Skip this app's bootstrap stacks (exact match)
-  if (excluded_stack_names.includes(stack_name)) {
+  // Skip bootstrap stacks (stacks that start with {app_name}-{stage}-LiveLambda)
+  if (stack_name.startsWith(bootstrap_stack_prefix)) {
     return true
   }
 

@@ -140,8 +140,8 @@ describe('main', () => {
 
   function create_mock_command(name: string, opts: Record<string, any> = {}): Command {
     // Commander.js defaults autoBootstrap to true with --no-auto-bootstrap option
-    // Start command requires app option
-    const default_opts = name === 'start' ? { autoBootstrap: true, app: 'test-app' } : {}
+    // Start command requires app and stage options
+    const default_opts = name === 'start' ? { autoBootstrap: true, app: 'test-app', stage: 'dev' } : {}
     return {
       name: () => name,
       opts: () => ({ ...default_opts, ...opts })
@@ -232,7 +232,7 @@ describe('main', () => {
 
       await main(command)
 
-      expect(mock_check_bootstrap_status).toHaveBeenCalledWith('us-east-1', 'test-app')
+      expect(mock_check_bootstrap_status).toHaveBeenCalledWith('us-east-1', '/live-lambda/test-app/dev')
     })
 
     it('should get bootstrap config for start command', async () => {
@@ -240,7 +240,7 @@ describe('main', () => {
 
       await main(command)
 
-      expect(mock_get_bootstrap_config).toHaveBeenCalledWith('us-east-1', 'test-app')
+      expect(mock_get_bootstrap_config).toHaveBeenCalledWith('us-east-1', '/live-lambda/test-app/dev')
     })
 
     it('should auto-bootstrap by default when not bootstrapped', async () => {
@@ -251,8 +251,9 @@ describe('main', () => {
 
       expect(mock_bootstrap).toHaveBeenCalledWith({
         region: 'us-east-1',
-        ssm_namespace: 'test-app',
-        stack_namespace: 'TestApp'
+        app_name: 'test-app',
+        stage: 'dev',
+        ssm_prefix: '/live-lambda/test-app/dev'
       })
     })
 

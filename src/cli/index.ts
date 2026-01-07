@@ -9,8 +9,9 @@ import {
 } from './bootstrap.js'
 import { set_log_level, LOG_LEVELS, logger } from '../lib/logger.js'
 import {
-  format_app_name_for_ssm,
-  format_app_name_for_stack
+  format_app_name,
+  format_stage,
+  get_default_ssm_prefix
 } from '../lib/constants.js'
 
 const program = new Command()
@@ -40,22 +41,55 @@ function get_app_name(options: { app?: string }): string {
 }
 
 /**
- * Get formatted namespaces from app_name
+ * Get stage from options or cdk.json context
  */
-function get_namespaces(app_name: string): {
-  ssm_namespace: string
-  stack_namespace: string
-} {
-  const ssm_namespace = format_app_name_for_ssm(app_name)
-  const stack_namespace = format_app_name_for_stack(app_name)
+function get_stage(options: { stage?: string }): string {
+  if (options.stage) {
+    return options.stage
+  }
 
-  if (!ssm_namespace) {
+  // Try to read from cdk.json context
+  try {
+    const cdk_json = JSON.parse(fs.readFileSync('cdk.json', 'utf-8'))
+    const stage = cdk_json.context?.['live-lambda:stage']
+    if (stage) {
+      return stage
+    }
+  } catch {
+    // Ignore - cdk.json may not exist or be readable
+  }
+
+  throw new Error(
+    'Stage is required. Provide --stage <stage> or set "live-lambda:stage" in cdk.json context.'
+  )
+}
+
+/**
+ * Validate and format app_name and stage
+ */
+function validate_config(app_name: string, stage: string): {
+  formatted_app: string
+  formatted_stage: string
+  ssm_prefix: string
+} {
+  const formatted_app = format_app_name(app_name)
+  const formatted_stage = format_stage(stage)
+
+  if (!formatted_app) {
     throw new Error(
       `Invalid app name: "${app_name}". Must contain at least one alphanumeric character.`
     )
   }
 
-  return { ssm_namespace, stack_namespace }
+  if (!formatted_stage) {
+    throw new Error(
+      `Invalid stage: "${stage}". Must contain at least one alphanumeric character.`
+    )
+  }
+
+  const ssm_prefix = get_default_ssm_prefix(app_name, stage)
+
+  return { formatted_app, formatted_stage, ssm_prefix }
 }
 
 program
@@ -79,16 +113,18 @@ program
     'Bootstrap LiveLambda infrastructure (AppSync API and Lambda Layer)'
   )
   .requiredOption('-a, --app <name>', 'Application name for infrastructure isolation')
+  .requiredOption('-s, --stage <stage>', 'Deployment stage (e.g., dev, staging, prod)')
   .requiredOption('-r, --region <region>', 'AWS region to bootstrap')
   .option('-f, --force', 'Force redeployment even if already bootstrapped')
   .action(async (options) => {
     const app_name = get_app_name(options)
-    const { ssm_namespace, stack_namespace } = get_namespaces(app_name)
+    const stage = get_stage(options)
+    validate_config(app_name, stage)
 
     await bootstrap({
       region: options.region,
-      ssm_namespace,
-      stack_namespace,
+      app_name,
+      stage,
       force: options.force
     })
   })
@@ -97,32 +133,34 @@ program
   .command('status')
   .description('Check LiveLambda bootstrap status')
   .requiredOption('-a, --app <name>', 'Application name')
+  .requiredOption('-s, --stage <stage>', 'Deployment stage')
   .requiredOption('-r, --region <region>', 'AWS region to check')
   .action(async (options) => {
     const app_name = get_app_name(options)
-    const { ssm_namespace } = get_namespaces(app_name)
+    const stage = get_stage(options)
+    const { formatted_app, formatted_stage, ssm_prefix } = validate_config(app_name, stage)
 
-    const status = await check_bootstrap_status(options.region, ssm_namespace)
+    const status = await check_bootstrap_status(options.region, ssm_prefix)
 
     if (!status.is_bootstrapped) {
-      logger.info(`LiveLambda is NOT bootstrapped for "${app_name}" in ${options.region}`)
-      logger.info(`Run 'live-lambda bootstrap --app ${app_name} --region ${options.region}' to set up.`)
+      logger.info(`LiveLambda is NOT bootstrapped for "${formatted_app}-${formatted_stage}" in ${options.region}`)
+      logger.info(`Run 'live-lambda bootstrap --app ${app_name} --stage ${stage} --region ${options.region}' to set up.`)
       return
     }
 
-    logger.info(`LiveLambda bootstrap status for "${app_name}" in ${options.region}:`)
+    logger.info(`LiveLambda bootstrap status for "${formatted_app}-${formatted_stage}" in ${options.region}:`)
     logger.info(`  Bootstrapped: yes`)
     logger.info(`  Version: ${status.version}`)
 
     if (status.needs_upgrade) {
       logger.info(`  Upgrade available: yes`)
       logger.info(
-        `  Run 'live-lambda bootstrap --app ${app_name} --region ${options.region} --force' to upgrade.`
+        `  Run 'live-lambda bootstrap --app ${app_name} --stage ${stage} --region ${options.region} --force' to upgrade.`
       )
     }
 
     try {
-      const config = await get_bootstrap_config(options.region, ssm_namespace)
+      const config = await get_bootstrap_config(options.region, ssm_prefix)
       logger.info(`  API ARN: ${config.api_arn}`)
       logger.info(`  HTTP Host: ${config.http_host}`)
       logger.info(`  Realtime Host: ${config.realtime_host}`)
@@ -136,15 +174,17 @@ program
   .command('destroy-bootstrap')
   .description('Destroy LiveLambda bootstrap infrastructure')
   .requiredOption('-a, --app <name>', 'Application name')
+  .requiredOption('-s, --stage <stage>', 'Deployment stage')
   .requiredOption('-r, --region <region>', 'AWS region')
   .action(async (options) => {
     const app_name = get_app_name(options)
-    const { ssm_namespace, stack_namespace } = get_namespaces(app_name)
+    const stage = get_stage(options)
+    validate_config(app_name, stage)
 
     await destroy_bootstrap({
       region: options.region,
-      ssm_namespace,
-      stack_namespace
+      app_name,
+      stage
     })
   })
 
@@ -152,6 +192,7 @@ program
   .command('start')
   .description('Starts the development server')
   .requiredOption('-a, --app <name>', 'Application name for infrastructure isolation')
+  .requiredOption('-s, --stage <stage>', 'Deployment stage')
   .option(
     '--no-auto-bootstrap',
     'Disable automatic bootstrapping if not already done'

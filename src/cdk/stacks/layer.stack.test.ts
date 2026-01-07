@@ -42,7 +42,7 @@ describe('LiveLambdaLayerStack', () => {
       env: { account: '123456789012', region: 'us-east-1' },
       api: mock_api,
       asset_path: temp_asset_dir,
-      ssm_namespace: 'test-app'
+      ssm_prefix: '/live-lambda/test-app/dev'
     })
     template = Template.fromStack(stack)
   })
@@ -61,13 +61,13 @@ describe('LiveLambdaLayerStack', () => {
 
     it('should set correct layer version name', () => {
       template.hasResourceProperties('AWS::Lambda::LayerVersion', {
-        LayerName: `${LAYER_VERSION_NAME}-test-app`
+        LayerName: `${LAYER_VERSION_NAME}-test-app-dev`
       })
     })
 
     it('should set correct description', () => {
       template.hasResourceProperties('AWS::Lambda::LayerVersion', {
-        Description: `${LAYER_DESCRIPTION} (test-app)`
+        Description: `${LAYER_DESCRIPTION} (test-app-dev)`
       })
     })
 
@@ -85,13 +85,13 @@ describe('LiveLambdaLayerStack', () => {
 
     it('should set correct parameter name', () => {
       template.hasResourceProperties('AWS::SSM::Parameter', {
-        Name: get_layer_arn_ssm_parameter('test-app')
+        Name: get_layer_arn_ssm_parameter('/live-lambda/test-app/dev')
       })
     })
 
     it('should set correct description', () => {
       template.hasResourceProperties('AWS::SSM::Parameter', {
-        Description: 'ARN of the Live Lambda Proxy Layer for test-app'
+        Description: 'ARN of the Live Lambda Proxy Layer for test-app-dev'
       })
     })
   })
@@ -99,7 +99,7 @@ describe('LiveLambdaLayerStack', () => {
   describe('Outputs', () => {
     it('should output layer ARN', () => {
       template.hasOutput('LiveLambdaProxyLayerArn', {
-        Description: 'ARN of the Live Lambda Proxy Layer for test-app'
+        Description: 'ARN of the Live Lambda Proxy Layer for test-app-dev'
       })
     })
   })
@@ -114,14 +114,14 @@ describe('LiveLambdaLayerStack', () => {
     })
 
     it('should expose layer_arn_ssm_parameter property with correct path', () => {
-      expect(stack.layer_arn_ssm_parameter).toBe(get_layer_arn_ssm_parameter('test-app'))
-      expect(stack.layer_arn_ssm_parameter).toMatch(/^\/live-lambda\/test-app\//)
+      expect(stack.layer_arn_ssm_parameter).toBe(get_layer_arn_ssm_parameter('/live-lambda/test-app/dev'))
+      expect(stack.layer_arn_ssm_parameter).toMatch(/^\/live-lambda\/test-app\/dev\//)
     })
   })
 })
 
 describe('LiveLambdaLayerStack interface contract', () => {
   it('should define correct SSM parameter path format', () => {
-    expect(get_layer_arn_ssm_parameter('my-app')).toBe('/live-lambda/my-app/layer/arn')
+    expect(get_layer_arn_ssm_parameter('/live-lambda/my-app/dev')).toBe('/live-lambda/my-app/dev/layer/arn')
   })
 })
