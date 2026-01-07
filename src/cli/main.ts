@@ -15,90 +15,10 @@ import {
   bootstrap,
   BootstrapConfig
 } from './bootstrap.js'
-import {
-  format_app_name,
-  format_stage,
-  get_default_ssm_prefix
-} from '../lib/constants.js'
+import { load_cdk_app_config } from './load_config.js'
 
 const CDK_OUTPUTS_FILE = 'cdk.out/outputs.json'
 const MAX_CONCURRENCY = 5
-
-/**
- * Get app_name from command options or cdk.json context
- */
-function get_app_name(options: { app?: string }): string {
-  if (options.app) {
-    return options.app
-  }
-
-  // Try to read from cdk.json context
-  try {
-    const cdk_json = JSON.parse(fs.readFileSync('cdk.json', 'utf-8'))
-    const app_name = cdk_json.context?.['live-lambda:app-name']
-    if (app_name) {
-      return app_name
-    }
-  } catch {
-    // Ignore - cdk.json may not exist or be readable
-  }
-
-  throw new Error(
-    'App name is required. Provide --app <name> or set "live-lambda:app-name" in cdk.json context.'
-  )
-}
-
-/**
- * Get stage from command options or cdk.json context
- */
-function get_stage(options: { stage?: string }): string {
-  if (options.stage) {
-    return options.stage
-  }
-
-  // Try to read from cdk.json context
-  try {
-    const cdk_json = JSON.parse(fs.readFileSync('cdk.json', 'utf-8'))
-    const stage = cdk_json.context?.['live-lambda:stage']
-    if (stage) {
-      return stage
-    }
-  } catch {
-    // Ignore - cdk.json may not exist or be readable
-  }
-
-  throw new Error(
-    'Stage is required. Provide --stage <stage> or set "live-lambda:stage" in cdk.json context.'
-  )
-}
-
-/**
- * Validate and format app_name and stage, returning SSM prefix
- */
-function validate_config(app_name: string, stage: string): {
-  formatted_app: string
-  formatted_stage: string
-  ssm_prefix: string
-} {
-  const formatted_app = format_app_name(app_name)
-  const formatted_stage = format_stage(stage)
-
-  if (!formatted_app) {
-    throw new Error(
-      `Invalid app name: "${app_name}". Must contain at least one alphanumeric character.`
-    )
-  }
-
-  if (!formatted_stage) {
-    throw new Error(
-      `Invalid stage: "${stage}". Must contain at least one alphanumeric character.`
-    )
-  }
-
-  const ssm_prefix = get_default_ssm_prefix(app_name, stage)
-
-  return { formatted_app, formatted_stage, ssm_prefix }
-}
 
 export async function main(command: Command) {
   const custom_io_host = new CustomIoHost()
@@ -129,15 +49,15 @@ export async function main(command: Command) {
       fs.readFileSync('cdk.json', 'utf-8')
     )
 
+    // Load CDK app to get LiveLambda configuration from LiveLambda.configure()
+    const config = await load_cdk_app_config(entrypoint)
+    const { app_name, stage, formatted_app_name, formatted_stage, resolved_ssm_prefix } = config
+
+    // Get assembly for deployment/destruction
     const assembly = await cdk.fromCdkApp(entrypoint)
 
     if (command_name === 'start') {
-      // Get app name, stage, and validate config
-      const app_name = get_app_name(options)
-      const stage = get_stage(options)
-      const { formatted_app, formatted_stage, ssm_prefix } = validate_config(app_name, stage)
-
-      logger.info(`Starting LiveLambda for "${formatted_app}-${formatted_stage}"`)
+      logger.info(`Starting LiveLambda for "${formatted_app_name}-${formatted_stage}"`)
 
       // Extract all unique regions from the assembly stacks
       const regions = await get_regions_from_assembly(assembly)
@@ -145,23 +65,23 @@ export async function main(command: Command) {
 
       // Check and bootstrap each region as needed
       for (const region of regions) {
-        const status = await check_bootstrap_status(region, ssm_prefix)
+        const status = await check_bootstrap_status(region, resolved_ssm_prefix)
 
         if (!status.is_bootstrapped) {
           if (options.autoBootstrap) {
             logger.info(
-              `LiveLambda not bootstrapped for "${formatted_app}-${formatted_stage}" in ${region}. Running bootstrap...`
+              `LiveLambda not bootstrapped for "${formatted_app_name}-${formatted_stage}" in ${region}. Running bootstrap...`
             )
-            await bootstrap({ region, app_name, stage, ssm_prefix })
+            await bootstrap({ region, app_name, stage, ssm_prefix: resolved_ssm_prefix })
           } else {
             throw new Error(
-              `LiveLambda not bootstrapped for "${formatted_app}-${formatted_stage}" in ${region}. ` +
+              `LiveLambda not bootstrapped for "${formatted_app_name}-${formatted_stage}" in ${region}. ` +
                 `Run 'live-lambda bootstrap --app ${app_name} --stage ${stage} --region ${region}' first.`
             )
           }
         } else if (status.needs_upgrade) {
           logger.warn(
-            `LiveLambda bootstrap version ${status.version} for "${formatted_app}-${formatted_stage}" in ${region} is outdated. ` +
+            `LiveLambda bootstrap version ${status.version} for "${formatted_app_name}-${formatted_stage}" in ${region} is outdated. ` +
               `Consider running 'live-lambda bootstrap --app ${app_name} --stage ${stage} --region ${region} --force' to upgrade.`
           )
         }
@@ -169,7 +89,7 @@ export async function main(command: Command) {
 
       // Get bootstrap configuration from the primary region for server connection
       const primary_region = get_primary_region(regions)
-      const bootstrap_config = await get_bootstrap_config(primary_region, ssm_prefix)
+      const bootstrap_config = await get_bootstrap_config(primary_region, resolved_ssm_prefix)
 
       try {
         await run_server(cdk, assembly, watch_config, bootstrap_config)
@@ -184,7 +104,7 @@ export async function main(command: Command) {
     }
 
     if (command_name === 'destroy') {
-      logger.info('Destroying user development stacks...')
+      logger.info(`Destroying user development stacks for "${formatted_app_name}-${formatted_stage}"...`)
       await destroy_user_stacks(cdk, assembly)
     }
   } catch (error) {

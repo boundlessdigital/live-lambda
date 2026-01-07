@@ -191,8 +191,8 @@ program
 program
   .command('start')
   .description('Starts the development server')
-  .requiredOption('-a, --app <name>', 'Application name for infrastructure isolation')
-  .requiredOption('-s, --stage <stage>', 'Deployment stage')
+  .option('-a, --app <name>', 'Application name (can also be set in cdk.json context as "live-lambda:app-name")')
+  .option('-s, --stage <stage>', 'Deployment stage (can also be set in cdk.json context as "live-lambda:stage")')
   .option(
     '--no-auto-bootstrap',
     'Disable automatic bootstrapping if not already done'

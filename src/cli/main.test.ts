@@ -15,7 +15,8 @@ const {
   mock_logger,
   mock_check_bootstrap_status,
   mock_get_bootstrap_config,
-  mock_bootstrap
+  mock_bootstrap,
+  mock_load_cdk_app_config
 } = vi.hoisted(() => ({
   mock_deploy: vi.fn(),
   mock_destroy: vi.fn(),
@@ -35,7 +36,8 @@ const {
   },
   mock_check_bootstrap_status: vi.fn(),
   mock_get_bootstrap_config: vi.fn(),
-  mock_bootstrap: vi.fn()
+  mock_bootstrap: vi.fn(),
+  mock_load_cdk_app_config: vi.fn()
 }))
 
 // Mock dependencies
@@ -102,6 +104,12 @@ vi.mock('./bootstrap.js', () => {
   }
 })
 
+vi.mock('./load_config.js', () => {
+  return {
+    load_cdk_app_config: mock_load_cdk_app_config
+  }
+})
+
 // Import after mocks
 import { main } from './main.js'
 import * as toolkit_lib from '@aws-cdk/toolkit-lib'
@@ -138,10 +146,18 @@ describe('main', () => {
     layer_arn: 'arn:aws:lambda:us-east-1:123456789012:layer:LiveLambdaProxy:1'
   }
 
+  const default_live_lambda_config = {
+    app_name: 'test-app',
+    stage: 'dev',
+    formatted_app_name: 'test-app',
+    formatted_stage: 'dev',
+    resolved_ssm_prefix: '/live-lambda/test-app/dev',
+    stack_prefix: 'test-app-dev-'
+  }
+
   function create_mock_command(name: string, opts: Record<string, any> = {}): Command {
     // Commander.js defaults autoBootstrap to true with --no-auto-bootstrap option
-    // Start command requires app and stage options
-    const default_opts = name === 'start' ? { autoBootstrap: true, app: 'test-app', stage: 'dev' } : {}
+    const default_opts = name === 'start' ? { autoBootstrap: true } : {}
     return {
       name: () => name,
       opts: () => ({ ...default_opts, ...opts })
@@ -195,6 +211,9 @@ describe('main', () => {
     mock_check_bootstrap_status.mockResolvedValue({ is_bootstrapped: true, version: '1' })
     mock_get_bootstrap_config.mockResolvedValue(default_bootstrap_config)
     mock_bootstrap.mockResolvedValue(undefined)
+
+    // Config loading mock
+    mock_load_cdk_app_config.mockResolvedValue(default_live_lambda_config)
   })
 
   afterEach(() => {
@@ -356,7 +375,7 @@ describe('main', () => {
       await main(command)
 
       expect(mock_logger.info).toHaveBeenCalledWith(
-        'Destroying user development stacks...'
+        'Destroying user development stacks for "test-app-dev"...'
       )
     })
 
