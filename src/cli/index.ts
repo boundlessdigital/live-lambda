@@ -1,6 +1,10 @@
+import dotenv from 'dotenv'
 import { Command } from 'commander'
 import { main } from './main.js'
 import { set_log_level, LOG_LEVELS } from '../lib/logger.js'
+
+// Load .env before anything else so CDK app subprocesses inherit the vars
+dotenv.config()
 
 const program = new Command()
 

@@ -65,6 +65,7 @@
     "commander": "^13.1.0",
     "consola": "^3.4.2",
     "constructs": "^10.0.0",
+    "dotenv": "^17.3.1",
     "lodash": "^4.17.21",
     "tsx": "^4.19.4",
     "undici": "^7.9.0",

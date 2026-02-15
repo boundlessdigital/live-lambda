@@ -33,9 +33,6 @@ export async function execute_handler(
 }
 interface OutputsJson {
   [stack_name: string]: {
-    FunctionArn?: string
-    FunctionHandler?: string
-    FunctionCdkOutAssetPath?: string
     [key: string]: string | undefined
   }
 }
@@ -97,7 +94,30 @@ function extract_source_from_sourcemap(
 }
 
 /**
+ * Finds the output key prefix for a Lambda function in a stack's outputs.
+ * The CDK aspect creates outputs named `{constructId}Arn`, `{constructId}Handler`, etc.
+ * This function scans all keys to find one ending in 'Arn' whose value matches the function ARN,
+ * then returns the prefix so we can look up the related Handler and CdkOutAssetPath keys.
+ */
+function find_function_output_prefix(
+  stack_outputs: { [key: string]: string | undefined },
+  function_arn: string
+): string | undefined {
+  for (const key of Object.keys(stack_outputs)) {
+    if (
+      key.endsWith('Arn') &&
+      !key.endsWith('RoleArn') &&
+      stack_outputs[key] === function_arn
+    ) {
+      return key.slice(0, -3) // Remove 'Arn' suffix to get the prefix
+    }
+  }
+  return undefined
+}
+
+/**
  * Resolves handler path and export name from outputs.json based on function ARN.
+ * Dynamically scans output keys to support any NodejsFunction construct ID.
  * Prefers TypeScript source files (via source map) over compiled .mjs files.
  */
 function resolve_handler_from_outputs(
@@ -109,62 +129,64 @@ function resolve_handler_from_outputs(
   // Search through all stacks to find the matching function ARN
   for (const stack_name of Object.keys(outputs)) {
     const stack_outputs = outputs[stack_name]
-    if (stack_outputs.FunctionArn === function_arn) {
-      const handler_string = stack_outputs.FunctionHandler
-      const asset_path = stack_outputs.FunctionCdkOutAssetPath
 
-      if (!handler_string || !asset_path) {
-        logger.warn(
-          `Found matching stack ${stack_name} but missing FunctionHandler or FunctionCdkOutAssetPath`
-        )
-        continue
-      }
+    const prefix = find_function_output_prefix(stack_outputs, function_arn)
+    if (!prefix) continue
 
-      // Parse handler string like "index.handler" → file="index", export="handler"
-      const last_dot_index = handler_string.lastIndexOf('.')
-      if (last_dot_index === -1) {
-        logger.warn(
-          `Invalid handler format: ${handler_string}. Expected format: "file.export"`
-        )
-        continue
-      }
+    const handler_string = stack_outputs[`${prefix}Handler`]
+    const asset_path = stack_outputs[`${prefix}CdkOutAssetPath`]
 
-      const file_name = handler_string.substring(0, last_dot_index)
-      const export_name = handler_string.substring(last_dot_index + 1)
-
-      // First, try to get the original TypeScript source from source map
-      const source_path = extract_source_from_sourcemap(asset_path, file_name)
-      if (source_path && fs.existsSync(source_path)) {
-        logger.info(`Using TypeScript source for ${function_arn}`)
-        logger.debug(`  handler_path: ${source_path}`)
-        logger.debug(`  handler_name: ${export_name}`)
-        return {
-          handler_path: source_path,
-          handler_name: export_name,
-          is_typescript: true
-        }
-      }
-
-      // Fall back to compiled .mjs/.js files
-      const mjs_path = path.join(asset_path, `${file_name}.mjs`)
-      const js_path = path.join(asset_path, `${file_name}.js`)
-
-      let handler_path: string
-      if (fs.existsSync(mjs_path)) {
-        handler_path = mjs_path
-      } else if (fs.existsSync(js_path)) {
-        handler_path = js_path
-      } else {
-        logger.warn(`Could not find handler file at ${mjs_path} or ${js_path}`)
-        continue
-      }
-
-      logger.info(`Resolved handler for ${function_arn} (compiled)`)
-      logger.debug(`  handler_path: ${handler_path}`)
-      logger.debug(`  handler_name: ${export_name}`)
-
-      return { handler_path, handler_name: export_name, is_typescript: false }
+    if (!handler_string || !asset_path) {
+      logger.warn(
+        `Found matching stack ${stack_name} (prefix: ${prefix}) but missing ${prefix}Handler or ${prefix}CdkOutAssetPath`
+      )
+      continue
     }
+
+    // Parse handler string like "index.handler" → file="index", export="handler"
+    const last_dot_index = handler_string.lastIndexOf('.')
+    if (last_dot_index === -1) {
+      logger.warn(
+        `Invalid handler format: ${handler_string}. Expected format: "file.export"`
+      )
+      continue
+    }
+
+    const file_name = handler_string.substring(0, last_dot_index)
+    const export_name = handler_string.substring(last_dot_index + 1)
+
+    // First, try to get the original TypeScript source from source map
+    const source_path = extract_source_from_sourcemap(asset_path, file_name)
+    if (source_path && fs.existsSync(source_path)) {
+      logger.info(`Using TypeScript source for ${function_arn}`)
+      logger.debug(`  handler_path: ${source_path}`)
+      logger.debug(`  handler_name: ${export_name}`)
+      return {
+        handler_path: source_path,
+        handler_name: export_name,
+        is_typescript: true
+      }
+    }
+
+    // Fall back to compiled .mjs/.js files
+    const mjs_path = path.join(asset_path, `${file_name}.mjs`)
+    const js_path = path.join(asset_path, `${file_name}.js`)
+
+    let handler_path: string
+    if (fs.existsSync(mjs_path)) {
+      handler_path = mjs_path
+    } else if (fs.existsSync(js_path)) {
+      handler_path = js_path
+    } else {
+      logger.warn(`Could not find handler file at ${mjs_path} or ${js_path}`)
+      continue
+    }
+
+    logger.info(`Resolved handler for ${function_arn} (compiled)`)
+    logger.debug(`  handler_path: ${handler_path}`)
+    logger.debug(`  handler_name: ${export_name}`)
+
+    return { handler_path, handler_name: export_name, is_typescript: false }
   }
 
   return undefined

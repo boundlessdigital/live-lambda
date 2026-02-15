@@ -361,7 +361,7 @@ describe('main', () => {
       expect(mock_destroy).toHaveBeenCalledWith(mock_assembly, {
         stacks: {
           strategy: 'PATTERN_MATCH',
-          patterns: ['*Lambda', '*Layer*']
+          patterns: ['AppSyncStack', 'LiveLambda-LayerStack']
         }
       })
     })
