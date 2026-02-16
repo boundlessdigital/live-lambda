@@ -18,6 +18,21 @@ export interface ExecuteHandlerOptions {
   context: LambdaContext
 }
 
+// Snapshot of the original process.env before any handler modifies it.
+// Captured once on first use, then used to restore env between handler calls.
+let original_env: Record<string, string | undefined> | undefined
+
+function restore_env(saved: Record<string, string | undefined>) {
+  // Remove all keys that aren't in the saved snapshot
+  for (const key of Object.keys(process.env)) {
+    if (!(key in saved)) {
+      delete process.env[key]
+    }
+  }
+  // Restore all saved values
+  Object.assign(process.env, saved)
+}
+
 export async function execute_handler(
   event: APIGatewayProxyEventV2,
   context: LambdaContext
@@ -152,8 +167,19 @@ function resolve_handler_from_outputs(
       continue
     }
 
-    const file_name = handler_string.substring(0, last_dot_index)
+    let file_name = handler_string.substring(0, last_dot_index)
     const export_name = handler_string.substring(last_dot_index + 1)
+
+    // Detect wrapper handlers (e.g., Datadog) that point to /opt/... paths
+    // instead of the actual bundled file. Fall back to "index" which is the
+    // default NodejsFunction entry point.
+    const is_wrapper_handler = file_name.startsWith('/opt/')
+    if (is_wrapper_handler) {
+      logger.debug(
+        `Detected wrapper handler (${file_name}), falling back to default entry point`
+      )
+      file_name = 'index'
+    }
 
     // First, try to get the original TypeScript source from source map
     const source_path = extract_source_from_sourcemap(asset_path, file_name)
@@ -218,6 +244,17 @@ export async function execute_module_handler({
 
   const { handler_path, handler_name, is_typescript } = resolved_handler
 
+  // Capture the original environment on first invocation. This snapshot
+  // is restored before each handler call to prevent credential leakage
+  // between different Lambda functions (each has its own IAM role).
+  if (!original_env) {
+    original_env = { ...process.env }
+  }
+
+  // Restore original env before AWS API calls. Previous handler executions
+  // may have set AWS_ACCESS_KEY_ID to a different role's credentials.
+  restore_env(original_env)
+
   const lambda_client = new LambdaClient({ region })
   const config = await lambda_client.send(
     new GetFunctionConfigurationCommand({
@@ -244,58 +281,76 @@ export async function execute_module_handler({
   const creds = await cred_provider()
 
   /* ---------- 3 · inject env vars + creds ---------- */
+  // Remove AWS_PROFILE to prevent the SDK from preferring profile credentials
+  // over the assumed role credentials we explicitly set below.
+  // The SDK warns: "This SDK will proceed with the AWS_PROFILE value"
+  // which bypasses the Lambda execution role we need for SSM access, etc.
+  delete process.env.AWS_PROFILE
+  delete process.env.AWS_SHARED_CREDENTIALS_FILE
+
   Object.assign(process.env, config.Environment?.Variables ?? {}, {
     AWS_ACCESS_KEY_ID: creds.accessKeyId,
     AWS_SECRET_ACCESS_KEY: creds.secretAccessKey,
-    AWS_SESSION_TOKEN: creds.sessionToken
+    AWS_SESSION_TOKEN: creds.sessionToken,
+    // AWS_REGION is set by the Lambda runtime automatically, not as a
+    // configured env var. We must set it explicitly for local execution.
+    AWS_REGION: region,
+    AWS_DEFAULT_REGION: region
   })
 
   /* ---------- 4 · load & run the handler ------------ */
-  const abs_path = path.isAbsolute(handler_path)
-    ? handler_path
-    : path.resolve(process.cwd(), handler_path)
+  try {
+    const abs_path = path.isAbsolute(handler_path)
+      ? handler_path
+      : path.resolve(process.cwd(), handler_path)
 
-  let handler_module: Record<string, unknown>
+    let handler_module: Record<string, unknown>
 
-  if (is_typescript) {
-    logger.info(`Loading TypeScript source: ${abs_path}`)
+    if (is_typescript) {
+      logger.info(`Loading TypeScript source: ${abs_path}`)
 
-    // Transform TypeScript to JavaScript using esbuild
-    const result = await esbuild.build({
-      entryPoints: [abs_path],
-      bundle: true,
-      format: 'esm',
-      platform: 'node',
-      target: 'node20',
-      write: false,
-      sourcemap: 'inline',
-      external: ['@aws-sdk/*', 'aws-lambda']
-    })
+      // Transform TypeScript to JavaScript using esbuild
+      const result = await esbuild.build({
+        entryPoints: [abs_path],
+        bundle: true,
+        format: 'esm',
+        platform: 'node',
+        target: 'node20',
+        write: false,
+        sourcemap: 'inline',
+        external: ['@aws-sdk/*', 'aws-lambda']
+      })
 
-    // Write to temp file and import
-    const temp_dir = os.tmpdir()
-    const temp_file = path.join(
-      temp_dir,
-      `live-lambda-handler-${Date.now()}.mjs`
-    )
-    fs.writeFileSync(temp_file, result.outputFiles[0].text)
+      // Write to temp file and import
+      const temp_dir = os.tmpdir()
+      const temp_file = path.join(
+        temp_dir,
+        `live-lambda-handler-${Date.now()}.mjs`
+      )
+      fs.writeFileSync(temp_file, result.outputFiles[0].text)
 
-    logger.debug(`Transformed to: ${temp_file}`)
-    handler_module = await import(temp_file)
+      logger.debug(`Transformed to: ${temp_file}`)
+      handler_module = await import(temp_file)
 
-    // Clean up temp file
-    fs.unlinkSync(temp_file)
-  } else {
-    logger.info(`Loading compiled handler: ${abs_path}`)
-    handler_module = await import(abs_path)
+      // Clean up temp file
+      fs.unlinkSync(temp_file)
+    } else {
+      logger.info(`Loading compiled handler: ${abs_path}`)
+      handler_module = await import(abs_path)
+    }
+    const handler = handler_module[handler_name]
+
+    if (typeof handler !== 'function') {
+      throw new Error(
+        `Expected ${abs_path} to export a function named "${handler_name}".`
+      )
+    }
+
+    return await handler(event, context)
+  } finally {
+    // Restore original environment to prevent credential leakage.
+    // Without this, a subsequent handler invocation would try to use
+    // this handler's role for STS:AssumeRole, which would fail.
+    restore_env(original_env!)
   }
-  const handler = handler_module[handler_name]
-
-  if (typeof handler !== 'function') {
-    throw new Error(
-      `Expected ${abs_path} to export a function named "${handler_name}".`
-    )
-  }
-
-  return handler(event, context)
 }

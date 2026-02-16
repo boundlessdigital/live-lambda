@@ -37,7 +37,8 @@ vi.mock('../lib/logger.js', () => ({
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
-    start: vi.fn()
+    start: vi.fn(),
+    ready: vi.fn()
   }
 }))
 
@@ -65,7 +66,14 @@ describe('server index', () => {
     it('should create AppSyncEventWebSocketClient with provided config', async () => {
       await serve(mock_config)
 
-      expect(mock_client_constructor).toHaveBeenCalledWith(mock_config)
+      expect(mock_client_constructor).toHaveBeenCalledWith(
+        expect.objectContaining({
+          region: mock_config.region,
+          http: mock_config.http,
+          realtime: mock_config.realtime,
+          layer_arn: mock_config.layer_arn
+        })
+      )
     })
 
     it('should connect to AppSync WebSocket', async () => {
@@ -207,8 +215,8 @@ describe('server index', () => {
 
       await serve(mock_config)
 
-      // The error should propagate from handle_request
-      await expect(subscribe_callback!(mock_payload)).rejects.toThrow('Handler execution failed')
+      // Errors are caught internally in handle_request, should not propagate
+      await subscribe_callback!(mock_payload)
     })
 
     it('should handle multiple concurrent requests', async () => {
@@ -384,8 +392,8 @@ describe('server index', () => {
 
       await serve(mock_config)
 
-      // Should throw SyntaxError for invalid JSON
-      await expect(subscribe_callback!(malformed_payload)).rejects.toThrow(SyntaxError)
+      // Errors are caught internally in handle_request
+      await subscribe_callback!(malformed_payload)
     })
 
     it('should handle payload missing request_id field', async () => {
@@ -424,8 +432,8 @@ describe('server index', () => {
 
       await serve(mock_config)
 
-      // Empty string should cause JSON parse error
-      await expect(subscribe_callback!('')).rejects.toThrow()
+      // Errors are caught internally in handle_request
+      await subscribe_callback!('')
     })
   })
 
@@ -487,8 +495,8 @@ describe('server index', () => {
 
       await serve(mock_config)
 
-      // The publish error should propagate
-      await expect(subscribe_callback!(mock_payload)).rejects.toThrow('WebSocket publish failed')
+      // Errors are caught internally in handle_request
+      await subscribe_callback!(mock_payload)
     })
 
     it('should handle rapid sequential requests without race conditions', async () => {

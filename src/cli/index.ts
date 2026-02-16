@@ -1,10 +1,6 @@
-import dotenv from 'dotenv'
 import { Command } from 'commander'
 import { main } from './main.js'
 import { set_log_level, LOG_LEVELS } from '../lib/logger.js'
-
-// Load .env before anything else so CDK app subprocesses inherit the vars
-dotenv.config()
 
 const program = new Command()
 
@@ -26,14 +22,24 @@ program
 program
   .command('start')
   .description('Starts the development server')
+  .option('-p, --profile <profile>', 'AWS profile to use (sets AWS_PROFILE)')
   .action(async function (this: Command) {
+    const profile = this.opts().profile
+    if (profile) {
+      process.env.AWS_PROFILE = profile
+    }
     await main(this)
   })
 
 program
   .command('destroy')
   .description('Destroys the development stacks')
+  .option('-p, --profile <profile>', 'AWS profile to use (sets AWS_PROFILE)')
   .action(async function (this: Command) {
+    const profile = this.opts().profile
+    if (profile) {
+      process.env.AWS_PROFILE = profile
+    }
     await main(this)
   })
 

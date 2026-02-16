@@ -443,7 +443,7 @@ describe('runtime', () => {
       expect(mock_cred_provider).toHaveBeenCalled()
     })
 
-    it('should inject credentials to process.env', async () => {
+    it('should assume role and call credential provider', async () => {
       const mock_role_arn = 'arn:aws:iam::123456789012:role/lambda-execution-role'
       const lambda_env_vars = {
         DATABASE_URL: 'postgres://localhost:5432/db',
@@ -482,17 +482,24 @@ describe('runtime', () => {
         context: mock_context
       }
 
-      // The function will fail on dynamic import, but we verify env injection
+      // The function will fail on dynamic import, but we verify credential setup
       await expect(execute_module_handler(options)).rejects.toThrow()
 
-      // Verify credentials were injected to process.env
-      expect(process.env.AWS_ACCESS_KEY_ID).toBe(mock_credentials.accessKeyId)
-      expect(process.env.AWS_SECRET_ACCESS_KEY).toBe(mock_credentials.secretAccessKey)
-      expect(process.env.AWS_SESSION_TOKEN).toBe(mock_credentials.sessionToken)
+      // Verify fromTemporaryCredentials was set up with the correct role
+      expect(mock_from_temporary_credentials).toHaveBeenCalledWith(
+        expect.objectContaining({
+          params: expect.objectContaining({
+            RoleArn: mock_role_arn
+          })
+        })
+      )
 
-      // Verify Lambda environment variables were also injected
-      expect(process.env.DATABASE_URL).toBe('postgres://localhost:5432/db')
-      expect(process.env.API_KEY).toBe('secret-api-key')
+      // Verify credential provider was invoked
+      expect(mock_cred_provider).toHaveBeenCalled()
+
+      // Note: process.env credentials are restored in the finally block,
+      // so we verify the credential provider was called rather than checking
+      // env vars after the function returns
     })
 
     it('should throw descriptive error when Lambda config has no Role', async () => {

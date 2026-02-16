@@ -51,7 +51,8 @@ vi.mock('@aws-cdk/toolkit-lib', () => {
       }
     }),
     StackSelectionStrategy: {
-      PATTERN_MATCH: 'PATTERN_MATCH'
+      PATTERN_MATCH: 'PATTERN_MATCH',
+      ALL_STACKS: 'ALL_STACKS'
     }
   }
 })
@@ -245,6 +246,9 @@ describe('main', () => {
       await main(command)
 
       expect(mock_deploy).toHaveBeenCalledWith(mock_assembly, {
+        stacks: {
+          strategy: 'ALL_STACKS'
+        },
         outputsFile: 'cdk.out/outputs.json',
         concurrency: 5,
         deploymentMethod: {
@@ -321,6 +325,7 @@ describe('main', () => {
         deploymentMethod: {
           method: 'change-set'
         },
+        outputsFile: 'cdk.out/outputs.json',
         ...watch_config
       })
     })
@@ -440,9 +445,9 @@ describe('main', () => {
 
       await main(command)
 
-      // Should fail fast with descriptive error listing missing outputs
+      // Should fail with descriptive error listing missing outputs
       expect(mock_logger.error).toHaveBeenCalledWith(
-        'Error during initial server run, attempting cleanup and restart:',
+        'An unexpected error occurred:',
         expect.objectContaining({
           name: 'ServerConfigError',
           message: expect.stringContaining('Missing required stack outputs')
@@ -457,9 +462,9 @@ describe('main', () => {
 
       await main(command)
 
-      // Should fail fast with descriptive error listing missing stacks
+      // Should fail with descriptive error listing missing stacks
       expect(mock_logger.error).toHaveBeenCalledWith(
-        'Error during initial server run, attempting cleanup and restart:',
+        'An unexpected error occurred:',
         expect.objectContaining({
           name: 'ServerConfigError',
           message: expect.stringContaining('Missing required stacks')
@@ -476,7 +481,7 @@ describe('main', () => {
 
       // Verify error message includes both stack names
       const error_call = mock_logger.error.mock.calls.find(
-        (call: any[]) => call[0] === 'Error during initial server run, attempting cleanup and restart:'
+        (call: any[]) => call[0] === 'An unexpected error occurred:'
       )
       expect(error_call).toBeDefined()
       expect(error_call![1].message).toContain(APPSYNC_STACK_NAME)
@@ -506,7 +511,7 @@ describe('main', () => {
 
       // Verify error message includes the missing output names
       const error_call = mock_logger.error.mock.calls.find(
-        (call: any[]) => call[0] === 'Error during initial server run, attempting cleanup and restart:'
+        (call: any[]) => call[0] === 'An unexpected error occurred:'
       )
       expect(error_call).toBeDefined()
       expect(error_call![1].message).toContain(OUTPUT_EVENT_API_REALTIME_HOST)
@@ -519,36 +524,14 @@ describe('main', () => {
       const command = create_mock_command('start')
       const deployment_error = new Error('Deployment failed')
 
-      // First call fails, second succeeds
-      mock_deploy
-        .mockRejectedValueOnce(deployment_error)
-        .mockResolvedValueOnce(
-          create_mock_deployment([
-            {
-              stackName: APPSYNC_STACK_NAME,
-              environment: { region: 'us-east-1' },
-              outputs: {
-                [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host',
-                [OUTPUT_EVENT_API_REALTIME_HOST]: 'realtime-host'
-              }
-            },
-            {
-              stackName: LAYER_STACK_NAME,
-              outputs: {
-                [OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]: 'arn:aws:lambda:us-east-1:123:layer:test:1'
-              }
-            }
-          ])
-        )
+      mock_deploy.mockRejectedValueOnce(deployment_error)
 
       await main(command)
 
       expect(mock_logger.error).toHaveBeenCalledWith(
-        'Error during initial server run, attempting cleanup and restart:',
+        'An unexpected error occurred:',
         deployment_error
       )
-      expect(mock_destroy).toHaveBeenCalled()
-      expect(mock_deploy).toHaveBeenCalledTimes(2)
     })
 
     it('should handle cdk.json read errors', async () => {
@@ -615,9 +598,9 @@ describe('main', () => {
 
       await main(command)
 
-      // Watch errors bubble up through run_server, triggering cleanup/restart flow
+      // Watch errors bubble up through run_server to the top-level catch
       expect(mock_logger.error).toHaveBeenCalledWith(
-        'Error during initial server run, attempting cleanup and restart:',
+        'An unexpected error occurred:',
         watch_error
       )
     })

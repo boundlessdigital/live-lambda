@@ -53,18 +53,7 @@ export async function main(command: Command) {
     const assembly = await cdk.fromCdkApp(entrypoint)
 
     if (command_name === 'start') {
-      try {
-        await run_server(cdk, assembly, watch_config)
-      } catch (error) {
-        // Attempt to destroy stacks on error during start, then re-run server
-        // This might be specific to your workflow, adjust as needed
-        logger.error(
-          'Error during initial server run, attempting cleanup and restart:',
-          error
-        )
-        await destroy_stacks(cdk, assembly)
-        await run_server(cdk, assembly, watch_config)
-      }
+      await run_server(cdk, assembly, watch_config)
     }
 
     if (command_name === 'destroy') {
@@ -84,17 +73,15 @@ async function run_server(
   assembly: ICloudAssemblySource,
   watch_config: any
 ): Promise<void> {
-  const deployment = await deploy_stacks(cdk, assembly)
+  // Deploy ALL stacks to populate outputs.json with function ARNs, handlers, and asset paths.
+  // The server needs these outputs to resolve which local handler to execute for each Lambda.
+  const deployment = await deploy_all_stacks(cdk, assembly)
 
   const config = extract_server_config(deployment)
   await serve(config)
   await watch_file_changes(cdk, assembly)
+  // CDK watch monitors for file changes and redeploys affected stacks
   await watch_stacks(cdk, assembly, watch_config)
-
-  // watcher.on('change', async (path: string) => {
-  //   logger.info(`File ${path} changes detected, redeploying...`)
-  //   // await deploy_stacks(cdk, assembly)
-  // })
 }
 
 async function watch_file_changes(
@@ -102,17 +89,25 @@ async function watch_file_changes(
   assembly: ICloudAssemblySource
 ) {
   const watcher = chokidar.watch('.', {
+    followSymlinks: false,
     ignored: (path, stats) => {
+      if (path.includes('node_modules') || path.includes('worktrees') || path.includes('.git')) return true
       return !path.endsWith('.ts') && !path.startsWith('cdk.out')
     }
+  })
+  watcher.on('error', (error: unknown) => {
+    logger.debug(`File watcher error (non-fatal): ${error}`)
   })
   watcher.on('change', async (path: string) => {
     logger.info(`File ${path} changes detected, redeploying...`)
     // await deploy_stacks(cdk, assembly)
   })
 }
-async function deploy_stacks(cdk: Toolkit, assembly: ICloudAssemblySource) {
+async function deploy_all_stacks(cdk: Toolkit, assembly: ICloudAssemblySource) {
   return cdk.deploy(assembly, {
+    stacks: {
+      strategy: StackSelectionStrategy.ALL_STACKS
+    },
     outputsFile: CDK_OUTPUTS_FILE,
     concurrency: MAX_CONCURRENCY,
     deploymentMethod: {
@@ -140,6 +135,7 @@ async function watch_stacks(
     deploymentMethod: {
       method: 'change-set'
     },
+    outputsFile: CDK_OUTPUTS_FILE,
     ...watch_config
   })
 }
