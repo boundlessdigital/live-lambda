@@ -2,12 +2,12 @@ import * as cdk from 'aws-cdk-lib'
 import * as lambda from 'aws-cdk-lib/aws-lambda'
 import { CfnOutput, Stack } from 'aws-cdk-lib'
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
-import * as appsync from 'aws-cdk-lib/aws-appsync'
 import * as ssm from 'aws-cdk-lib/aws-ssm'
 import * as iam from 'aws-cdk-lib/aws-iam'
 import { IConstruct } from 'constructs'
 import path from 'node:path'
 import { LiveLambdaLayerStack } from '../stacks/layer.stack.js'
+import { AppSyncStack } from '../stacks/appsync.stack.js'
 import { logger } from '../../lib/logger.js'
 import {
   ENV_KEY_LAMBDA_EXEC_WRAPPER,
@@ -23,7 +23,7 @@ import {
 
 export interface LiveLambdaLayerAspectProps {
   readonly layer_stack: LiveLambdaLayerStack
-  readonly api: appsync.EventApi
+  readonly appsync_stack: AppSyncStack
   include_patterns?: string[]
   exclude_patterns?: string[]
   /**
@@ -68,6 +68,7 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
 
       const stack = cdk.Stack.of(node)
       stack.addDependency(this.props.layer_stack)
+      stack.addDependency(this.props.appsync_stack)
 
       const cfn_function = node.node.defaultChild as lambda.CfnFunction // L1 construct
 
@@ -94,6 +95,14 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
       )
       node.addLayers(imported_layer)
 
+      // Read AppSync values from SSM to avoid cross-stack CloudFormation exports.
+      // This uses dynamic references ({{resolve:ssm:...}}) resolved at deploy time,
+      // which don't create Fn::ImportValue dependencies between stacks.
+      const api_arn = ssm.StringParameter.valueForStringParameter(
+        stack,
+        this.props.appsync_stack.ssm_paths.api_arn
+      )
+
       node.addToRolePolicy(
         new iam.PolicyStatement({
           actions: [
@@ -101,7 +110,7 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
             'appsync:EventPublish',
             'appsync:EventSubscribe'
           ],
-          resources: [`${this.props.api.apiArn}/*`, `${this.props.api.apiArn}`]
+          resources: [`${api_arn}/*`, `${api_arn}`]
         })
       )
 
@@ -141,10 +150,19 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
       node.addEnvironment(ENV_KEY_LRAP_LISTENER_PORT, ENV_LRAP_LISTENER_PORT)
       node.addEnvironment(ENV_KEY_EXTENSION_NAME, ENV_EXTENSION_NAME)
 
-      // Add AppSync configuration as environment variables for the extension
-      node.addEnvironment(ENV_KEY_APPSYNC_REGION, this.props.api.env.region)
-      node.addEnvironment(ENV_KEY_APPSYNC_REALTIME_HOST, this.props.api.realtimeDns)
-      node.addEnvironment(ENV_KEY_APPSYNC_HTTP_HOST, this.props.api.httpDns)
+      // Add AppSync configuration as environment variables for the extension.
+      // httpDns and realtimeDns are read from SSM to avoid cross-stack exports.
+      const http_dns = ssm.StringParameter.valueForStringParameter(
+        stack,
+        this.props.appsync_stack.ssm_paths.http_dns
+      )
+      const realtime_dns = ssm.StringParameter.valueForStringParameter(
+        stack,
+        this.props.appsync_stack.ssm_paths.realtime_dns
+      )
+      node.addEnvironment(ENV_KEY_APPSYNC_REGION, this.props.appsync_stack.region)
+      node.addEnvironment(ENV_KEY_APPSYNC_REALTIME_HOST, realtime_dns)
+      node.addEnvironment(ENV_KEY_APPSYNC_HTTP_HOST, http_dns)
 
       // Sanitize IDs for CloudFormation export names (only alphanumeric, colons, hyphens allowed)
       const sanitized_id = node.node.id.replace(/[^a-zA-Z0-9:-]/g, '-')
@@ -184,8 +202,12 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
       const asset_path_from_cfn_options = cfnOptionsMetadata?.['aws:asset:path']
 
       if (typeof asset_path_from_cfn_options === 'string') {
+        // With CDK Stages, asset paths are relative to the nested assembly
+        // (e.g., "../asset.abc123") rather than the cdk.out root. Using
+        // path.basename extracts just the asset directory name so we always
+        // produce "cdk.out/asset.abc123" regardless of nesting depth.
         new CfnOutput(node.stack, `${node.node.id}CdkOutAssetPath`, {
-          value: path.join('cdk.out', asset_path_from_cfn_options),
+          value: path.join('cdk.out', path.basename(asset_path_from_cfn_options)),
           description: `Path to the function's code asset within the cdk.out directory (relative to project root).`,
           exportName: `${sanitized_stack}-${sanitized_id}-CdkOutAssetPath`
         })
@@ -200,7 +222,7 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
           typeof asset_metadata_entry.data === 'string'
         ) {
           new CfnOutput(node.stack, `${node.node.id}CdkOutAssetPath`, {
-            value: path.join('cdk.out', asset_metadata_entry.data),
+            value: path.join('cdk.out', path.basename(asset_metadata_entry.data)),
             description: `Path to the function's code asset within the cdk.out directory (relative to project root).`,
             exportName: `${sanitized_stack}-${sanitized_id}-CdkOutAssetPath`
           })
@@ -236,9 +258,9 @@ function should_skip_function(
     return true
   }
 
-  const excludedStackPrefixes = ['LiveLambda-', 'SSTBootstrap', 'CDKToolkit']
+  const excluded_stack_patterns = ['LiveLambda-', 'SSTBootstrap', 'CDKToolkit']
 
-  if (excludedStackPrefixes.some((prefix) => stack_name.startsWith(prefix))) {
+  if (excluded_stack_patterns.some((pattern) => stack_name.includes(pattern))) {
     return true
   }
 

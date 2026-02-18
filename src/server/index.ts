@@ -5,31 +5,57 @@ import { logger } from '../lib/logger.js'
 
 import { ServerConfig } from './types.js'
 
+const RECONNECT_DELAY_MS = 2_000
+const MAX_RECONNECT_DELAY_MS = 30_000
+
 export async function serve(config: ServerConfig): Promise<void> {
   logger.start('Starting LiveLambda server...')
 
-  const client = new AppSyncEventWebSocketClient({
-    ...config,
-    debug: true,
-    on_error: (error: any) => {
-      logger.error(`WebSocket error: ${JSON.stringify(error)}`)
-    },
-    on_close: (event: any) => {
-      logger.warn(`WebSocket closed: code=${event?.code}, reason=${event?.reason}`)
-    }
-  })
-
   const requests_channel = `/${APPSYNC_EVENTS_API_NAMESPACE}/requests`
+  let reconnect_delay = RECONNECT_DELAY_MS
 
-  await client.connect()
-  logger.info('Connected to AppSync WebSocket')
+  async function connect_and_subscribe() {
+    const client = new AppSyncEventWebSocketClient({
+      ...config,
+      debug: true,
+      on_error: (error: any) => {
+        logger.error(`WebSocket error: ${JSON.stringify(error)}`)
+      },
+      on_close: (event: any) => {
+        logger.warn(`WebSocket closed: code=${event?.code}, reason=${event?.reason}`)
+        schedule_reconnect()
+      }
+    })
 
-  await client.subscribe(requests_channel, (payload: string) => {
-    logger.info(`Received request on ${requests_channel}`)
-    handle_request(client, payload)
-  })
-  logger.info(`Subscribed to ${requests_channel}`)
+    await client.connect()
+    logger.info('Connected to AppSync WebSocket')
 
+    await client.subscribe(requests_channel, (payload: string) => {
+      logger.info(`Received request on ${requests_channel}`)
+      handle_request(client, payload)
+    })
+    logger.info(`Subscribed to ${requests_channel}`)
+
+    // Reset delay on successful connection
+    reconnect_delay = RECONNECT_DELAY_MS
+    return client
+  }
+
+  function schedule_reconnect() {
+    logger.info(`Reconnecting in ${reconnect_delay / 1000}s...`)
+    setTimeout(async () => {
+      try {
+        await connect_and_subscribe()
+        logger.ready('Reconnected.')
+      } catch (error) {
+        logger.error(`Reconnection failed: ${error}`)
+        reconnect_delay = Math.min(reconnect_delay * 2, MAX_RECONNECT_DELAY_MS)
+        schedule_reconnect()
+      }
+    }, reconnect_delay)
+  }
+
+  await connect_and_subscribe()
   logger.ready('Server ready.')
 }
 

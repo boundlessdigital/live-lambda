@@ -14,12 +14,15 @@ import { CustomIoHost } from '../cdk/toolkit/iohost.js'
 import { SpinnerDisplay, KeypressListener } from '../lib/display/index.js'
 import { logger } from '../lib/logger.js'
 import {
-  APPSYNC_STACK_NAME,
-  LAYER_STACK_NAME,
-  INTERNAL_STACK_NAMES,
+  CONTEXT_APP_NAME,
+  CONTEXT_ENVIRONMENT,
+  CONTEXT_APP_ID,
+  INTERNAL_STACK_BASE_NAMES,
   OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN,
   OUTPUT_EVENT_API_HTTP_HOST,
-  OUTPUT_EVENT_API_REALTIME_HOST
+  OUTPUT_EVENT_API_REALTIME_HOST,
+  compute_prefix,
+  prefixed_stack_names
 } from '../lib/constants.js'
 import { clean_lambda_functions, extract_region_from_arn } from './lambda_cleanup.js'
 
@@ -66,33 +69,77 @@ export async function main(command: Command) {
 
     const command_name = command.name()
 
-    const { app: entrypoint, watch: watch_config } = JSON.parse(
+    const cdk_json = JSON.parse(
       fs.readFileSync('cdk.json', 'utf-8')
     )
+    const { app: entrypoint, watch: watch_config, context } = cdk_json
+
+    // Resolve the deployment prefix from cdk.json context
+    const prefix = resolve_prefix_from_context(context ?? {})
+    const stack_names = prefixed_stack_names(prefix)
 
     const assembly = await cdk.fromCdkApp(entrypoint)
 
     if (command_name === 'bootstrap') {
-      await run_bootstrap(cdk, assembly)
+      await run_bootstrap(cdk, assembly, stack_names)
     }
 
     if (command_name === 'dev') {
-      await run_dev(cdk, assembly, watch_config)
+      await run_dev(cdk, assembly, watch_config, stack_names)
     }
 
     if (command_name === 'destroy') {
-      await run_destroy(cdk, assembly)
+      await run_destroy(cdk, assembly, stack_names)
     }
 
     if (command_name === 'uninstall') {
       const skip_cleanup = command.opts().skipCleanup ?? false
-      await run_uninstall(cdk, assembly, skip_cleanup)
+      await run_uninstall(cdk, assembly, skip_cleanup, stack_names)
     }
   } catch (error) {
-    logger.error('An unexpected error occurred:', error)
+    if (error instanceof ConfigError) {
+      logger.error(error.message)
+    } else {
+      logger.error('An unexpected error occurred:', error)
+    }
   } finally {
     await cleanup_tasks()
   }
+}
+
+interface StackNames {
+  appsync: string
+  layer: string
+  all: string[]
+  patterns: string[]
+}
+
+function resolve_prefix_from_context(context: Record<string, string>): string {
+  const app_name = context[CONTEXT_APP_NAME]
+  const environment = context[CONTEXT_ENVIRONMENT]
+  const app_id = context[CONTEXT_APP_ID]
+
+  const missing: string[] = []
+  if (!app_name) missing.push(CONTEXT_APP_NAME)
+  if (!environment) missing.push(CONTEXT_ENVIRONMENT)
+
+  if (missing.length > 0) {
+    const example = JSON.stringify({
+      context: {
+        [CONTEXT_APP_NAME]: app_name || 'my-app',
+        [CONTEXT_ENVIRONMENT]: environment || 'development',
+        ...(app_id ? { [CONTEXT_APP_ID]: app_id } : {})
+      }
+    }, null, 2)
+
+    throw new ConfigError(
+      `Missing required context in cdk.json: ${missing.join(', ')}\n\n` +
+      `Add the following to your cdk.json:\n\n${example}\n\n` +
+      `"${CONTEXT_APP_ID}" is optional — use it to isolate personal dev stacks (e.g. "sidney").`
+    )
+  }
+
+  return compute_prefix(app_name, environment, app_id)
 }
 
 async function bootstrap_cdk_environment(cdk: Toolkit, assembly: ICloudAssemblySource) {
@@ -107,17 +154,18 @@ async function bootstrap_cdk_environment(cdk: Toolkit, assembly: ICloudAssemblyS
   await cdk.bootstrap(environments)
 }
 
-async function run_bootstrap(cdk: Toolkit, assembly: ICloudAssemblySource) {
+async function run_bootstrap(cdk: Toolkit, assembly: ICloudAssemblySource, stack_names: StackNames) {
   await bootstrap_cdk_environment(cdk, assembly)
   logger.info('Deploying live-lambda infrastructure stacks...')
-  await deploy_internal_stacks(cdk, assembly)
+  await deploy_internal_stacks(cdk, assembly, stack_names)
   logger.info('Bootstrap complete. AppSync and Layer stacks deployed.')
 }
 
 async function run_dev(
   cdk: Toolkit,
   assembly: ICloudAssemblySource,
-  watch_config: any
+  watch_config: any,
+  stack_names: StackNames
 ): Promise<void> {
   await bootstrap_cdk_environment(cdk, assembly)
 
@@ -125,83 +173,85 @@ async function run_dev(
   // The server needs these outputs to resolve which local handler to execute for each Lambda.
   const deployment = await deploy_all_stacks(cdk, assembly)
 
-  const config = extract_server_config(deployment)
+  const config = extract_server_config(deployment, stack_names)
   await serve(config)
   await watch_file_changes(cdk, assembly)
   // CDK watch monitors for file changes and redeploys affected stacks
   await watch_stacks(cdk, assembly, watch_config)
 }
 
-async function run_destroy(cdk: Toolkit, assembly: ICloudAssemblySource) {
-  const internal = new Set<string>(INTERNAL_STACK_NAMES)
+async function run_destroy(cdk: Toolkit, assembly: ICloudAssemblySource, stack_names: StackNames) {
+  const internal = new Set<string>(stack_names.all)
 
   // List all stacks in the assembly to find consumer stacks
   const all_stacks = await cdk.list(assembly, {
     stacks: { strategy: StackSelectionStrategy.ALL_STACKS }
   })
-  const consumer_stacks = all_stacks
-    .map((s) => s.name)
-    .filter((name) => !internal.has(name))
 
-  if (consumer_stacks.length === 0) {
+  // Filter out internal live-lambda stacks by CloudFormation name (s.name).
+  // Extract hierarchical IDs from s.id (format: "hierarchicalId (stackName)")
+  // because PATTERN_MATCH matches against hierarchicalId, not stackName.
+  const consumer_patterns = all_stacks
+    .filter((s) => !internal.has(s.name))
+    .map((s) => extract_hierarchical_id(s.id))
+
+  if (consumer_patterns.length === 0) {
     logger.info('No consumer stacks to destroy.')
     return
   }
 
-  logger.info(`Destroying consumer stacks: ${consumer_stacks.join(', ')}`)
+  logger.info(`Destroying consumer stacks: ${consumer_patterns.join(', ')}`)
   await cdk.destroy(assembly, {
     stacks: {
       strategy: StackSelectionStrategy.PATTERN_MATCH,
-      patterns: consumer_stacks
+      patterns: consumer_patterns
     }
   })
+}
+
+/**
+ * Extract the hierarchical ID from a StackDetails.id string.
+ * CDK displayName format: "hierarchicalId (stackName)" or just "stackId".
+ */
+function extract_hierarchical_id(display_name: string): string {
+  const paren_index = display_name.indexOf(' (')
+  return paren_index >= 0 ? display_name.slice(0, paren_index) : display_name
 }
 
 async function run_uninstall(
   cdk: Toolkit,
   assembly: ICloudAssemblySource,
-  skip_cleanup: boolean
+  skip_cleanup: boolean,
+  stack_names: StackNames
 ) {
   if (!skip_cleanup) {
     logger.info('Cleaning live-lambda configuration from Lambda functions...')
 
-    const layer_arn = resolve_layer_arn()
+    const layer_arn = resolve_layer_arn(stack_names)
     if (layer_arn) {
       const region = extract_region_from_arn(layer_arn)
       await clean_lambda_functions(region, layer_arn)
     } else {
-      // Fallback: try to determine region from AWS SDK defaults and scan by env var marker
       logger.warn(
-        'Could not determine layer ARN from outputs. Scanning by env var marker instead.'
+        'Could not determine layer ARN from outputs.json. ' +
+          'Skipping Lambda cleanup. Run "live-lambda dev" first to generate outputs.json, ' +
+          'or use --skip-cleanup to skip this step.'
       )
-      const region = process.env.AWS_DEFAULT_REGION ?? process.env.AWS_REGION
-      if (region) {
-        await clean_lambda_functions(region)
-      } else {
-        logger.error(
-          'Could not determine AWS region. Set AWS_REGION or AWS_DEFAULT_REGION, ' +
-            'or run "live-lambda dev" first to generate outputs.json.'
-        )
-      }
     }
   }
 
-  // Destroy consumer stacks first — internal stacks have CloudFormation exports
-  // that consumer stacks reference, so they must be removed first
-  await run_destroy(cdk, assembly)
-
   logger.info('Destroying live-lambda infrastructure stacks...')
-  await destroy_internal_stacks(cdk, assembly)
+  await destroy_internal_stacks(cdk, assembly, stack_names)
   logger.info('Uninstall complete.')
 }
 
 // --- Internal helpers ---
 
-async function deploy_internal_stacks(cdk: Toolkit, assembly: ICloudAssemblySource) {
+async function deploy_internal_stacks(cdk: Toolkit, assembly: ICloudAssemblySource, stack_names: StackNames) {
   return cdk.deploy(assembly, {
     stacks: {
       strategy: StackSelectionStrategy.PATTERN_MATCH,
-      patterns: [...INTERNAL_STACK_NAMES]
+      patterns: stack_names.patterns
     },
     outputsFile: CDK_OUTPUTS_FILE,
     concurrency: MAX_CONCURRENCY,
@@ -224,11 +274,11 @@ async function deploy_all_stacks(cdk: Toolkit, assembly: ICloudAssemblySource) {
   })
 }
 
-async function destroy_internal_stacks(cdk: Toolkit, assembly: ICloudAssemblySource) {
+async function destroy_internal_stacks(cdk: Toolkit, assembly: ICloudAssemblySource, stack_names: StackNames) {
   await cdk.destroy(assembly, {
     stacks: {
       strategy: StackSelectionStrategy.PATTERN_MATCH,
-      patterns: [...INTERNAL_STACK_NAMES]
+      patterns: stack_names.patterns
     }
   })
 }
@@ -268,12 +318,12 @@ async function watch_stacks(
   })
 }
 
-function resolve_layer_arn(): string | undefined {
+function resolve_layer_arn(stack_names: StackNames): string | undefined {
   try {
     const outputs_path = path.join(process.cwd(), CDK_OUTPUTS_FILE)
     if (fs.existsSync(outputs_path)) {
       const outputs = JSON.parse(fs.readFileSync(outputs_path, 'utf-8'))
-      const layer_stack = outputs[LAYER_STACK_NAME]
+      const layer_stack = outputs[stack_names.layer]
       if (layer_stack?.[OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]) {
         return layer_stack[OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]
       }
@@ -284,27 +334,34 @@ function resolve_layer_arn(): string | undefined {
   return undefined
 }
 
-export class ServerConfigError extends Error {
+export class ConfigError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ConfigError'
+  }
+}
+
+export class ServerConfigError extends ConfigError {
   constructor(message: string) {
     super(message)
     this.name = 'ServerConfigError'
   }
 }
 
-function extract_server_config(deployment: DeployResult) {
+function extract_server_config(deployment: DeployResult, stack_names: StackNames) {
   const events = deployment.stacks.find(
-    (stack) => stack.stackName === APPSYNC_STACK_NAME
+    (stack) => stack.stackName === stack_names.appsync
   )
 
   const layer = deployment.stacks.find(
-    (stack) => stack.stackName === LAYER_STACK_NAME
+    (stack) => stack.stackName === stack_names.layer
   )
 
   // Validate required stacks exist - use direct check for TypeScript narrowing
   if (!events || !layer) {
     const missing_stacks: string[] = []
-    if (!events) missing_stacks.push(APPSYNC_STACK_NAME)
-    if (!layer) missing_stacks.push(LAYER_STACK_NAME)
+    if (!events) missing_stacks.push(stack_names.appsync)
+    if (!layer) missing_stacks.push(stack_names.layer)
     throw new ServerConfigError(
       `Missing required stacks: ${missing_stacks.join(', ')}. ` +
         `Ensure 'LiveLambda.install(app)' is called in your CDK app and all stacks deployed successfully.`

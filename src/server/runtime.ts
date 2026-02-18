@@ -149,7 +149,12 @@ function resolve_handler_from_outputs(
     if (!prefix) continue
 
     const handler_string = stack_outputs[`${prefix}Handler`]
-    const asset_path = stack_outputs[`${prefix}CdkOutAssetPath`]
+    const raw_asset_path = stack_outputs[`${prefix}CdkOutAssetPath`]
+    // Ensure asset path includes cdk.out/ prefix. Older deployments or
+    // CDK Stage-related path resolution may omit it.
+    const asset_path = raw_asset_path?.startsWith('cdk.out/')
+      ? raw_asset_path
+      : raw_asset_path ? path.join('cdk.out', raw_asset_path) : undefined
 
     if (!handler_string || !asset_path) {
       logger.warn(

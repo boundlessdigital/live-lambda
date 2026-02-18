@@ -7,7 +7,17 @@ import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
 import { LiveLambda, LiveLambdaInstallProps } from './live_lambda.js'
-import { ENV_LAMBDA_EXEC_WRAPPER } from '../lib/constants.js'
+import {
+  ENV_LAMBDA_EXEC_WRAPPER,
+  CONTEXT_APP_NAME,
+  CONTEXT_ENVIRONMENT,
+  APPSYNC_STACK_NAME,
+  compute_prefix
+} from '../lib/constants.js'
+
+const TEST_APP_NAME = 'test-app'
+const TEST_ENVIRONMENT = 'test'
+const TEST_PREFIX = compute_prefix(TEST_APP_NAME, TEST_ENVIRONMENT)
 
 describe('LiveLambda.install()', () => {
   let temp_asset_dir: string
@@ -45,28 +55,39 @@ describe('LiveLambda.install()', () => {
     }
   })
 
+  function create_test_app_with_context() {
+    return new cdk.App({
+      context: {
+        [CONTEXT_APP_NAME]: TEST_APP_NAME,
+        [CONTEXT_ENVIRONMENT]: TEST_ENVIRONMENT
+      }
+    })
+  }
+
   /**
    * Helper to create an app with LiveLambda.install() called
-   * and optionally an application stack with a NodejsFunction
+   * and optionally an application stack with a NodejsFunction.
+   * Consumer stacks are created under the returned scope (Stage)
+   * so the aspect applies to them.
    */
   function create_test_app(options?: {
     props?: LiveLambdaInstallProps
     include_app_stack?: boolean
   }) {
-    const app = new cdk.App()
+    const app = create_test_app_with_context()
     const env = { account: '123456789012', region: 'us-east-1' }
 
     const props = options?.props ?? { env }
 
-    // Call the install method - this is what we're testing
-    LiveLambda.install(app, props)
+    // Call the install method - returns a scope (Stage or App)
+    const scope = LiveLambda.install(app, props)
 
     let app_stack: cdk.Stack | undefined
     let test_function: NodejsFunction | undefined
 
     if (options?.include_app_stack !== false) {
-      // Create an application stack with a NodejsFunction to test aspect application
-      app_stack = new cdk.Stack(app, 'TestAppStack', { env })
+      // Create consumer stack under returned scope so aspect applies
+      app_stack = new cdk.Stack(scope, 'TestAppStack', { env })
       test_function = new NodejsFunction(app_stack, 'TestFunction', {
         entry: entry_file_path,
         handler: 'handler',
@@ -79,6 +100,7 @@ describe('LiveLambda.install()', () => {
 
     return {
       app,
+      scope,
       app_stack,
       test_function,
       env
@@ -87,9 +109,9 @@ describe('LiveLambda.install()', () => {
 
   describe('Stack creation', () => {
     it('should create AppSyncStack when called', () => {
-      const { app } = create_test_app({ include_app_stack: false })
+      const { scope } = create_test_app({ include_app_stack: false })
 
-      const appsync_stack = app.node.tryFindChild('AppSyncStack') as cdk.Stack
+      const appsync_stack = scope.node.tryFindChild(APPSYNC_STACK_NAME) as cdk.Stack
       expect(appsync_stack).toBeDefined()
       expect(appsync_stack).toBeInstanceOf(cdk.Stack)
 
@@ -98,14 +120,50 @@ describe('LiveLambda.install()', () => {
     })
 
     it('should create LiveLambda-LayerStack when called', () => {
-      const { app } = create_test_app({ include_app_stack: false })
+      const { scope } = create_test_app({ include_app_stack: false })
 
-      const layer_stack = app.node.tryFindChild('LiveLambda-LayerStack') as cdk.Stack
+      const layer_stack = scope.node.tryFindChild('LiveLambda-LayerStack') as cdk.Stack
       expect(layer_stack).toBeDefined()
       expect(layer_stack).toBeInstanceOf(cdk.Stack)
 
       const template = Template.fromStack(layer_stack)
       template.resourceCountIs('AWS::Lambda::LayerVersion', 1)
+    })
+
+    it('should create a Stage with the computed prefix', () => {
+      const { app } = create_test_app({ include_app_stack: false })
+
+      const stage = app.node.tryFindChild(TEST_PREFIX) as cdk.Stage
+      expect(stage).toBeDefined()
+      expect(stage).toBeInstanceOf(cdk.Stage)
+    })
+
+    it('should use prefix override when provided', () => {
+      const app = create_test_app_with_context()
+      const env = { account: '123456789012', region: 'us-east-1' }
+
+      const scope = LiveLambda.install(app, { env, prefix: 'custom-prefix' })
+      app.synth()
+
+      // Stage should use the custom prefix
+      const stage = app.node.tryFindChild('custom-prefix') as cdk.Stage
+      expect(stage).toBeDefined()
+      expect(scope).toBe(stage)
+    })
+
+    it('should not create a Stage when auto_prefix_stacks is false', () => {
+      const app = create_test_app_with_context()
+      const env = { account: '123456789012', region: 'us-east-1' }
+
+      const scope = LiveLambda.install(app, { env, auto_prefix_stacks: false })
+      app.synth()
+
+      // Should return the app itself, not a Stage
+      expect(scope).toBe(app)
+
+      // Internal stacks should have prefixed IDs
+      const appsync_stack = app.node.tryFindChild(`${TEST_PREFIX}-${APPSYNC_STACK_NAME}`)
+      expect(appsync_stack).toBeDefined()
     })
   })
 
@@ -256,32 +314,48 @@ describe('LiveLambda.install()', () => {
     })
   })
 
-  describe('undefined props (default behavior)', () => {
-    it('should work with undefined props', () => {
-      const app = new cdk.App()
+  describe('context validation', () => {
+    it('should throw when app_name is missing from context', () => {
+      const app = new cdk.App({
+        context: { [CONTEXT_ENVIRONMENT]: 'test' }
+      })
+
+      expect(() => {
+        LiveLambda.install(app, { env: { account: '123456789012', region: 'us-east-1' } })
+      }).toThrow(CONTEXT_APP_NAME)
+    })
+
+    it('should throw when environment is missing from context', () => {
+      const app = new cdk.App({
+        context: { [CONTEXT_APP_NAME]: 'test-app' }
+      })
+
+      expect(() => {
+        LiveLambda.install(app, { env: { account: '123456789012', region: 'us-east-1' } })
+      }).toThrow(CONTEXT_ENVIRONMENT)
+    })
+
+    it('should work with undefined props when context is set', () => {
+      const app = create_test_app_with_context()
 
       // Call install with undefined props - should not throw
-      expect(() => {
-        LiveLambda.install(app, undefined)
-      }).not.toThrow()
+      const scope = LiveLambda.install(app, undefined)
 
-      // AppSyncStack and LayerStack should still be created
-      const appsync_stack = app.node.tryFindChild('AppSyncStack')
+      // Stacks should be created under the Stage scope
+      const appsync_stack = scope.node.tryFindChild(APPSYNC_STACK_NAME)
       expect(appsync_stack).toBeDefined()
 
-      const layer_stack = app.node.tryFindChild('LiveLambda-LayerStack')
+      const layer_stack = scope.node.tryFindChild('LiveLambda-LayerStack')
       expect(layer_stack).toBeDefined()
     })
 
     it('should apply aspect by default when props is undefined', () => {
-      const app = new cdk.App()
+      const app = create_test_app_with_context()
 
-      LiveLambda.install(app, undefined)
+      const scope = LiveLambda.install(app, undefined)
 
-      // Create an app stack with a function after install
-      // Note: When env is undefined, cross-stack references work differently
-      // We need to NOT specify env to match the undefined props case
-      const app_stack = new cdk.Stack(app, 'TestAppStack')
+      // Create consumer stack under returned scope
+      const app_stack = new cdk.Stack(scope, 'TestAppStack')
       new NodejsFunction(app_stack, 'TestFunction', {
         entry: entry_file_path,
         handler: 'handler',

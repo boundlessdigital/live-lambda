@@ -8,10 +8,18 @@ describe('AppSyncStack', () => {
   let stack: AppSyncStack
   let template: Template
 
+  const TEST_PREFIX = 'test-app-dev'
+
   beforeEach(() => {
     app = new cdk.App()
     stack = new AppSyncStack(app, 'TestAppSyncStack', {
-      env: { account: '123456789012', region: 'us-east-1' }
+      env: { account: '123456789012', region: 'us-east-1' },
+      prefix: TEST_PREFIX,
+      ssm_paths: {
+        api_arn: `/live-lambda/${TEST_PREFIX}/appsync/api-arn`,
+        http_dns: `/live-lambda/${TEST_PREFIX}/appsync/http-dns`,
+        realtime_dns: `/live-lambda/${TEST_PREFIX}/appsync/realtime-dns`,
+      }
     })
     template = Template.fromStack(stack)
   })
@@ -19,7 +27,7 @@ describe('AppSyncStack', () => {
   describe('EventApi', () => {
     it('should create EventApi with correct name', () => {
       template.hasResourceProperties('AWS::AppSync::Api', {
-        Name: Match.stringLikeRegexp('live-lambda-events-')
+        Name: `ll-events-${TEST_PREFIX}`
       })
     })
 
@@ -59,8 +67,8 @@ describe('AppSyncStack', () => {
       )
     })
 
-    it('should have policy name containing live-lambda-events', () => {
-      expect(stack.api_policy.policyName).toMatch(/live-lambda-events-/)
+    it('should have policy name containing the prefix', () => {
+      expect(stack.api_policy.policyName).toBe(`ll-events-${TEST_PREFIX}`)
     })
   })
 
@@ -112,7 +120,7 @@ describe('AppSyncStack', () => {
 
     it('should expose api_policy property as IAM Policy with correct actions', () => {
       expect(stack.api_policy).toBeDefined()
-      expect(stack.api_policy.policyName).toMatch(/^live-lambda-events-/)
+      expect(stack.api_policy.policyName).toBe(`ll-events-${TEST_PREFIX}`)
 
       // Verify the policy has the expected structure
       const policy_json = stack.api_policy.document.toJSON()

@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   LIVE_LAMBDA_ENV_VARS,
-  ENV_LAMBDA_EXEC_WRAPPER,
 } from '../lib/constants.js'
 
 const {
@@ -77,7 +76,7 @@ describe('lambda_cleanup', () => {
         Layers: [{ Arn: layer_arn }],
         Environment: {
           Variables: {
-            AWS_LAMBDA_EXEC_WRAPPER: ENV_LAMBDA_EXEC_WRAPPER,
+            AWS_LAMBDA_EXEC_WRAPPER: '/opt/live-lambda-runtime-wrapper.sh',
             LRAP_LISTENER_PORT: '8082',
             MY_CUSTOM_VAR: 'keep-this'
           }
@@ -91,29 +90,6 @@ describe('lambda_cleanup', () => {
       expect(result.functions_scanned).toBe(2)
       expect(result.functions_cleaned).toBe(1)
       expect(result.errors).toHaveLength(0)
-    })
-
-    it('should identify functions by env var marker when no layer ARN provided', async () => {
-      setup_paginator([[
-        make_function('affected-fn', { env: { AWS_LAMBDA_EXEC_WRAPPER: ENV_LAMBDA_EXEC_WRAPPER } }),
-        make_function('unrelated-fn', { env: { MY_VAR: 'value' } })
-      ]])
-
-      mock_send.mockResolvedValueOnce({
-        Layers: [],
-        Environment: {
-          Variables: {
-            AWS_LAMBDA_EXEC_WRAPPER: ENV_LAMBDA_EXEC_WRAPPER,
-            LRAP_LISTENER_PORT: '8082'
-          }
-        }
-      })
-      mock_send.mockResolvedValueOnce({})
-
-      const result = await clean_lambda_functions('us-east-1')
-
-      expect(result.functions_scanned).toBe(2)
-      expect(result.functions_cleaned).toBe(1)
     })
 
     it('should remove live-lambda layers from function configuration', async () => {
@@ -130,7 +106,7 @@ describe('lambda_cleanup', () => {
         ],
         Environment: {
           Variables: {
-            AWS_LAMBDA_EXEC_WRAPPER: ENV_LAMBDA_EXEC_WRAPPER,
+            AWS_LAMBDA_EXEC_WRAPPER: '/opt/live-lambda-runtime-wrapper.sh',
             MY_VAR: 'keep'
           }
         }

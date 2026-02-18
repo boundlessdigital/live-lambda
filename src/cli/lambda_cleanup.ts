@@ -4,7 +4,7 @@ import {
   GetFunctionConfigurationCommand,
   UpdateFunctionConfigurationCommand,
 } from '@aws-sdk/client-lambda'
-import { LIVE_LAMBDA_ENV_VARS, ENV_LAMBDA_EXEC_WRAPPER } from '../lib/constants.js'
+import { LIVE_LAMBDA_ENV_VARS } from '../lib/constants.js'
 import { logger } from '../lib/logger.js'
 
 export interface CleanupResult {
@@ -14,16 +14,15 @@ export interface CleanupResult {
 }
 
 /**
- * Finds all Lambda functions with live-lambda configuration and removes:
+ * Finds Lambda functions with this project's live-lambda layer and removes:
  * - The live-lambda layer
- * - The 6 live-lambda environment variables
+ * - The live-lambda environment variables
  *
- * Identifies affected functions by layer ARN prefix match OR by the presence
- * of the AWS_LAMBDA_EXEC_WRAPPER env var set to the live-lambda wrapper path.
+ * Only touches functions that have the specific layer ARN for this project.
  */
 export async function clean_lambda_functions(
   region: string,
-  layer_arn?: string
+  layer_arn: string
 ): Promise<CleanupResult> {
   const client = new LambdaClient({ region })
   const result: CleanupResult = {
@@ -33,13 +32,8 @@ export async function clean_lambda_functions(
   }
 
   // Strip version suffix for prefix matching (arn:...:layer:name:5 → arn:...:layer:name)
-  const layer_arn_prefix = layer_arn?.replace(/:\d+$/, '')
-
-  if (layer_arn_prefix) {
-    logger.info(`Scanning Lambda functions for layer: ${layer_arn_prefix}*`)
-  } else {
-    logger.info(`Scanning Lambda functions for live-lambda env var marker`)
-  }
+  const layer_arn_prefix = layer_arn.replace(/:\d+$/, '')
+  logger.info(`Scanning Lambda functions for layer: ${layer_arn_prefix}*`)
 
   const paginator = paginateListFunctions({ client, pageSize: 50 }, {})
 
@@ -47,14 +41,8 @@ export async function clean_lambda_functions(
     for (const fn of page.Functions ?? []) {
       result.functions_scanned++
 
-      const has_layer = layer_arn_prefix
-        ? fn.Layers?.some((l) => l.Arn?.startsWith(layer_arn_prefix))
-        : false
-
-      const has_env_marker =
-        fn.Environment?.Variables?.AWS_LAMBDA_EXEC_WRAPPER === ENV_LAMBDA_EXEC_WRAPPER
-
-      if (!has_layer && !has_env_marker) continue
+      const has_layer = fn.Layers?.some((l) => l.Arn?.startsWith(layer_arn_prefix))
+      if (!has_layer) continue
 
       const function_name = fn.FunctionName!
       logger.info(`Cleaning function: ${function_name}`)
@@ -89,17 +77,15 @@ export async function clean_lambda_functions(
 async function clean_single_function(
   client: LambdaClient,
   function_name: string,
-  layer_arn_prefix?: string
+  layer_arn_prefix: string
 ): Promise<void> {
   const config = await client.send(
     new GetFunctionConfigurationCommand({ FunctionName: function_name })
   )
 
-  // Build new layers list excluding live-lambda layers
+  // Build new layers list excluding this project's live-lambda layer
   const current_layers = config.Layers?.map((l) => l.Arn!) ?? []
-  const new_layers = layer_arn_prefix
-    ? current_layers.filter((arn) => !arn.startsWith(layer_arn_prefix))
-    : current_layers
+  const new_layers = current_layers.filter((arn) => !arn.startsWith(layer_arn_prefix))
 
   // Build new env vars removing live-lambda keys
   const current_env = config.Environment?.Variables ?? {}
