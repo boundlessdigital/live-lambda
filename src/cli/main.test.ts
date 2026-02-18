@@ -25,7 +25,11 @@ const {
   mock_watcher_on,
   mock_logger,
   mock_clean_lambda_functions,
-  mock_extract_region_from_arn
+  mock_extract_region_from_arn,
+  mock_keypress_start,
+  mock_keypress_stop,
+  mock_display_info,
+  mock_display_stop
 } = vi.hoisted(() => ({
   mock_deploy: vi.fn(),
   mock_destroy: vi.fn(),
@@ -47,7 +51,11 @@ const {
     warn: vi.fn()
   },
   mock_clean_lambda_functions: vi.fn(),
-  mock_extract_region_from_arn: vi.fn()
+  mock_extract_region_from_arn: vi.fn(),
+  mock_keypress_start: vi.fn(),
+  mock_keypress_stop: vi.fn(),
+  mock_display_info: vi.fn(),
+  mock_display_stop: vi.fn()
 }))
 
 // Mock dependencies
@@ -83,7 +91,33 @@ vi.mock('../cdk/toolkit/iohost.js', () => {
   return {
     CustomIoHost: vi.fn().mockImplementation(function () {
       return {
-        cleanup: mock_cleanup
+        cleanup: mock_cleanup,
+        toggle_verbose: vi.fn()
+      }
+    })
+  }
+})
+
+vi.mock('../lib/display/index.js', () => {
+  return {
+    SpinnerDisplay: vi.fn().mockImplementation(function () {
+      return {
+        start_operation: vi.fn(),
+        complete_operation: vi.fn(),
+        fail_operation: vi.fn(),
+        info: mock_display_info,
+        warn: vi.fn(),
+        error: vi.fn(),
+        output: vi.fn(),
+        pause: vi.fn(),
+        resume: vi.fn(),
+        stop: mock_display_stop
+      }
+    }),
+    KeypressListener: vi.fn().mockImplementation(function () {
+      return {
+        start: mock_keypress_start,
+        stop: mock_keypress_stop
       }
     })
   }
@@ -745,14 +779,15 @@ describe('main', () => {
       expect(mock_cleanup).toHaveBeenCalled()
     })
 
-    it('should log cleanup message', async () => {
+    it('should stop keypress listener on cleanup', async () => {
       const command = create_mock_command('bootstrap')
       const mock_exit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never)
 
       await main(command)
       if (sigint_handler) await sigint_handler()
 
-      expect(mock_logger.info).toHaveBeenCalledWith('Cleaning up UI and CDK resources...')
+      expect(mock_keypress_stop).toHaveBeenCalled()
+      expect(mock_cleanup).toHaveBeenCalled()
       mock_exit.mockRestore()
     })
   })

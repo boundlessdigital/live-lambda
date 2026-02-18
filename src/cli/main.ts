@@ -11,6 +11,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import chokidar from 'chokidar'
 import { CustomIoHost } from '../cdk/toolkit/iohost.js'
+import { SpinnerDisplay, KeypressListener } from '../lib/display/index.js'
 import { logger } from '../lib/logger.js'
 import {
   APPSYNC_STACK_NAME,
@@ -29,13 +30,21 @@ export async function main(command: Command) {
   // Suppress npm warnings from CDK bundling picking up pnpm-specific .npmrc settings
   process.env.NPM_CONFIG_LOGLEVEL ??= 'error'
 
-  const custom_io_host = new CustomIoHost()
+  const parent_opts = command.parent?.opts() ?? {}
+  const display = new SpinnerDisplay()
+  const custom_io_host = new CustomIoHost({
+    verbose: parent_opts.verbose ?? false,
+    display
+  })
+  const keypress = new KeypressListener({
+    on_toggle_verbose: () => custom_io_host.toggle_verbose()
+  })
   const cdk = new Toolkit({
     ioHost: custom_io_host
   })
 
   const cleanup_tasks = async () => {
-    logger.info('Cleaning up UI and CDK resources...')
+    keypress.stop()
     custom_io_host.cleanup()
   }
 
@@ -50,6 +59,11 @@ export async function main(command: Command) {
   })
 
   try {
+    if (process.stdin.isTTY && !parent_opts.verbose) {
+      display.info('Press v to toggle verbose output')
+    }
+    keypress.start()
+
     const command_name = command.name()
 
     const { app: entrypoint, watch: watch_config } = JSON.parse(
