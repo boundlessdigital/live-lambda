@@ -1,85 +1,112 @@
-# Command Line Interface (CLI) (`docs/cli.md`)
+# Command Line Interface (CLI)
 
-This document provides details about the `live-lambda` Command Line Interface (CLI).
+The `live-lambda` CLI manages AWS infrastructure and the local development server. It is built with `commander` and provides four commands for the full lifecycle of a live-lambda project.
 
-## Overview
+## Usage
 
-The CLI is the primary way to interact with the `live-lambda` system. It allows you to manage the AWS infrastructure (deployment, destruction) and run the local development server.
+When installed as a dependency, run via your package manager:
 
-The CLI is implemented in TypeScript and uses the `commander` library for command parsing. The main entry point for development is `src/cli/index.ts`, which is executed via `tsx`. For packaged/distributed use, the compiled `dist/cli/index.js` is used.
-
-## Accessing the CLI
-
-During development, CLI commands are typically run via `pnpm run dev ...` which translates to `tsx src/cli/index.ts ...`.
-
-Example:
 ```bash
-pnpm run dev deploy --profile my-profile
+pnpm exec live-lambda <command> [options]
 ```
 
-## Core Commands
+Or add scripts to your `package.json`:
 
-### 1. `deploy`
+```json
+{
+  "scripts": {
+    "bootstrap": "AWS_PROFILE=my-profile live-lambda bootstrap",
+    "dev": "AWS_PROFILE=my-profile live-lambda dev",
+    "destroy": "AWS_PROFILE=my-profile live-lambda destroy",
+    "uninstall": "AWS_PROFILE=my-profile live-lambda uninstall"
+  }
+}
+```
 
--   **Action**: Deploys the necessary AWS infrastructure using AWS CDK.
--   **Usage**:
-    ```bash
-    pnpm run dev deploy [stacks...] --profile <your-aws-profile> [--region <aws-region>]
-    ```
--   **Arguments**:
-    -   `[stacks...]` (optional): A list of specific CDK stack names to deploy. If omitted, all stacks defined in the CDK app (typically `AppSyncStack` and `LiveLambdaLayerStack`) are deployed.
--   **Options**:
-    -   `--profile <your-aws-profile>` (required): Specifies the AWS named profile to use for deployment.
-    -   `--region <aws-region>` (optional): Specifies the AWS region for deployment. If not provided, it may default to the region configured in your AWS profile or CDK settings.
--   **Details**: This command invokes `cdk deploy` with the specified arguments and options. It handles synthesizing the CDK CloudFormation templates and provisioning the resources in your AWS account.
+## Global Options
 
-### 2. `server`
+| Option | Description |
+|--------|-------------|
+| `-v, --verbose` | Enable debug-level logging |
+| `-q, --quiet` | Suppress most output (warn level only) |
 
--   **Action**: Starts the local development server.
--   **Usage**:
-    ```bash
-    pnpm run dev server --profile <your-aws-profile> [--region <aws-region>]
-    ```
--   **Options**:
-    -   `--profile <your-aws-profile>` (required): Specifies the AWS named profile. This is used to fetch AWS credentials for connecting to the AppSync WebSocket API with IAM authentication.
-    -   `--region <aws-region>` (optional): Specifies the AWS region where the AppSync API is deployed.
--   **Details**: The server listens for incoming Lambda invocation events proxied via the AppSync WebSocket. When an event is received:
-    1.  It typically attempts to invoke a local handler function that mirrors your actual Lambda function's logic.
-    2.  The path to this local handler might be configurable or follow a convention.
-    3.  It sends the response from the local handler back through the WebSocket to the Go extension in the Lambda environment.
-    4.  It logs request and response details to the console.
+## Commands
 
-### 3. `destroy`
+### `bootstrap`
 
--   **Action**: Destroys the AWS infrastructure previously deployed by `live-lambda`.
--   **Usage**:
-    ```bash
-    pnpm run dev destroy --profile <your-aws-profile> [--region <aws-region>]
-    ```
--   **Options**:
-    -   `--profile <your-aws-profile>` (required): Specifies the AWS named profile used for deployment.
-    -   `--region <aws-region>` (optional): Specifies the AWS region where the resources were deployed.
--   **Details**: This command invokes `cdk destroy`. By default, it might target stacks with names matching a pattern like `*Lambda*` or all stacks in the app. Be cautious with this command, as it will permanently delete the resources.
+Deploy only the internal live-lambda infrastructure stacks (AppSync Event API + Lambda Layer).
 
-## CLI Implementation (`src/cli/`)
+```bash
+live-lambda bootstrap [--profile <profile>]
+```
 
--   **`index.ts`**: Sets up `commander` and defines the top-level commands. This is the script executed by `tsx`.
--   **`main.ts`**: Contains the core logic for each command (deploy, server, destroy).
-    -   **`deployCdk` function**: Handles the logic for deploying CDK stacks. It constructs and executes the `cdk deploy` command.
-    -   **`serve` function (in `src/server/index.ts` but called from `main.ts`)**: Implements the local development server. See `docs/server.md` for more details.
-    -   **`destroyCdk` function**: Handles the logic for destroying CDK stacks. It constructs and executes the `cdk destroy` command.
--   **Shared Utilities**: May include helper functions for AWS SDK interactions, configuration loading, etc.
+This is a fast deployment that sets up the AppSync WebSocket API and the Lambda extension layer. Consumer stacks are not deployed.
+
+Use this when you want to provision the live-lambda infrastructure without deploying your application stacks.
+
+### `dev`
+
+Deploy all stacks, start the local development server, and watch for changes.
+
+```bash
+live-lambda dev [--profile <profile>]
+```
+
+This is the primary development command. It:
+
+1. Deploys **all** CDK stacks (internal + consumer) to populate `cdk.out/outputs.json`
+2. Extracts server configuration (AppSync endpoints, layer ARN, region) from deployment outputs
+3. Starts the local development server, which connects to the AppSync WebSocket API
+4. Watches for file changes and redeploys affected stacks via CDK watch mode
+
+The server listens for Lambda invocation events proxied through AppSync. When an event arrives, it resolves the matching local handler from stack outputs, executes it with assumed Lambda role credentials, and sends the response back through the WebSocket.
+
+### `destroy`
+
+Destroy only consumer stacks. Live-lambda infrastructure (AppSync + Layer) is preserved.
+
+```bash
+live-lambda destroy [--profile <profile>]
+```
+
+This command enumerates all stacks in the CDK assembly, filters out the internal live-lambda stacks, and destroys the remaining consumer stacks. The AppSync and Layer stacks are left intact so you can quickly redeploy with `dev`.
+
+### `uninstall`
+
+Fully remove live-lambda from your AWS account.
+
+```bash
+live-lambda uninstall [--profile <profile>] [--skip-cleanup]
+```
+
+| Option | Description |
+|--------|-------------|
+| `--skip-cleanup` | Skip Lambda function cleanup, only destroy stacks |
+
+This command performs a complete teardown:
+
+1. **Lambda cleanup** (unless `--skip-cleanup`): Scans all Lambda functions in the region and removes live-lambda artifacts from any affected function:
+   - Removes the live-lambda layer
+   - Removes 6 live-lambda environment variables (`AWS_LAMBDA_EXEC_WRAPPER`, `LRAP_LISTENER_PORT`, `AWS_LAMBDA_EXTENSION_NAME`, `LIVE_LAMBDA_APPSYNC_REGION`, `LIVE_LAMBDA_APPSYNC_REALTIME_HOST`, `LIVE_LAMBDA_APPSYNC_HTTP_HOST`)
+   - Identifies affected functions by layer ARN prefix match or `AWS_LAMBDA_EXEC_WRAPPER` env var marker
+2. **Destroy consumer stacks**: Same as the `destroy` command
+3. **Destroy internal stacks**: Removes the AppSync and Layer stacks
+
+Consumer stacks must be destroyed before internal stacks because they reference CloudFormation exports from the AppSync stack.
+
+**Required IAM permissions** for Lambda cleanup: `lambda:ListFunctions`, `lambda:GetFunctionConfiguration`, `lambda:UpdateFunctionConfiguration`.
 
 ## Configuration
 
-The CLI relies on:
+The CLI reads `cdk.json` from the current working directory to determine:
 
--   **AWS Credentials**: Sourced via the AWS SDK's standard credential chain, preferring the `--profile` option if provided.
--   **CDK Output**: After a successful `deploy` command, CDK typically generates an `outputs.json` file (or similar, depending on configuration). This file contains crucial information like the AppSync API endpoint, API ID, and Layer ARN, which the `server` command needs to connect correctly.
--   **Environment Variables**: Some behaviors might be configurable via environment variables, though command-line options are generally preferred for explicit settings.
+- **`app`**: The CDK app entry point
+- **`watch`**: File watch configuration passed to CDK watch mode
 
-## Future Enhancements (Potential)
+After deployment, stack outputs are written to `cdk.out/outputs.json`. The `uninstall` command reads the layer ARN from this file to identify which Lambda functions to clean. If the file is missing, it falls back to scanning by environment variable marker.
 
--   Commands to attach the Live Lambda layer to existing Lambda functions.
--   More sophisticated local handler mapping and reloading.
--   Interactive prompts for configuration where appropriate.
+## CLI Implementation
+
+- **`src/cli/index.ts`**: Commander.js command definitions and option parsing
+- **`src/cli/main.ts`**: Core logic for each command (`run_bootstrap`, `run_dev`, `run_destroy`, `run_uninstall`)
+- **`src/cli/lambda_cleanup.ts`**: Lambda function scanning and cleanup logic for `uninstall`

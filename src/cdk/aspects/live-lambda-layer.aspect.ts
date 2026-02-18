@@ -9,6 +9,17 @@ import { IConstruct } from 'constructs'
 import path from 'node:path'
 import { LiveLambdaLayerStack } from '../stacks/layer.stack.js'
 import { logger } from '../../lib/logger.js'
+import {
+  ENV_KEY_LAMBDA_EXEC_WRAPPER,
+  ENV_KEY_LRAP_LISTENER_PORT,
+  ENV_KEY_EXTENSION_NAME,
+  ENV_KEY_APPSYNC_REGION,
+  ENV_KEY_APPSYNC_REALTIME_HOST,
+  ENV_KEY_APPSYNC_HTTP_HOST,
+  ENV_LAMBDA_EXEC_WRAPPER,
+  ENV_LRAP_LISTENER_PORT,
+  ENV_EXTENSION_NAME,
+} from '../../lib/constants.js'
 
 export interface LiveLambdaLayerAspectProps {
   readonly layer_stack: LiveLambdaLayerStack
@@ -126,30 +137,14 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
         }
       }
 
-      node.addEnvironment(
-        'AWS_LAMBDA_EXEC_WRAPPER',
-        '/opt/live-lambda-runtime-wrapper.sh'
-      )
-
-      // Set the listener port for the extension's Runtime API Proxy
-      node.addEnvironment('LRAP_LISTENER_PORT', '8082')
-
-      // Set the official extension name, required by the Go extension to register itself
-      node.addEnvironment('AWS_LAMBDA_EXTENSION_NAME', 'live-lambda-extension')
+      node.addEnvironment(ENV_KEY_LAMBDA_EXEC_WRAPPER, ENV_LAMBDA_EXEC_WRAPPER)
+      node.addEnvironment(ENV_KEY_LRAP_LISTENER_PORT, ENV_LRAP_LISTENER_PORT)
+      node.addEnvironment(ENV_KEY_EXTENSION_NAME, ENV_EXTENSION_NAME)
 
       // Add AppSync configuration as environment variables for the extension
-      node.addEnvironment(
-        'LIVE_LAMBDA_APPSYNC_REGION',
-        this.props.api.env.region
-      )
-      node.addEnvironment(
-        'LIVE_LAMBDA_APPSYNC_REALTIME_HOST',
-        this.props.api.realtimeDns
-      )
-      node.addEnvironment(
-        'LIVE_LAMBDA_APPSYNC_HTTP_HOST',
-        this.props.api.httpDns
-      )
+      node.addEnvironment(ENV_KEY_APPSYNC_REGION, this.props.api.env.region)
+      node.addEnvironment(ENV_KEY_APPSYNC_REALTIME_HOST, this.props.api.realtimeDns)
+      node.addEnvironment(ENV_KEY_APPSYNC_HTTP_HOST, this.props.api.httpDns)
 
       // Sanitize IDs for CloudFormation export names (only alphanumeric, colons, hyphens allowed)
       const sanitized_id = node.node.id.replace(/[^a-zA-Z0-9:-]/g, '-')

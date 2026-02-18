@@ -20,26 +20,43 @@ program
   })
 
 program
-  .command('start')
-  .description('Starts the development server')
+  .command('bootstrap')
+  .description('Deploy the live-lambda infrastructure stacks (AppSync + Layer)')
   .option('-p, --profile <profile>', 'AWS profile to use (sets AWS_PROFILE)')
   .action(async function (this: Command) {
     const profile = this.opts().profile
-    if (profile) {
-      process.env.AWS_PROFILE = profile
-    }
+    if (profile) process.env.AWS_PROFILE = profile
+    await main(this)
+  })
+
+program
+  .command('dev')
+  .description('Deploy all stacks, start the local development server, and watch for changes')
+  .option('-p, --profile <profile>', 'AWS profile to use (sets AWS_PROFILE)')
+  .action(async function (this: Command) {
+    const profile = this.opts().profile
+    if (profile) process.env.AWS_PROFILE = profile
     await main(this)
   })
 
 program
   .command('destroy')
-  .description('Destroys the development stacks')
+  .description('Destroy consumer stacks (preserves live-lambda infrastructure)')
   .option('-p, --profile <profile>', 'AWS profile to use (sets AWS_PROFILE)')
   .action(async function (this: Command) {
     const profile = this.opts().profile
-    if (profile) {
-      process.env.AWS_PROFILE = profile
-    }
+    if (profile) process.env.AWS_PROFILE = profile
+    await main(this)
+  })
+
+program
+  .command('uninstall')
+  .description('Remove live-lambda layer and env vars from Lambda functions, then destroy infrastructure stacks')
+  .option('-p, --profile <profile>', 'AWS profile to use (sets AWS_PROFILE)')
+  .option('--skip-cleanup', 'Skip Lambda function cleanup, only destroy stacks')
+  .action(async function (this: Command) {
+    const profile = this.opts().profile
+    if (profile) process.env.AWS_PROFILE = profile
     await main(this)
   })
 
