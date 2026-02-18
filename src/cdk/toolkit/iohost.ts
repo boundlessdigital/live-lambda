@@ -90,11 +90,9 @@ export class CustomIoHost extends NonInteractiveIoHost {
   }
 
   public cleanup() {
-    // Ensure we're on main screen before cleanup
-    if (this.verbose && this.stream.isTTY) {
-      this.stream.write(ALT_SCREEN_OFF)
+    if (!this.verbose) {
+      this.display.stop()
     }
-    this.display.stop()
     logger.debug('CustomIoHost cleaned up')
   }
 
