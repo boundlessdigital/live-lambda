@@ -86,10 +86,15 @@ function extract_source_from_sourcemap(
       fs.readFileSync(sourcemap_path, 'utf-8')
     )
 
-    // Find the source that's a .ts file and not in node_modules (the user's handler file)
-    const user_source = sourcemap.sources.find(
+    // Find the entry-point source (a .ts file not in node_modules).
+    // esbuild lists sources in dependency order, with the entry point LAST.
+    // Using findLast() ensures we pick the handler file, not an imported module.
+    const user_sources = sourcemap.sources.filter(
       (s: string) => s.endsWith('.ts') && !s.includes('node_modules')
     )
+    const user_source = user_sources.length > 0
+      ? user_sources[user_sources.length - 1]
+      : undefined
 
     if (!user_source) {
       logger.debug('No user TypeScript source found in source map')
@@ -323,14 +328,24 @@ export async function execute_module_handler({
         target: 'node20',
         write: false,
         sourcemap: 'inline',
-        external: ['@aws-sdk/*', 'aws-lambda']
+        // Don't externalize @aws-sdk/* for local execution — pnpm strict
+        // hoisting means sub-dependencies like @aws-sdk/util-dynamodb
+        // won't be resolvable. Bundling the SDK works fine because handler
+        // code creates SDK clients after we inject credentials into process.env.
+        external: ['aws-lambda'],
+        banner: {
+          js: "import { createRequire } from 'module'; const require = createRequire(import.meta.url);"
+        }
       })
 
-      // Write to temp file and import
-      const temp_dir = os.tmpdir()
+      // Write temp file to the project directory (cwd) so Node.js module
+      // resolution can find packages from the project's node_modules.
+      // Writing to os.tmpdir() would break resolution of external packages
+      // like @aws-sdk/* since /tmp has no node_modules.
+      const temp_dir = process.cwd()
       const temp_file = path.join(
         temp_dir,
-        `live-lambda-handler-${Date.now()}.mjs`
+        `.live-lambda-handler-${Date.now()}.mjs`
       )
       fs.writeFileSync(temp_file, result.outputFiles[0].text)
 

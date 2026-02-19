@@ -76,12 +76,10 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
         return
       }
 
-      // Use a more unique ID for the imported layer version per function to avoid conflicts
+      // Use a unique ID derived from the full construct path for the imported layer version
+      const path_suffix = node.node.path.replace(/[^a-zA-Z0-9-]/g, '-')
       const layer_import_id =
-        `LiveLambdaProxyLayerImport-${node.node.id.replace(
-          /[^a-zA-Z0-9-]/g,
-          ''
-        )}`.slice(0, 255)
+        `LiveLambdaProxyLayerImport-${path_suffix}`.slice(0, 255)
 
       const layer_arn = ssm.StringParameter.valueForStringParameter(
         stack,
@@ -164,31 +162,37 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
       node.addEnvironment(ENV_KEY_APPSYNC_REALTIME_HOST, realtime_dns)
       node.addEnvironment(ENV_KEY_APPSYNC_HTTP_HOST, http_dns)
 
-      // Sanitize IDs for CloudFormation export names (only alphanumeric, colons, hyphens allowed)
-      const sanitized_id = node.node.id.replace(/[^a-zA-Z0-9:-]/g, '-')
+      // Build a unique output ID from the construct path within the stack.
+      // node.node.path = "Stage/StackName/ParentConstruct/Function"
+      // We strip the stack prefix to get "ParentConstruct/Function" and
+      // collapse to "ParentConstruct-Function" for unique CfnOutput IDs.
+      const path_in_stack = node.node.path
+        .replace(new RegExp(`^.*?${node.stack.node.id}/`), '')
+        .replace(/\//g, '-')
+      const output_id = path_in_stack.replace(/[^a-zA-Z0-9-]/g, '')
       const sanitized_stack = node.stack.stackName.replace(/[^a-zA-Z0-9:-]/g, '-')
 
       // Add CloudFormation outputs for Function ARN and Role ARN
-      new cdk.CfnOutput(node.stack, `${node.node.id}Arn`, {
+      new cdk.CfnOutput(node.stack, `${output_id}Arn`, {
         value: node.functionArn,
         description: `ARN of the Lambda function ${node.node.path}`,
-        exportName: `${sanitized_stack}-${sanitized_id}-FunctionArn`
+        exportName: `${sanitized_stack}-${output_id}-FunctionArn`
       })
 
       if (node.role) {
-        new cdk.CfnOutput(node.stack, `${node.node.id}RoleArn`, {
+        new cdk.CfnOutput(node.stack, `${output_id}RoleArn`, {
           value: node.role.roleArn,
           description: `ARN of the execution role for Lambda function ${node.node.path}`,
-          exportName: `${sanitized_stack}-${sanitized_id}-RoleArn`
+          exportName: `${sanitized_stack}-${output_id}-RoleArn`
         })
       }
 
       // Output the Handler String
       if (cfn_function.handler) {
-        new cdk.CfnOutput(node.stack, `${node.node.id}Handler`, {
+        new cdk.CfnOutput(node.stack, `${output_id}Handler`, {
           value: cfn_function.handler,
           description: `Handler string for function ${node.node.path}.`,
-          exportName: `${sanitized_stack}-${sanitized_id}-Handler`
+          exportName: `${sanitized_stack}-${output_id}-Handler`
         })
       } else {
         logger.warn(
@@ -197,7 +201,6 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
       }
 
       // Output the path of the asset within cdk.out (Staged Asset Path)
-      let cdkOutAssetPathValue: string | undefined
       const cfnOptionsMetadata = cfn_function.cfnOptions?.metadata
       const asset_path_from_cfn_options = cfnOptionsMetadata?.['aws:asset:path']
 
@@ -206,10 +209,10 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
         // (e.g., "../asset.abc123") rather than the cdk.out root. Using
         // path.basename extracts just the asset directory name so we always
         // produce "cdk.out/asset.abc123" regardless of nesting depth.
-        new CfnOutput(node.stack, `${node.node.id}CdkOutAssetPath`, {
+        new CfnOutput(node.stack, `${output_id}CdkOutAssetPath`, {
           value: path.join('cdk.out', path.basename(asset_path_from_cfn_options)),
           description: `Path to the function's code asset within the cdk.out directory (relative to project root).`,
-          exportName: `${sanitized_stack}-${sanitized_id}-CdkOutAssetPath`
+          exportName: `${sanitized_stack}-${output_id}-CdkOutAssetPath`
         })
       } else {
         // Fallback to trying node.metadata if cfnOptions didn't work
@@ -221,10 +224,10 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
           asset_metadata_entry &&
           typeof asset_metadata_entry.data === 'string'
         ) {
-          new CfnOutput(node.stack, `${node.node.id}CdkOutAssetPath`, {
+          new CfnOutput(node.stack, `${output_id}CdkOutAssetPath`, {
             value: path.join('cdk.out', path.basename(asset_metadata_entry.data)),
             description: `Path to the function's code asset within the cdk.out directory (relative to project root).`,
-            exportName: `${sanitized_stack}-${sanitized_id}-CdkOutAssetPath`
+            exportName: `${sanitized_stack}-${output_id}-CdkOutAssetPath`
           })
         } else {
           // If both methods fail, log the warning.

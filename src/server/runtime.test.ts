@@ -577,7 +577,10 @@ describe('runtime', () => {
           target: 'node20',
           write: false,
           sourcemap: 'inline',
-          external: ['@aws-sdk/*', 'aws-lambda']
+          external: ['aws-lambda'],
+          banner: {
+            js: "import { createRequire } from 'module'; const require = createRequire(import.meta.url);"
+          }
         })
       )
 
