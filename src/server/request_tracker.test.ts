@@ -11,6 +11,7 @@ function make_display() {
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
+    line: vi.fn(),
     output: vi.fn(),
     pause: vi.fn(),
     resume: vi.fn(),
@@ -66,10 +67,10 @@ describe('RequestTracker', () => {
     tracker.complete(200)
 
     expect(display.complete_operation).toHaveBeenCalled()
-    expect(display.info).toHaveBeenCalledWith(
+    expect(display.line).toHaveBeenCalledWith(
       expect.stringContaining('WebLambda → POST /tasks')
     )
-    expect(display.info).toHaveBeenCalledWith(
+    expect(display.line).toHaveBeenCalledWith(
       expect.stringContaining('200')
     )
   })
@@ -81,7 +82,7 @@ describe('RequestTracker', () => {
     })
     tracker.complete()
 
-    expect(display.info).toHaveBeenCalledWith(
+    expect(display.line).toHaveBeenCalledWith(
       expect.stringContaining('StreamLambda → DynamoDB Stream')
     )
   })
@@ -96,8 +97,8 @@ describe('RequestTracker', () => {
     tracker.detail('Role: some-role-arn')
     tracker.complete(200)
 
-    expect(display.output).toHaveBeenCalledWith('↳', 'src/code/web.handler.ts → handler')
-    expect(display.output).toHaveBeenCalledWith('↳', 'Role: some-role-arn')
+    expect(display.line).toHaveBeenCalledWith('  ↳ src/code/web.handler.ts → handler')
+    expect(display.line).toHaveBeenCalledWith('  ↳ Role: some-role-arn')
   })
 
   it('should NOT emit detail lines when not verbose', () => {
@@ -109,7 +110,8 @@ describe('RequestTracker', () => {
     tracker.detail('src/code/web.handler.ts → handler')
     tracker.complete(200)
 
-    expect(display.output).not.toHaveBeenCalled()
+    // line is called once for the result line, but NOT for details
+    expect(display.line).toHaveBeenCalledTimes(1)
   })
 
   it('should fail with error message', () => {
@@ -120,7 +122,7 @@ describe('RequestTracker', () => {
     tracker.fail(new Error('Cannot read property'))
 
     expect(display.fail_operation).toHaveBeenCalled()
-    expect(display.error).toHaveBeenCalledWith(
+    expect(display.line).toHaveBeenCalledWith(
       expect.stringContaining('WebLambda → POST /tasks')
     )
   })
@@ -132,7 +134,7 @@ describe('RequestTracker', () => {
     })
     tracker.fail('something went wrong')
 
-    expect(display.error).toHaveBeenCalledWith(
+    expect(display.line).toHaveBeenCalledWith(
       expect.stringContaining('something went wrong')
     )
   })
@@ -146,8 +148,8 @@ describe('RequestTracker', () => {
     await new Promise(resolve => setTimeout(resolve, 10))
     tracker.complete(200)
 
-    const info_call = display.info.mock.calls[0][0] as string
-    expect(info_call).toMatch(/\d+ms/)
+    const line_call = display.line.mock.calls[0][0] as string
+    expect(line_call).toMatch(/\d+ms/)
   })
 })
 

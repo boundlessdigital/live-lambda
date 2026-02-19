@@ -20,6 +20,7 @@ describe('with_console_intercept', () => {
       info: vi.fn((msg: string) => info_calls.push(msg)),
       warn: vi.fn((msg: string) => warn_calls.push(msg)),
       error: vi.fn((msg: string) => error_calls.push(msg)),
+      line: vi.fn(),
       output: vi.fn(),
       pause: vi.fn(),
       resume: vi.fn(),

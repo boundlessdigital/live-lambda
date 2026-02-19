@@ -50,11 +50,11 @@ export class RequestTracker {
       ? `  ${this.color_status(status_code)}`
       : ''
     const line = `${CYAN}←${RESET} ${this.function_name} → ${this.event_label}${status}  ${DIM}${elapsed}ms${RESET}`
-    this.display.info(line)
+    this.display.line(line)
 
     if (this.verbose) {
       for (const d of this.details) {
-        this.display.output('↳', d)
+        this.display.line(`  ↳ ${d}`)
       }
     }
   }
@@ -66,12 +66,12 @@ export class RequestTracker {
     this.display.fail_operation(this.current_label)
 
     const line = `${RED}✖${RESET} ${this.function_name} → ${this.event_label}  ${DIM}${elapsed}ms${RESET}`
-    this.display.error(line)
-    this.display.error(`  ↳ ${message}`)
+    this.display.line(line)
+    this.display.line(`  ↳ ${message}`)
 
     if (this.verbose) {
       for (const d of this.details) {
-        this.display.output('↳', d)
+        this.display.line(`  ↳ ${d}`)
       }
     }
   }

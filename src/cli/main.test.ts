@@ -107,11 +107,13 @@ vi.mock('../lib/display/index.js', () => {
     SpinnerDisplay: vi.fn().mockImplementation(function () {
       return {
         start_operation: vi.fn(),
+        update_operation: vi.fn(),
         complete_operation: vi.fn(),
         fail_operation: vi.fn(),
         info: mock_display_info,
         warn: vi.fn(),
         error: vi.fn(),
+        line: vi.fn(),
         output: vi.fn(),
         pause: vi.fn(),
         resume: vi.fn(),

@@ -11,6 +11,7 @@ import * as esbuild from 'esbuild'
 import * as os from 'os'
 import { logger } from '../lib/logger.js'
 import { RequestTracker, short_function_name } from './request_tracker.js'
+import { detect_event_label } from './event_detection.js'
 import { with_console_intercept } from './console_interceptor.js'
 import type { TerminalDisplay } from '../lib/display/types.js'
 
@@ -267,11 +268,9 @@ export async function execute_module_handler(
 
   // Create request tracker after resolving handler so we have the display name
   if (display) {
-    const { detect_event_label } = await import('./event_detection.js')
-    const event_label = detect_event_label(event)
     tracker = new RequestTracker(display, {
       function_name: display_name,
-      event_label
+      event_label: detect_event_label(event)
     })
   }
 

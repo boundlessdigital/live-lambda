@@ -6,6 +6,7 @@ export interface TerminalDisplay {
   info(message: string): void
   warn(message: string): void
   error(message: string): void
+  line(message: string): void
   output(key: string, value: string): void
   pause(): void
   resume(): void

@@ -90,6 +90,14 @@ export class SpinnerDisplay implements TerminalDisplay {
     }
   }
 
+  line(message: string): void {
+    if (this.paused) {
+      this.pending_renders.push(message)
+    } else {
+      this.write_permanent(message)
+    }
+  }
+
   output(key: string, value: string): void {
     const line = `  ${key}: ${value}`
     if (this.paused) {

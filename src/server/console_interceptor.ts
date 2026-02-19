@@ -1,3 +1,4 @@
+import { format } from 'util'
 import type { TerminalDisplay } from '../lib/display/types.js'
 
 export async function with_console_intercept<T>(
@@ -7,9 +8,6 @@ export async function with_console_intercept<T>(
   const original_log = console.log
   const original_warn = console.warn
   const original_error = console.error
-
-  const format = (...args: unknown[]) =>
-    args.map(a => typeof a === 'string' ? a : String(a)).join(' ')
 
   console.log = (...args: unknown[]) => display.info(format(...args))
   console.warn = (...args: unknown[]) => display.warn(format(...args))
