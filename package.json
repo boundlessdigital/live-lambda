@@ -54,6 +54,7 @@
   "dependencies": {
     "@aws-cdk/toolkit-lib": "latest",
     "@aws-crypto/sha256-js": "^5.2.0",
+    "@aws-sdk/client-cloudformation": "^3.993.0",
     "@aws-sdk/client-lambda": "^3.806.0",
     "@aws-sdk/client-sqs": "^3.806.0",
     "@aws-sdk/client-sts": "^3.817.0",

@@ -24,6 +24,10 @@ import {
   compute_prefix,
   prefixed_stack_names
 } from '../lib/constants.js'
+import {
+  CloudFormationClient,
+  DescribeStacksCommand
+} from '@aws-sdk/client-cloudformation'
 import { clean_lambda_functions, extract_region_from_arn } from './lambda_cleanup.js'
 
 const CDK_OUTPUTS_FILE = 'cdk.out/outputs.json'
@@ -142,14 +146,36 @@ function resolve_prefix_from_context(context: Record<string, string>): string {
   return compute_prefix(app_name, environment, app_id)
 }
 
+async function is_environment_bootstrapped(region: string): Promise<boolean> {
+  try {
+    const cfn = new CloudFormationClient({ region })
+    const result = await cfn.send(
+      new DescribeStacksCommand({ StackName: 'CDKToolkit' })
+    )
+    const status = result.Stacks?.[0]?.StackStatus
+    return !!status && !status.includes('DELETE')
+  } catch {
+    return false
+  }
+}
+
 async function bootstrap_cdk_environment(cdk: Toolkit, assembly: ICloudAssemblySource) {
-  logger.info('Bootstrapping CDK environment...')
   const stacks = await cdk.list(assembly, {
     stacks: { strategy: StackSelectionStrategy.ALL_STACKS }
   })
   const unique_envs = [...new Set(
     stacks.map(s => `aws://${s.environment.account}/${s.environment.region}`)
   )]
+
+  // Check if all environments are already bootstrapped
+  const regions = [...new Set(stacks.map(s => s.environment.region))]
+  const checks = await Promise.all(regions.map(is_environment_bootstrapped))
+  if (checks.every(Boolean)) {
+    logger.info('CDK environment already bootstrapped, skipping.')
+    return
+  }
+
+  logger.info('Bootstrapping CDK environment...')
   const environments = BootstrapEnvironments.fromList(unique_envs)
   await cdk.bootstrap(environments)
 }
