@@ -1,1 +1,5 @@
 export { LiveLambda } from './cdk/live_lambda.js'
+export { serve } from './server/index.js'
+export { SpinnerDisplay } from './lib/display/spinner_display.js'
+export type { TerminalDisplay } from './lib/display/types.js'
+export type { ServerConfig } from './server/types.js'

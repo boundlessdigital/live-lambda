@@ -104,6 +104,7 @@ For more detailed information on specific parts of the project, please refer to:
 - [Lambda Layer and Go Extension (`docs/layer.md`)](./docs/layer.md)
 - [Command Line Interface (CLI) (`docs/cli.md`)](./docs/cli.md)
 - [Local Development Server (`docs/server.md`)](./docs/server.md)
+- [Programmatic API (`docs/programmatic-api.md`)](./docs/programmatic-api.md)
 
 ## Development
 

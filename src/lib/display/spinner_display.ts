@@ -10,13 +10,13 @@ const DIM = '\x1b[2m'
 const RESET = '\x1b[0m'
 
 export class SpinnerDisplay implements TerminalDisplay {
-  private active = new Map<string, { start: number }>()
-  private pending_renders: string[] = []
-  private frame_index = 0
-  private interval: ReturnType<typeof setInterval> | null = null
-  private paused = false
-  private has_spinner_line = false
-  private stream: NodeJS.WriteStream
+  protected active = new Map<string, { start: number }>()
+  protected pending_renders: string[] = []
+  protected frame_index = 0
+  protected interval: ReturnType<typeof setInterval> | null = null
+  protected paused = false
+  protected has_spinner_line = false
+  protected stream: NodeJS.WriteStream
 
   constructor(stream?: NodeJS.WriteStream) {
     this.stream = stream ?? process.stderr
@@ -130,15 +130,15 @@ export class SpinnerDisplay implements TerminalDisplay {
     this.pending_renders = []
   }
 
-  // --- Private ---
+  // --- Protected ---
 
-  private ensure_spinning(): void {
+  protected ensure_spinning(): void {
     if (this.interval || this.paused) return
     this.render_spinner()
     this.interval = setInterval(() => this.render_spinner(), INTERVAL_MS)
   }
 
-  private stop_spinning(): void {
+  protected stop_spinning(): void {
     if (this.interval) {
       clearInterval(this.interval)
       this.interval = null
@@ -146,7 +146,7 @@ export class SpinnerDisplay implements TerminalDisplay {
     this.clear_spinner()
   }
 
-  private update_spinner_state(): void {
+  protected update_spinner_state(): void {
     if (this.active.size === 0) {
       this.stop_spinning()
     } else if (!this.paused) {
@@ -154,7 +154,7 @@ export class SpinnerDisplay implements TerminalDisplay {
     }
   }
 
-  private render_spinner(): void {
+  protected render_spinner(): void {
     if (this.active.size === 0) return
 
     const frame = FRAMES[this.frame_index % FRAMES.length]
@@ -168,7 +168,7 @@ export class SpinnerDisplay implements TerminalDisplay {
     }
   }
 
-  private build_status_text(): string {
+  protected build_status_text(): string {
     const ops = Array.from(this.active.entries())
     if (ops.length === 0) return ''
 
@@ -180,7 +180,7 @@ export class SpinnerDisplay implements TerminalDisplay {
     return `${label} ${DIM}${elapsed_s}s${RESET}${suffix}`
   }
 
-  private write_permanent(text: string): void {
+  protected write_permanent(text: string): void {
     this.clear_spinner()
     this.stream.write(`${text}\n`)
     if (!this.paused && this.active.size > 0) {
@@ -188,7 +188,7 @@ export class SpinnerDisplay implements TerminalDisplay {
     }
   }
 
-  private clear_spinner(): void {
+  protected clear_spinner(): void {
     if (this.has_spinner_line && this.stream.isTTY) {
       this.stream.write('\r\x1b[K')
       this.has_spinner_line = false
