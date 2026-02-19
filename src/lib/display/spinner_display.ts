@@ -29,6 +29,13 @@ export class SpinnerDisplay implements TerminalDisplay {
     }
   }
 
+  update_operation(old_label: string, new_label: string): void {
+    const entry = this.active.get(old_label)
+    if (!entry) return
+    this.active.delete(old_label)
+    this.active.set(new_label, entry)
+  }
+
   complete_operation(label: string): void {
     const entry = this.active.get(label)
     const elapsed = entry

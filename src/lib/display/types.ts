@@ -1,5 +1,6 @@
 export interface TerminalDisplay {
   start_operation(label: string): void
+  update_operation(old_label: string, new_label: string): void
   complete_operation(label: string): void
   fail_operation(label: string, message?: string): void
   info(message: string): void
