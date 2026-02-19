@@ -19,7 +19,7 @@ export async function serve(config: ServerConfig): Promise<void> {
   async function connect_and_subscribe() {
     const client = new AppSyncEventWebSocketClient({
       ...config,
-      debug: true,
+      debug: !display,
       on_error: (error: any) => {
         logger.error(`WebSocket error: ${JSON.stringify(error)}`)
       },
@@ -66,8 +66,11 @@ async function handle_request(
   payload: string,
   display?: TerminalDisplay
 ): Promise<any> {
+  let request_id: string | undefined
   try {
-    const { request_id, context, event_payload: event } = JSON.parse(payload)
+    const parsed = JSON.parse(payload)
+    request_id = parsed.request_id
+    const { context, event_payload: event } = parsed
     logger.debug(`Processing request: ${request_id}`)
 
     const response = await execute_handler(event, context, display)
@@ -78,5 +81,22 @@ async function handle_request(
     logger.debug(`Published response to ${response_channel}`)
   } catch (error) {
     logger.error(`Error in handle_request: ${error}`)
+
+    // Always publish an error response so the Go extension doesn't hang
+    // waiting for a response that never comes (which causes curl to hang).
+    if (request_id) {
+      const error_message = error instanceof Error ? error.message : String(error)
+      const error_response = {
+        statusCode: 500,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: error_message })
+      }
+      try {
+        const response_channel = `/${APPSYNC_EVENTS_API_NAMESPACE}/response/${request_id}`
+        await client.publish(response_channel, [error_response])
+      } catch (publish_error) {
+        logger.error(`Failed to publish error response: ${publish_error}`)
+      }
+    }
   }
 }

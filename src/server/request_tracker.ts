@@ -57,6 +57,8 @@ export class RequestTracker {
         this.display.line(`  ↳ ${d}`)
       }
     }
+
+    this.display.line('')
   }
 
   fail(error: Error | string): void {
@@ -74,6 +76,8 @@ export class RequestTracker {
         this.display.line(`  ↳ ${d}`)
       }
     }
+
+    this.display.line('')
   }
 
   private color_status(code: number): string {

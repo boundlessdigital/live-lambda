@@ -110,8 +110,8 @@ describe('RequestTracker', () => {
     tracker.detail('src/code/web.handler.ts → handler')
     tracker.complete(200)
 
-    // line is called once for the result line, but NOT for details
-    expect(display.line).toHaveBeenCalledTimes(1)
+    // line is called for the result line + trailing blank line, but NOT for details
+    expect(display.line).toHaveBeenCalledTimes(2)
   })
 
   it('should fail with error message', () => {
@@ -137,6 +137,28 @@ describe('RequestTracker', () => {
     expect(display.line).toHaveBeenCalledWith(
       expect.stringContaining('something went wrong')
     )
+  })
+
+  it('should emit trailing blank line after complete for visual separation', () => {
+    const tracker = new RequestTracker(display, {
+      function_name: 'WebLambda',
+      event_label: 'POST /tasks'
+    })
+    tracker.complete(200)
+
+    const last_call = display.line.mock.calls[display.line.mock.calls.length - 1]
+    expect(last_call[0]).toBe('')
+  })
+
+  it('should emit trailing blank line after fail for visual separation', () => {
+    const tracker = new RequestTracker(display, {
+      function_name: 'WebLambda',
+      event_label: 'POST /tasks'
+    })
+    tracker.fail(new Error('boom'))
+
+    const last_call = display.line.mock.calls[display.line.mock.calls.length - 1]
+    expect(last_call[0]).toBe('')
   })
 
   it('should include elapsed time in complete line', async () => {
