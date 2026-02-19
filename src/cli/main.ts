@@ -11,7 +11,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import chokidar from 'chokidar'
 import { CustomIoHost } from '../cdk/toolkit/iohost.js'
-import { SpinnerDisplay, KeypressListener } from '../lib/display/index.js'
+import { SpinnerDisplay, KeypressListener, type TerminalDisplay } from '../lib/display/index.js'
 import { logger } from '../lib/logger.js'
 import {
   CONTEXT_APP_NAME,
@@ -89,7 +89,7 @@ export async function main(command: Command) {
     }
 
     if (command_name === 'dev') {
-      await run_dev(cdk, assembly, watch_config, stack_names)
+      await run_dev(cdk, assembly, watch_config, stack_names, display)
     }
 
     if (command_name === 'destroy') {
@@ -191,7 +191,8 @@ async function run_dev(
   cdk: Toolkit,
   assembly: ICloudAssemblySource,
   watch_config: any,
-  stack_names: StackNames
+  stack_names: StackNames,
+  display?: TerminalDisplay
 ): Promise<void> {
   await bootstrap_cdk_environment(cdk, assembly)
 
@@ -200,7 +201,7 @@ async function run_dev(
   const deployment = await deploy_all_stacks(cdk, assembly)
 
   const config = extract_server_config(deployment, stack_names)
-  await serve(config)
+  await serve({ ...config, display })
   await watch_file_changes(cdk, assembly)
   // CDK watch monitors for file changes and redeploys affected stacks
   await watch_stacks(cdk, assembly, watch_config)

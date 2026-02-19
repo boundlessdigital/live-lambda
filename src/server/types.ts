@@ -1,4 +1,5 @@
 import type { APIGatewayProxyEventV2 } from 'aws-lambda'
+import type { TerminalDisplay } from '../lib/display/types.js'
 
 export interface ServerConfig {
   region: string
@@ -6,6 +7,7 @@ export interface ServerConfig {
   realtime: string
   layer_arn: string
   profile?: string // Add profile
+  display?: TerminalDisplay
 }
 
 export interface ProxiedLambdaInvocation {

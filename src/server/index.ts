@@ -2,6 +2,7 @@ import { AppSyncEventWebSocketClient } from '@boundlessdigital/aws-appsync-event
 import { APPSYNC_EVENTS_API_NAMESPACE } from '../constants.js'
 import { execute_handler } from './runtime.js'
 import { logger } from '../lib/logger.js'
+import type { TerminalDisplay } from '../lib/display/types.js'
 
 import { ServerConfig } from './types.js'
 
@@ -12,6 +13,7 @@ export async function serve(config: ServerConfig): Promise<void> {
   logger.start('Starting LiveLambda server...')
 
   const requests_channel = `/${APPSYNC_EVENTS_API_NAMESPACE}/requests`
+  const { display } = config
   let reconnect_delay = RECONNECT_DELAY_MS
 
   async function connect_and_subscribe() {
@@ -31,8 +33,8 @@ export async function serve(config: ServerConfig): Promise<void> {
     logger.info('Connected to AppSync WebSocket')
 
     await client.subscribe(requests_channel, (payload: string) => {
-      logger.info(`Received request on ${requests_channel}`)
-      handle_request(client, payload)
+      logger.debug(`Received request on ${requests_channel}`)
+      handle_request(client, payload, display)
     })
     logger.info(`Subscribed to ${requests_channel}`)
 
@@ -61,18 +63,19 @@ export async function serve(config: ServerConfig): Promise<void> {
 
 async function handle_request(
   client: AppSyncEventWebSocketClient,
-  payload: string
+  payload: string,
+  display?: TerminalDisplay
 ): Promise<any> {
   try {
     const { request_id, context, event_payload: event } = JSON.parse(payload)
-    logger.info(`Processing request: ${request_id}`)
+    logger.debug(`Processing request: ${request_id}`)
 
-    const response = await execute_handler(event, context)
-    logger.info(`Handler returned response for request: ${request_id}`)
+    const response = await execute_handler(event, context, display)
+    logger.debug(`Handler returned response for request: ${request_id}`)
 
     const response_channel = `/${APPSYNC_EVENTS_API_NAMESPACE}/response/${request_id}`
     await client.publish(response_channel, [response])
-    logger.info(`Published response to ${response_channel}`)
+    logger.debug(`Published response to ${response_channel}`)
   } catch (error) {
     logger.error(`Error in handle_request: ${error}`)
   }

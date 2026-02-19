@@ -10,6 +10,9 @@ import * as fs from 'fs'
 import * as esbuild from 'esbuild'
 import * as os from 'os'
 import { logger } from '../lib/logger.js'
+import { RequestTracker, short_function_name } from './request_tracker.js'
+import { with_console_intercept } from './console_interceptor.js'
+import type { TerminalDisplay } from '../lib/display/types.js'
 
 export interface ExecuteHandlerOptions {
   region: string
@@ -35,7 +38,8 @@ function restore_env(saved: Record<string, string | undefined>) {
 
 export async function execute_handler(
   event: APIGatewayProxyEventV2,
-  context: LambdaContext
+  context: LambdaContext,
+  display?: TerminalDisplay
 ) {
   logger.trace('Received event:', JSON.stringify(event, null, 2))
 
@@ -44,7 +48,7 @@ export async function execute_handler(
     function_arn: context.invoked_function_arn as string,
     event,
     context
-  })
+  }, display)
 }
 interface OutputsJson {
   [stack_name: string]: {
@@ -144,7 +148,7 @@ function resolve_handler_from_outputs(
   outputs: OutputsJson,
   function_arn: string
 ):
-  | { handler_path: string; handler_name: string; is_typescript: boolean }
+  | { handler_path: string; handler_name: string; is_typescript: boolean; display_name: string }
   | undefined {
   // Search through all stacks to find the matching function ARN
   for (const stack_name of Object.keys(outputs)) {
@@ -179,6 +183,7 @@ function resolve_handler_from_outputs(
 
     let file_name = handler_string.substring(0, last_dot_index)
     const export_name = handler_string.substring(last_dot_index + 1)
+    const display_name = short_function_name(prefix)
 
     // Detect wrapper handlers (e.g., Datadog) that point to /opt/... paths
     // instead of the actual bundled file. Fall back to "index" which is the
@@ -194,13 +199,14 @@ function resolve_handler_from_outputs(
     // First, try to get the original TypeScript source from source map
     const source_path = extract_source_from_sourcemap(asset_path, file_name)
     if (source_path && fs.existsSync(source_path)) {
-      logger.info(`Using TypeScript source for ${function_arn}`)
+      logger.debug(`Using TypeScript source for ${function_arn}`)
       logger.debug(`  handler_path: ${source_path}`)
       logger.debug(`  handler_name: ${export_name}`)
       return {
         handler_path: source_path,
         handler_name: export_name,
-        is_typescript: true
+        is_typescript: true,
+        display_name
       }
     }
 
@@ -218,22 +224,27 @@ function resolve_handler_from_outputs(
       continue
     }
 
-    logger.info(`Resolved handler for ${function_arn} (compiled)`)
+    logger.debug(`Resolved handler for ${function_arn} (compiled)`)
     logger.debug(`  handler_path: ${handler_path}`)
     logger.debug(`  handler_name: ${export_name}`)
 
-    return { handler_path, handler_name: export_name, is_typescript: false }
+    return { handler_path, handler_name: export_name, is_typescript: false, display_name }
   }
 
   return undefined
 }
 
-export async function execute_module_handler({
-  region,
-  function_arn,
-  event,
-  context
-}: ExecuteHandlerOptions): Promise<unknown> {
+export async function execute_module_handler(
+  {
+    region,
+    function_arn,
+    event,
+    context
+  }: ExecuteHandlerOptions,
+  display?: TerminalDisplay
+): Promise<unknown> {
+  let tracker: RequestTracker | undefined
+
   /* ---------- 1 · fetch live configuration ---------- */
   const { function_name } = context
   const outputs: OutputsJson = JSON.parse(
@@ -252,64 +263,77 @@ export async function execute_module_handler({
     )
   }
 
-  const { handler_path, handler_name, is_typescript } = resolved_handler
+  const { handler_path, handler_name, is_typescript, display_name } = resolved_handler
 
-  // Capture the original environment on first invocation. This snapshot
-  // is restored before each handler call to prevent credential leakage
-  // between different Lambda functions (each has its own IAM role).
-  if (!original_env) {
-    original_env = { ...process.env }
-  }
-
-  // Restore original env before AWS API calls. Previous handler executions
-  // may have set AWS_ACCESS_KEY_ID to a different role's credentials.
-  restore_env(original_env)
-
-  const lambda_client = new LambdaClient({ region })
-  const config = await lambda_client.send(
-    new GetFunctionConfigurationCommand({
-      FunctionName: function_name
+  // Create request tracker after resolving handler so we have the display name
+  if (display) {
+    const { detect_event_label } = await import('./event_detection.js')
+    const event_label = detect_event_label(event)
+    tracker = new RequestTracker(display, {
+      function_name: display_name,
+      event_label
     })
-  )
-
-  if (!config.Role) {
-    throw new Error('Lambda configuration did not include execution role ARN.')
   }
 
-  /* ---------- 2 · assume the execution role ---------- */
-  const cred_provider = fromTemporaryCredentials({
-    params: {
-      RoleArn: config.Role,
-      RoleSessionName: `live-lambda-${function_name}`
-        .replace(/[^a-zA-Z0-9_=,.@-]/g, '_')
-        .substring(0, 50)
-        .concat(`-${Date.now().toString(36).substring(0, 8)}`)
-    },
-    clientConfig: { region }
-  })
-
-  const creds = await cred_provider()
-
-  /* ---------- 3 · inject env vars + creds ---------- */
-  // Remove AWS_PROFILE to prevent the SDK from preferring profile credentials
-  // over the assumed role credentials we explicitly set below.
-  // The SDK warns: "This SDK will proceed with the AWS_PROFILE value"
-  // which bypasses the Lambda execution role we need for SSM access, etc.
-  delete process.env.AWS_PROFILE
-  delete process.env.AWS_SHARED_CREDENTIALS_FILE
-
-  Object.assign(process.env, config.Environment?.Variables ?? {}, {
-    AWS_ACCESS_KEY_ID: creds.accessKeyId,
-    AWS_SECRET_ACCESS_KEY: creds.secretAccessKey,
-    AWS_SESSION_TOKEN: creds.sessionToken,
-    // AWS_REGION is set by the Lambda runtime automatically, not as a
-    // configured env var. We must set it explicitly for local execution.
-    AWS_REGION: region,
-    AWS_DEFAULT_REGION: region
-  })
-
-  /* ---------- 4 · load & run the handler ------------ */
   try {
+    // Capture the original environment on first invocation. This snapshot
+    // is restored before each handler call to prevent credential leakage
+    // between different Lambda functions (each has its own IAM role).
+    if (!original_env) {
+      original_env = { ...process.env }
+    }
+
+    // Restore original env before AWS API calls. Previous handler executions
+    // may have set AWS_ACCESS_KEY_ID to a different role's credentials.
+    restore_env(original_env)
+
+    tracker?.phase('resolving config')
+    const lambda_client = new LambdaClient({ region })
+    const config = await lambda_client.send(
+      new GetFunctionConfigurationCommand({
+        FunctionName: function_name
+      })
+    )
+
+    if (!config.Role) {
+      throw new Error('Lambda configuration did not include execution role ARN.')
+    }
+
+    /* ---------- 2 · assume the execution role ---------- */
+    tracker?.phase('assuming role')
+    const cred_provider = fromTemporaryCredentials({
+      params: {
+        RoleArn: config.Role,
+        RoleSessionName: `live-lambda-${function_name}`
+          .replace(/[^a-zA-Z0-9_=,.@-]/g, '_')
+          .substring(0, 50)
+          .concat(`-${Date.now().toString(36).substring(0, 8)}`)
+      },
+      clientConfig: { region }
+    })
+
+    const creds = await cred_provider()
+    tracker?.detail(`Role: ${config.Role}`)
+
+    /* ---------- 3 · inject env vars + creds ---------- */
+    // Remove AWS_PROFILE to prevent the SDK from preferring profile credentials
+    // over the assumed role credentials we explicitly set below.
+    // The SDK warns: "This SDK will proceed with the AWS_PROFILE value"
+    // which bypasses the Lambda execution role we need for SSM access, etc.
+    delete process.env.AWS_PROFILE
+    delete process.env.AWS_SHARED_CREDENTIALS_FILE
+
+    Object.assign(process.env, config.Environment?.Variables ?? {}, {
+      AWS_ACCESS_KEY_ID: creds.accessKeyId,
+      AWS_SECRET_ACCESS_KEY: creds.secretAccessKey,
+      AWS_SESSION_TOKEN: creds.sessionToken,
+      // AWS_REGION is set by the Lambda runtime automatically, not as a
+      // configured env var. We must set it explicitly for local execution.
+      AWS_REGION: region,
+      AWS_DEFAULT_REGION: region
+    })
+
+    /* ---------- 4 · load & run the handler ------------ */
     const abs_path = path.isAbsolute(handler_path)
       ? handler_path
       : path.resolve(process.cwd(), handler_path)
@@ -317,7 +341,11 @@ export async function execute_module_handler({
     let handler_module: Record<string, unknown>
 
     if (is_typescript) {
-      logger.info(`Loading TypeScript source: ${abs_path}`)
+      tracker?.phase('loading handler')
+      logger.debug(`Loading TypeScript source: ${abs_path}`)
+
+      tracker?.phase('transforming TypeScript')
+      const esbuild_start = Date.now()
 
       // Transform TypeScript to JavaScript using esbuild
       const result = await esbuild.build({
@@ -338,6 +366,10 @@ export async function execute_module_handler({
         }
       })
 
+      const esbuild_elapsed = Date.now() - esbuild_start
+      tracker?.detail(`esbuild: ${esbuild_elapsed}ms`)
+      tracker?.detail(`${abs_path} → ${handler_name}`)
+
       // Write temp file to the project directory (cwd) so Node.js module
       // resolution can find packages from the project's node_modules.
       // Writing to os.tmpdir() would break resolution of external packages
@@ -355,7 +387,9 @@ export async function execute_module_handler({
       // Clean up temp file
       fs.unlinkSync(temp_file)
     } else {
-      logger.info(`Loading compiled handler: ${abs_path}`)
+      tracker?.phase('loading handler')
+      logger.debug(`Loading compiled handler: ${abs_path}`)
+      tracker?.detail(`${abs_path} → ${handler_name}`)
       handler_module = await import(abs_path)
     }
     const handler = handler_module[handler_name]
@@ -366,11 +400,26 @@ export async function execute_module_handler({
       )
     }
 
-    return await handler(event, context)
+    tracker?.phase('executing')
+    let response: unknown
+    if (display) {
+      response = await with_console_intercept(display, () => handler(event, context))
+    } else {
+      response = await handler(event, context)
+    }
+
+    const status_code = (response as any)?.statusCode
+    tracker?.complete(status_code)
+    return response
+  } catch (error) {
+    tracker?.fail(error instanceof Error ? error : String(error))
+    throw error
   } finally {
     // Restore original environment to prevent credential leakage.
     // Without this, a subsequent handler invocation would try to use
     // this handler's role for STS:AssumeRole, which would fail.
-    restore_env(original_env!)
+    if (original_env) {
+      restore_env(original_env)
+    }
   }
 }

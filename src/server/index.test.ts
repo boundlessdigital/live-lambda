@@ -162,7 +162,7 @@ describe('server index', () => {
       await subscribe_callback!(mock_payload)
 
       // Verify execute_handler was called with correct arguments
-      expect(mock_execute_handler).toHaveBeenCalledWith(mock_event, mock_context)
+      expect(mock_execute_handler).toHaveBeenCalledWith(mock_event, mock_context, undefined)
 
       // Verify response was published to correct channel
       expect(mock_publish).toHaveBeenCalledWith(
@@ -351,7 +351,7 @@ describe('server index', () => {
       await serve(mock_config)
       await subscribe_callback!(payload)
 
-      expect(mock_execute_handler).toHaveBeenCalledWith(complex_event, complex_context)
+      expect(mock_execute_handler).toHaveBeenCalledWith(complex_event, complex_context, undefined)
     })
 
     it('should handle undefined or null response from handler', async () => {
@@ -565,7 +565,8 @@ describe('server index', () => {
       // Verify the large event was passed to the handler
       expect(mock_execute_handler).toHaveBeenCalledWith(
         expect.objectContaining({ body: large_body }),
-        expect.any(Object)
+        expect.any(Object),
+        undefined
       )
 
       // Verify the large response was published

@@ -404,12 +404,15 @@ describe('main', () => {
 
       await main(command)
 
-      expect(mock_serve).toHaveBeenCalledWith({
-        region: 'us-east-1',
-        http: 'http-host.appsync.aws',
-        realtime: 'realtime-host.appsync.aws',
-        layer_arn: 'arn:aws:lambda:us-east-1:123456789012:layer:LiveLambdaProxy:1'
-      })
+      expect(mock_serve).toHaveBeenCalledWith(
+        expect.objectContaining({
+          region: 'us-east-1',
+          http: 'http-host.appsync.aws',
+          realtime: 'realtime-host.appsync.aws',
+          layer_arn: 'arn:aws:lambda:us-east-1:123456789012:layer:LiveLambdaProxy:1',
+          display: expect.any(Object)
+        })
+      )
     })
 
     it('should start watch mode after server starts', async () => {
@@ -614,12 +617,15 @@ describe('main', () => {
 
       await main(command)
 
-      expect(mock_serve).toHaveBeenCalledWith({
-        region: 'eu-west-1',
-        http: 'abc123.appsync-api.eu-west-1.amazonaws.com',
-        realtime: 'abc123.appsync-realtime.eu-west-1.amazonaws.com',
-        layer_arn: 'arn:aws:lambda:eu-west-1:123456789012:layer:LiveLambdaProxy:5'
-      })
+      expect(mock_serve).toHaveBeenCalledWith(
+        expect.objectContaining({
+          region: 'eu-west-1',
+          http: 'abc123.appsync-api.eu-west-1.amazonaws.com',
+          realtime: 'abc123.appsync-realtime.eu-west-1.amazonaws.com',
+          layer_arn: 'arn:aws:lambda:eu-west-1:123456789012:layer:LiveLambdaProxy:5',
+          display: expect.any(Object)
+        })
+      )
     })
 
     it('should throw ServerConfigError when AppSync stack outputs are missing', async () => {
