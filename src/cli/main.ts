@@ -10,6 +10,7 @@ import { Command } from 'commander'
 import * as fs from 'fs'
 import * as path from 'path'
 import chokidar from 'chokidar'
+import ignore from 'ignore'
 import { CustomIoHost } from '../cdk/toolkit/iohost.js'
 import { SpinnerDisplay, KeypressListener, type TerminalDisplay } from '../lib/display/index.js'
 import { logger } from '../lib/logger.js'
@@ -202,9 +203,7 @@ async function run_dev(
 
   const config = extract_server_config(deployment, stack_names)
   await serve({ ...config, display })
-  await watch_file_changes(cdk, assembly)
-  // CDK watch monitors for file changes and redeploys affected stacks
-  await watch_stacks(cdk, assembly, watch_config)
+  await watch_and_deploy(cdk, assembly, watch_config)
 }
 
 async function run_destroy(cdk: Toolkit, assembly: ICloudAssemblySource, stack_names: StackNames) {
@@ -310,38 +309,77 @@ async function destroy_internal_stacks(cdk: Toolkit, assembly: ICloudAssemblySou
   })
 }
 
-async function watch_file_changes(
-  cdk: Toolkit,
-  assembly: ICloudAssemblySource
-) {
-  const watcher = chokidar.watch('.', {
-    followSymlinks: false,
-    ignored: (path, stats) => {
-      if (path.includes('node_modules') || path.includes('worktrees') || path.includes('.git')) return true
-      return !path.endsWith('.ts') && !path.startsWith('cdk.out')
-    }
-  })
-  watcher.on('error', (error: unknown) => {
-    logger.debug(`File watcher error (non-fatal): ${error}`)
-  })
-  watcher.on('change', async (path: string) => {
-    logger.info(`File ${path} changes detected, redeploying...`)
-    // await deploy_stacks(cdk, assembly)
-  })
-}
-
-async function watch_stacks(
+async function watch_and_deploy(
   cdk: Toolkit,
   assembly: ICloudAssemblySource,
   watch_config: any
 ) {
-  return await cdk.watch(assembly, {
-    concurrency: MAX_CONCURRENCY,
-    deploymentMethod: {
-      method: 'change-set'
+  let latch: 'open' | 'deploying' | 'queued' = 'open'
+
+  const deploy = async () => {
+    latch = 'deploying'
+    try {
+      await deploy_all_stacks(cdk, assembly)
+    } catch (error: unknown) {
+      logger.error('Deploy failed:', error)
+    }
+    while ((latch as string) === 'queued') {
+      latch = 'deploying'
+      logger.info('Changes detected during deploy, redeploying...')
+      try {
+        await deploy_all_stacks(cdk, assembly)
+      } catch (error: unknown) {
+        logger.error('Deploy failed:', error)
+      }
+    }
+    latch = 'open'
+  }
+
+  const exclude_dirs = new Set(['node_modules', '.git', 'cdk.out', 'dist'])
+  const exclude_extensions = new Set(watch_config?.exclude
+    ?.filter((p: string) => p.startsWith('**/*.'))
+    ?.map((p: string) => p.replace('**/*', '')) ?? [])
+
+  for (const entry of watch_config?.exclude ?? []) {
+    if (!entry.includes('*') && !entry.includes('/')) exclude_dirs.add(entry)
+  }
+
+  const use_gitignore = watch_config?.gitignore !== false
+  const ig = ignore()
+  if (use_gitignore) {
+    try {
+      ig.add(fs.readFileSync('.gitignore', 'utf-8'))
+    } catch {
+      // no .gitignore — fine
+    }
+  }
+
+  const watcher = chokidar.watch('.', {
+    followSymlinks: false,
+    ignored: (file_path: string) => {
+      if (file_path === '.') return false
+      const parts = file_path.split(path.sep)
+      if (parts.some(p => exclude_dirs.has(p) || (p.length > 1 && p.startsWith('.')))) return true
+      const ext = path.extname(file_path)
+      if (ext && exclude_extensions.has(ext)) return true
+      if (use_gitignore && ig.ignores(file_path)) return true
+      return false
     },
-    outputsFile: CDK_OUTPUTS_FILE,
-    ...watch_config
+    ignoreInitial: true
+  })
+
+  watcher.on('error', (error: unknown) => {
+    logger.debug(`File watcher error (non-fatal): ${error}`)
+  })
+
+  watcher.on('all', async (event: string, file_path: string) => {
+    if (latch === 'open') {
+      logger.info(`Detected change to '${file_path}' (${event}). Deploying...`)
+      await deploy()
+    } else {
+      latch = 'queued'
+      logger.debug(`Detected change to '${file_path}' (${event}) while deploying. Queued.`)
+    }
   })
 }
 

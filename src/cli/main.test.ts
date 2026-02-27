@@ -251,7 +251,11 @@ describe('main', () => {
     mock_chokidar_watch.mockReturnValue({ on: mock_watcher_on })
 
     // Default mock implementations
-    mock_read_file_sync.mockReturnValue(create_default_cdk_json())
+    mock_read_file_sync.mockImplementation((file_path: string) => {
+      if (file_path === 'cdk.json') return create_default_cdk_json()
+      if (file_path === '.gitignore') return ''
+      return ''
+    })
     mock_exists_sync.mockReturnValue(false)
     mock_from_cdk_app.mockResolvedValue(mock_assembly)
     mock_deploy.mockResolvedValue(create_mock_deployment())
@@ -280,8 +284,8 @@ describe('main', () => {
 
     it('should parse app entrypoint from cdk.json', async () => {
       const custom_entrypoint = 'npx tsx custom-app.ts'
-      mock_read_file_sync.mockReturnValue(
-        JSON.stringify({
+      mock_read_file_sync.mockImplementation((file_path: string) => {
+        if (file_path === 'cdk.json') return JSON.stringify({
           app: custom_entrypoint,
           watch: {},
           context: {
@@ -289,7 +293,9 @@ describe('main', () => {
             [CONTEXT_ENVIRONMENT]: TEST_ENVIRONMENT
           }
         })
-      )
+        if (file_path === '.gitignore') return ''
+        return ''
+      })
       const command = create_mock_command('dev')
       mock_deploy.mockResolvedValue(create_valid_deployment())
 
@@ -417,29 +423,17 @@ describe('main', () => {
       )
     })
 
-    it('should start watch mode after server starts', async () => {
-      const watch_config = { include: ['**/*.ts'], exclude: ['node_modules'] }
-      mock_read_file_sync.mockReturnValue(
-        JSON.stringify({
-          app: 'npx ts-node app.ts',
-          watch: watch_config,
-          context: {
-            [CONTEXT_APP_NAME]: TEST_APP_NAME,
-            [CONTEXT_ENVIRONMENT]: TEST_ENVIRONMENT
-          }
-        })
-      )
+    it('should start file watcher after server starts', async () => {
       const command = create_mock_command('dev')
       mock_deploy.mockResolvedValue(create_valid_deployment())
 
       await main(command)
 
-      expect(mock_watch).toHaveBeenCalledWith(mock_assembly, {
-        concurrency: 5,
-        deploymentMethod: { method: 'change-set' },
-        outputsFile: 'cdk.out/outputs.json',
-        ...watch_config
-      })
+      expect(mock_serve).toHaveBeenCalled()
+      expect(mock_chokidar_watch).toHaveBeenCalledWith('.', expect.objectContaining({
+        followSymlinks: false,
+        ignoreInitial: true
+      }))
     })
 
     it('should set up file watcher with chokidar', async () => {
@@ -742,17 +736,18 @@ describe('main', () => {
       expect(mock_cleanup).toHaveBeenCalled()
     })
 
-    it('should handle watch errors gracefully', async () => {
+    it('should handle chokidar watcher errors gracefully', async () => {
       const command = create_mock_command('dev')
-      const watch_error = new Error('Watch mode failed')
       mock_deploy.mockResolvedValue(create_valid_deployment())
-      mock_watch.mockRejectedValue(watch_error)
+      mock_chokidar_watch.mockImplementation(() => {
+        throw new Error('Watcher failed')
+      })
 
       await main(command)
 
       expect(mock_logger.error).toHaveBeenCalledWith(
         'An unexpected error occurred:',
-        watch_error
+        expect.any(Error)
       )
     })
   })
