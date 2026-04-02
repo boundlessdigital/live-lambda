@@ -101,9 +101,9 @@ async function connect_region(
     await client.connect()
     logger.info(`[${region}] Connected to AppSync WebSocket`)
 
-    await client.subscribe(requests_channel, (payload: string) => {
+    await client.subscribe(requests_channel, (payload: unknown) => {
       logger.debug(`[${region}] Received request on ${requests_channel}`)
-      handle_request(client, payload, display)
+      handle_request(client, payload as string, display)
     })
     logger.info(`[${region}] Subscribed to ${requests_channel}`)
 
