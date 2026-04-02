@@ -16,6 +16,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -60,8 +61,29 @@ func (p *RuntimeAPIProxy) handle_next(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 4. Check if live-lambda proxying is enabled (per-invocation toggle)
-	if os.Getenv("LIVE_LAMBDA_ENABLED") != "true" {
-		log.Printf("%s LIVE_LAMBDA_ENABLED is not 'true', passing through to function runtime", http_proxy_print_prefix)
+	// LIVE_LAMBDA_ENABLED is either "false", "true" (legacy), or a Unix timestamp.
+	// When set to a timestamp, the extension checks if it's within the heartbeat
+	// window (5 minutes). If the serve command stops without cleanup, the heartbeat
+	// expires and proxying auto-disables.
+	live_lambda_value := os.Getenv("LIVE_LAMBDA_ENABLED")
+	proxy_enabled := false
+	if live_lambda_value == "true" {
+		proxy_enabled = true
+	} else if live_lambda_value != "" && live_lambda_value != "false" {
+		// Try parsing as Unix timestamp
+		if ts, err := strconv.ParseInt(live_lambda_value, 10, 64); err == nil {
+			heartbeat_window := int64(5 * 60) // 5 minutes
+			if time.Now().Unix()-ts < heartbeat_window {
+				proxy_enabled = true
+			} else {
+				log.Printf("%s LiveLambda heartbeat expired (set %ds ago, window %ds), passing through",
+					http_proxy_print_prefix, time.Now().Unix()-ts, heartbeat_window)
+			}
+		}
+	}
+
+	if !proxy_enabled {
+		log.Printf("%s LIVE_LAMBDA_ENABLED=%s, passing through to function runtime", http_proxy_print_prefix, live_lambda_value)
 		modified_body, modified_headers := process_request(r.Context(), request_id, body_bytes, resp.Header)
 		copy_headers(modified_headers, w.Header())
 		w.WriteHeader(resp.StatusCode)

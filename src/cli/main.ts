@@ -260,6 +260,19 @@ async function run_serve(
   logger.info('Enabling LiveLambda on all functions...')
   await set_live_lambda_enabled(layer_arns, true)
 
+  // Heartbeat: refresh the timestamp every 2 minutes so the Go extension
+  // knows the server is still alive. If the server dies without cleanup,
+  // the heartbeat expires after 5 minutes and proxying auto-disables.
+  const HEARTBEAT_INTERVAL_MS = 2 * 60 * 1000
+  const heartbeat_timer = setInterval(async () => {
+    try {
+      await set_live_lambda_enabled(layer_arns, true)
+      logger.debug('Heartbeat refreshed')
+    } catch (error) {
+      logger.debug(`Heartbeat refresh failed: ${error}`)
+    }
+  }, HEARTBEAT_INTERVAL_MS)
+
   await serve({ configs, layer_arns, display })
 
   // Watch for source changes and re-synth
@@ -271,6 +284,7 @@ async function run_serve(
     process.once('SIGTERM', resolve)
   })
 
+  clearInterval(heartbeat_timer)
   return layer_arns
 }
 

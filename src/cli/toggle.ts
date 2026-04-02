@@ -28,7 +28,7 @@ export async function set_live_lambda_enabled(
     errors: [],
   }
 
-  const value = enabled ? 'true' : 'false'
+  const value = enabled ? String(Math.floor(Date.now() / 1000)) : 'false'
   logger.info(`Setting LIVE_LAMBDA_ENABLED=${value} across ${layer_arns.size} region(s)`)
 
   for (const [region, layer_arn] of layer_arns) {
