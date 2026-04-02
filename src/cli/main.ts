@@ -7,6 +7,7 @@ import {
 } from '@aws-cdk/toolkit-lib'
 import { serve } from '../server/index.js'
 import { Command } from 'commander'
+import { execSync } from 'child_process'
 import * as fs from 'fs'
 import * as path from 'path'
 import chokidar from 'chokidar'
@@ -251,12 +252,18 @@ async function run_serve(
     result = resolve_all_server_configs_from_outputs()
   }
 
+  // Synth to generate compiled handler assets on disk
+  run_cdk_synth()
+
   const { configs, layer_arns } = result
 
   logger.info('Enabling LiveLambda on all functions...')
   await set_live_lambda_enabled(layer_arns, true)
 
   await serve({ configs, layer_arns, display })
+
+  // Watch for source changes and re-synth
+  watch_and_synth()
 
   // Keep the process alive until SIGINT/SIGTERM
   await new Promise<void>((resolve) => {
@@ -265,6 +272,118 @@ async function run_serve(
   })
 
   return layer_arns
+}
+
+function get_cdk_app_entrypoint(): string | undefined {
+  try {
+    const cdk_json = JSON.parse(fs.readFileSync('cdk.json', 'utf-8'))
+    return cdk_json.app as string | undefined
+  } catch {
+    return undefined
+  }
+}
+
+function get_cdk_watch_config(): { exclude?: string[]; gitignore?: boolean } | undefined {
+  try {
+    const cdk_json = JSON.parse(fs.readFileSync('cdk.json', 'utf-8'))
+    return cdk_json.watch as { exclude?: string[]; gitignore?: boolean } | undefined
+  } catch {
+    return undefined
+  }
+}
+
+function run_cdk_synth(): void {
+  const entrypoint = get_cdk_app_entrypoint()
+  if (!entrypoint) {
+    logger.warn('No cdk.json found — skipping synth. Handler assets may not be available.')
+    return
+  }
+
+  logger.info('Running CDK synth to generate handler assets...')
+  try {
+    execSync(
+      `npx cdk synth --all --quiet --output cdk.out/application --app '${entrypoint}'`,
+      { stdio: 'inherit', env: { ...process.env, NPM_CONFIG_LOGLEVEL: 'error' } }
+    )
+    logger.info('CDK synth complete — handler assets ready.')
+  } catch (error) {
+    logger.error(`CDK synth failed: ${error}`)
+    logger.warn('Handler assets may be missing. Local handler execution will fail for uncompiled functions.')
+  }
+}
+
+function watch_and_synth(): void {
+  const watch_config = get_cdk_watch_config()
+  const wc = watch_config as { exclude?: string[]; gitignore?: boolean } | undefined
+  let latch: 'open' | 'syncing' | 'queued' = 'open'
+
+  const synth = () => {
+    latch = 'syncing'
+    try {
+      run_cdk_synth()
+    } catch {
+      // Error already logged inside run_cdk_synth
+    }
+    while ((latch as string) === 'queued') {
+      latch = 'syncing'
+      logger.info('Changes detected during synth, re-synthesizing...')
+      try {
+        run_cdk_synth()
+      } catch {
+        // Error already logged
+      }
+    }
+    latch = 'open'
+  }
+
+  const exclude_dirs = new Set(['node_modules', '.git', 'cdk.out', 'dist'])
+  const exclude_extensions = new Set(wc?.exclude
+    ?.filter((p: string) => p.startsWith('**/*.'))
+    ?.map((p: string) => p.replace('**/*', '')) ?? [])
+
+  for (const entry of wc?.exclude ?? []) {
+    if (!entry.includes('*') && !entry.includes('/')) exclude_dirs.add(entry)
+  }
+
+  const use_gitignore = wc?.gitignore !== false
+  const ig = ignore()
+  if (use_gitignore) {
+    try {
+      ig.add(fs.readFileSync('.gitignore', 'utf-8'))
+    } catch {
+      // no .gitignore — fine
+    }
+  }
+
+  const watcher = chokidar.watch('.', {
+    followSymlinks: false,
+    ignored: (file_path: string) => {
+      if (file_path === '.') return false
+      const parts = file_path.split(path.sep)
+      if (parts.some(p => exclude_dirs.has(p) || (p.length > 1 && p.startsWith('.')))) return true
+      const ext = path.extname(file_path)
+      if (ext && exclude_extensions.has(ext)) return true
+      if (use_gitignore && ig.ignores(file_path)) return true
+      return false
+    },
+    ignoreInitial: true
+  })
+
+  watcher.on('error', (error: unknown) => {
+    logger.debug(`File watcher error (non-fatal): ${error}`)
+  })
+
+  watcher.on('all', (event: string, file_path: string) => {
+    if (latch === 'open') {
+      logger.info(`Detected change to '${file_path}' (${event}). Re-synthesizing...`)
+      synth()
+    } else {
+      latch = 'queued'
+      logger.debug(`Detected change to '${file_path}' (${event}) while syncing. Queued.`)
+    }
+  })
+
+  logger.info('Watching for file changes (will re-synth on change).')
 }
 
 async function fetch_outputs_from_cloudformation(): Promise<void> {
