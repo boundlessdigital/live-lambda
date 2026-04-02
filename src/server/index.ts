@@ -38,20 +38,35 @@ export async function serve(config: ServerConfig): Promise<void> {
     throw new Error('No regional server configs provided')
   }
 
-  // Resolve developer credentials ONCE at startup before any handler execution
-  // can pollute process.env. The credential provider is passed to each AppSync
-  // client via the `credentials` option so signing is isolated from env changes.
+  // Create a credential provider that caches resolved credentials but refreshes
+  // when they're near expiration. This isolates AppSync signing from process.env
+  // mutations during handler execution (Lambda role assumption).
   const base_provider = aws_profile
     ? fromIni({ profile: aws_profile })
     : fromNodeProviderChain()
-  const dev_credentials = await base_provider()
-  logger.info(`Resolved developer credentials: ${dev_credentials.accessKeyId.substring(0, 10)}...`)
 
-  const static_credential_provider: CredentialProvider = async () => dev_credentials
+  let cached_credentials = await base_provider()
+  logger.info(`Resolved developer credentials: ${cached_credentials.accessKeyId.substring(0, 10)}...`)
+
+  const REFRESH_BUFFER_MS = 5 * 60 * 1000 // refresh 5 minutes before expiry
+
+  const refreshing_credential_provider: CredentialProvider = async () => {
+    const expiration = cached_credentials.expiration
+    if (expiration && Date.now() > expiration.getTime() - REFRESH_BUFFER_MS) {
+      logger.info('Developer credentials near expiry — refreshing...')
+      try {
+        cached_credentials = await base_provider()
+        logger.info(`Refreshed developer credentials: ${cached_credentials.accessKeyId.substring(0, 10)}...`)
+      } catch (error) {
+        logger.error(`Failed to refresh credentials: ${error}`)
+      }
+    }
+    return cached_credentials
+  }
 
   await Promise.all(
     configs.map((regional_config) =>
-      connect_region(regional_config, static_credential_provider, display)
+      connect_region(regional_config, refreshing_credential_provider, display)
     )
   )
 
