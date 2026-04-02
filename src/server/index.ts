@@ -12,7 +12,8 @@ const MAX_RECONNECT_DELAY_MS = 30_000
 export async function serve(config: ServerConfig): Promise<void> {
   logger.start('Starting LiveLambda server...')
 
-  const { configs, display } = config
+  const { configs, display, profile } = config
+  const aws_profile = profile ?? process.env.AWS_PROFILE
 
   if (configs.length === 0) {
     throw new Error('No regional server configs provided')
@@ -20,7 +21,7 @@ export async function serve(config: ServerConfig): Promise<void> {
 
   await Promise.all(
     configs.map((regional_config) =>
-      connect_region(regional_config, display)
+      connect_region(regional_config, aws_profile, display)
     )
   )
 
@@ -29,6 +30,7 @@ export async function serve(config: ServerConfig): Promise<void> {
 
 async function connect_region(
   regional_config: RegionalServerConfig,
+  profile: string | undefined,
   display?: TerminalDisplay
 ): Promise<void> {
   const { region } = regional_config
@@ -38,6 +40,7 @@ async function connect_region(
   async function connect_and_subscribe() {
     const client = new AppSyncEventWebSocketClient({
       ...regional_config,
+      ...(profile && { profile }),
       debug: !display,
       on_error: (error: unknown) => {
         logger.error(`[${region}] WebSocket error: ${JSON.stringify(error)}`)
