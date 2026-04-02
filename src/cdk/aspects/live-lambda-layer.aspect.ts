@@ -1,6 +1,6 @@
 import * as cdk from 'aws-cdk-lib'
 import * as lambda from 'aws-cdk-lib/aws-lambda'
-import { CfnOutput, Stack } from 'aws-cdk-lib'
+import { CfnOutput } from 'aws-cdk-lib'
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
 import * as ssm from 'aws-cdk-lib/aws-ssm'
 import * as iam from 'aws-cdk-lib/aws-iam'
@@ -16,14 +16,27 @@ import {
   ENV_KEY_APPSYNC_REGION,
   ENV_KEY_APPSYNC_REALTIME_HOST,
   ENV_KEY_APPSYNC_HTTP_HOST,
+  ENV_KEY_LIVE_LAMBDA_ENABLED,
   ENV_LAMBDA_EXEC_WRAPPER,
   ENV_LRAP_LISTENER_PORT,
   ENV_EXTENSION_NAME,
+  ENV_LIVE_LAMBDA_ENABLED_DEFAULT,
 } from '../../lib/constants.js'
+
+export interface RegionalInfra {
+  readonly appsync_stack: AppSyncStack
+  readonly layer_stack: LiveLambdaLayerStack
+}
 
 export interface LiveLambdaLayerAspectProps {
   readonly layer_stack: LiveLambdaLayerStack
   readonly appsync_stack: AppSyncStack
+  /**
+   * Per-region infrastructure map. When provided, the aspect uses the correct
+   * regional infra (AppSync + Layer) for each Lambda based on its stack's region.
+   * Falls back to the primary appsync_stack/layer_stack for unknown regions.
+   */
+  readonly regional_infra?: Map<string, RegionalInfra>
   include_patterns?: string[]
   exclude_patterns?: string[]
   /**
@@ -61,20 +74,34 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
     this.props = props
   }
 
+  private get_infra_for_region(region: string): RegionalInfra {
+    if (this.props.regional_infra) {
+      const regional = this.props.regional_infra.get(region)
+      if (regional) return regional
+    }
+    return {
+      appsync_stack: this.props.appsync_stack,
+      layer_stack: this.props.layer_stack
+    }
+  }
+
   public visit(node: IConstruct): void {
     if (node instanceof NodejsFunction) {
       const function_path = node.node.path
       const stack_name = node.stack.stackName
-
       const stack = cdk.Stack.of(node)
-      stack.addDependency(this.props.layer_stack)
-      stack.addDependency(this.props.appsync_stack)
-
-      const cfn_function = node.node.defaultChild as lambda.CfnFunction // L1 construct
 
       if (should_skip_function(this.props, function_path, stack_name)) {
         return
       }
+
+      // Resolve the correct regional infrastructure for this Lambda's region
+      const infra = this.get_infra_for_region(stack.region)
+
+      stack.addDependency(infra.layer_stack)
+      stack.addDependency(infra.appsync_stack)
+
+      const cfn_function = node.node.defaultChild as lambda.CfnFunction // L1 construct
 
       // Use a unique ID derived from the full construct path for the imported layer version
       const path_suffix = node.node.path.replace(/[^a-zA-Z0-9-]/g, '-')
@@ -83,7 +110,7 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
 
       const layer_arn = ssm.StringParameter.valueForStringParameter(
         stack,
-        this.props.layer_stack.layer_arn_ssm_parameter
+        infra.layer_stack.layer_arn_ssm_parameter
       )
 
       const imported_layer = lambda.LayerVersion.fromLayerVersionArn(
@@ -98,7 +125,7 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
       // which don't create Fn::ImportValue dependencies between stacks.
       const api_arn = ssm.StringParameter.valueForStringParameter(
         stack,
-        this.props.appsync_stack.ssm_paths.api_arn
+        infra.appsync_stack.ssm_paths.api_arn
       )
 
       node.addToRolePolicy(
@@ -147,18 +174,19 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
       node.addEnvironment(ENV_KEY_LAMBDA_EXEC_WRAPPER, ENV_LAMBDA_EXEC_WRAPPER)
       node.addEnvironment(ENV_KEY_LRAP_LISTENER_PORT, ENV_LRAP_LISTENER_PORT)
       node.addEnvironment(ENV_KEY_EXTENSION_NAME, ENV_EXTENSION_NAME)
+      node.addEnvironment(ENV_KEY_LIVE_LAMBDA_ENABLED, ENV_LIVE_LAMBDA_ENABLED_DEFAULT)
 
       // Add AppSync configuration as environment variables for the extension.
       // httpDns and realtimeDns are read from SSM to avoid cross-stack exports.
       const http_dns = ssm.StringParameter.valueForStringParameter(
         stack,
-        this.props.appsync_stack.ssm_paths.http_dns
+        infra.appsync_stack.ssm_paths.http_dns
       )
       const realtime_dns = ssm.StringParameter.valueForStringParameter(
         stack,
-        this.props.appsync_stack.ssm_paths.realtime_dns
+        infra.appsync_stack.ssm_paths.realtime_dns
       )
-      node.addEnvironment(ENV_KEY_APPSYNC_REGION, this.props.appsync_stack.region)
+      node.addEnvironment(ENV_KEY_APPSYNC_REGION, infra.appsync_stack.region)
       node.addEnvironment(ENV_KEY_APPSYNC_REALTIME_HOST, realtime_dns)
       node.addEnvironment(ENV_KEY_APPSYNC_HTTP_HOST, http_dns)
 
@@ -170,29 +198,25 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
         .replace(new RegExp(`^.*?${node.stack.node.id}/`), '')
         .replace(/\//g, '-')
       const output_id = path_in_stack.replace(/[^a-zA-Z0-9-]/g, '')
-      const sanitized_stack = node.stack.stackName.replace(/[^a-zA-Z0-9:-]/g, '-')
 
-      // Add CloudFormation outputs for Function ARN and Role ARN
+      // Add CloudFormation outputs for Function ARN and Role ARN.
+      // No exportName — outputs are read via outputs.json, not cross-stack imports.
       new cdk.CfnOutput(node.stack, `${output_id}Arn`, {
         value: node.functionArn,
         description: `ARN of the Lambda function ${node.node.path}`,
-        exportName: `${sanitized_stack}-${output_id}-FunctionArn`
       })
 
       if (node.role) {
         new cdk.CfnOutput(node.stack, `${output_id}RoleArn`, {
           value: node.role.roleArn,
           description: `ARN of the execution role for Lambda function ${node.node.path}`,
-          exportName: `${sanitized_stack}-${output_id}-RoleArn`
         })
       }
 
-      // Output the Handler String
       if (cfn_function.handler) {
         new cdk.CfnOutput(node.stack, `${output_id}Handler`, {
           value: cfn_function.handler,
           description: `Handler string for function ${node.node.path}.`,
-          exportName: `${sanitized_stack}-${output_id}-Handler`
         })
       } else {
         logger.warn(
@@ -200,37 +224,28 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
         )
       }
 
-      // Output the path of the asset within cdk.out (Staged Asset Path)
       const cfnOptionsMetadata = cfn_function.cfnOptions?.metadata
       const asset_path_from_cfn_options = cfnOptionsMetadata?.['aws:asset:path']
 
       if (typeof asset_path_from_cfn_options === 'string') {
-        // With CDK Stages, asset paths are relative to the nested assembly
-        // (e.g., "../asset.abc123") rather than the cdk.out root. Using
-        // path.basename extracts just the asset directory name so we always
-        // produce "cdk.out/asset.abc123" regardless of nesting depth.
         new CfnOutput(node.stack, `${output_id}CdkOutAssetPath`, {
           value: path.join('cdk.out', path.basename(asset_path_from_cfn_options)),
           description: `Path to the function's code asset within the cdk.out directory (relative to project root).`,
-          exportName: `${sanitized_stack}-${output_id}-CdkOutAssetPath`
         })
       } else {
-        // Fallback to trying node.metadata if cfnOptions didn't work
         const asset_metadata_entry = cfn_function.node.metadata.find(
-          (m: any) => m.type === 'aws:asset:path'
+          (m: unknown) => (m as { type?: string }).type === 'aws:asset:path'
         )
 
         if (
           asset_metadata_entry &&
-          typeof asset_metadata_entry.data === 'string'
+          typeof (asset_metadata_entry as { data?: unknown }).data === 'string'
         ) {
           new CfnOutput(node.stack, `${output_id}CdkOutAssetPath`, {
-            value: path.join('cdk.out', path.basename(asset_metadata_entry.data)),
+            value: path.join('cdk.out', path.basename((asset_metadata_entry as { data: string }).data)),
             description: `Path to the function's code asset within the cdk.out directory (relative to project root).`,
-            exportName: `${sanitized_stack}-${output_id}-CdkOutAssetPath`
           })
         } else {
-          // If both methods fail, log the warning.
           logger.warn(
             `Could not find 'aws:asset:path' metadata for ${node.node.path} using cfnOptions.metadata or node.metadata. Cannot output cdk.out asset path.`
           )

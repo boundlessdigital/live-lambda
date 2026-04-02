@@ -1,12 +1,18 @@
 import type { APIGatewayProxyEventV2 } from 'aws-lambda'
 import type { TerminalDisplay } from '../lib/display/types.js'
 
-export interface ServerConfig {
+export interface RegionalServerConfig {
   region: string
   http: string
   realtime: string
-  layer_arn: string
-  profile?: string // Add profile
+}
+
+export type LayerArnByRegion = Map<string, string>
+
+export interface ServerConfig {
+  configs: RegionalServerConfig[]
+  layer_arns: LayerArnByRegion
+  profile?: string
   display?: TerminalDisplay
 }
 

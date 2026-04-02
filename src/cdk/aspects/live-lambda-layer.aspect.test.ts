@@ -345,20 +345,15 @@ describe('LiveLambdaLayerAspect', () => {
       })
     })
 
-    it('should have export names for outputs', () => {
+    it('should not have export names on outputs', () => {
       const { template } = create_test_setup()
+      const outputs = template.toJSON().Outputs
 
-      template.hasOutput('TestFunctionArn', {
-        Export: {
-          Name: 'TestAppStack-TestFunction-FunctionArn'
-        }
-      })
+      expect(outputs['TestFunctionArn']).toBeDefined()
+      expect(outputs['TestFunctionArn'].Export).toBeUndefined()
 
-      template.hasOutput('TestFunctionRoleArn', {
-        Export: {
-          Name: 'TestAppStack-TestFunction-RoleArn'
-        }
-      })
+      expect(outputs['TestFunctionRoleArn']).toBeDefined()
+      expect(outputs['TestFunctionRoleArn'].Export).toBeUndefined()
     })
   })
 

@@ -2,7 +2,7 @@ import * as cdk from 'aws-cdk-lib'
 import { Construct } from 'constructs'
 import { AppSyncStack } from './stacks/appsync.stack.js'
 import { LiveLambdaLayerStack } from './stacks/layer.stack.js'
-import { LiveLambdaLayerAspect } from './aspects/live-lambda-layer.aspect.js'
+import { LiveLambdaLayerAspect, RegionalInfra } from './aspects/live-lambda-layer.aspect.js'
 import {
   CONTEXT_APP_NAME,
   CONTEXT_ENVIRONMENT,
@@ -36,6 +36,38 @@ export interface LiveLambdaInstallProps {
    * Example: ['arn:aws:iam::OTHER_ACCOUNT:user/developer']
    */
   developer_principal_arns?: string[]
+  /**
+   * Additional AWS regions that need LiveLambda infrastructure.
+   *
+   * By default, LiveLambda creates AppSync + Layer stacks only in the primary `env` region.
+   * If your CDK app deploys Lambda functions to other regions (e.g., global stacks in us-east-1
+   * while regional stacks are in us-east-2), those Lambdas need their own LiveLambda infra
+   * because Lambda layers are region-specific and SSM parameters resolve per-region.
+   *
+   * Provide additional region strings here and LiveLambda will create the necessary
+   * infrastructure stacks in each region. The aspect will automatically route each Lambda
+   * to the correct regional infrastructure.
+   *
+   * @example
+   * LiveLambda.install(app, {
+   *   env: { account: '123456789012', region: 'us-east-2' },
+   *   additional_regions: ['us-east-1'],  // Global stacks deploy here
+   * })
+   */
+  additional_regions?: string[]
+  /**
+   * Construct path patterns to exclude from LiveLambda instrumentation.
+   * Functions whose construct path contains any of these patterns will not
+   * get the LiveLambda layer or environment variables.
+   * Example: ['ScheduledConfigSync'] to exclude infrastructure Lambdas.
+   */
+  exclude_patterns?: string[]
+  /**
+   * Lambda architectures to include in the layer.
+   * Defaults to both ['x86_64', 'arm64']. Set to a single architecture
+   * to halve the layer size (~8MB per binary).
+   */
+  architectures?: ('x86_64' | 'arm64')[]
 }
 
 export class LiveLambda {
@@ -62,6 +94,7 @@ export class LiveLambda {
     const appsync_id = auto_prefix ? APPSYNC_STACK_NAME : `${prefix}-${APPSYNC_STACK_NAME}`
     const layer_id = auto_prefix ? LAYER_STACK_NAME : `${prefix}-${LAYER_STACK_NAME}`
 
+    // Primary region infrastructure
     const appsync_stack = new AppSyncStack(scope, appsync_id, {
       env,
       prefix,
@@ -72,13 +105,56 @@ export class LiveLambda {
       api: appsync_stack.api,
       env,
       ssm_parameter_path: layer_arn_ssm_path(prefix),
-      layer_version_name: layer_version_name(prefix)
+      layer_version_name: layer_version_name(prefix),
+      architectures: props?.architectures,
     })
+
+    // Build regional infra map (region → { appsync_stack, layer_stack })
+    const primary_region = env?.region
+    const regional_infra: Map<string, RegionalInfra> = new Map()
+
+    if (primary_region) {
+      regional_infra.set(primary_region, { appsync_stack, layer_stack })
+    }
+
+    // Create infrastructure for additional regions
+    for (const region of props?.additional_regions ?? []) {
+      if (region === primary_region) continue
+
+      const region_env: cdk.Environment = { account: env?.account, region }
+      const region_short = region.replace(/-/g, '')
+
+      const r_appsync_id = auto_prefix
+        ? `${APPSYNC_STACK_NAME}-${region_short}`
+        : `${prefix}-${APPSYNC_STACK_NAME}-${region_short}`
+
+      const r_layer_id = auto_prefix
+        ? `${LAYER_STACK_NAME}-${region_short}`
+        : `${prefix}-${LAYER_STACK_NAME}-${region_short}`
+
+      const r_appsync = new AppSyncStack(scope, r_appsync_id, {
+        env: region_env,
+        prefix,
+        ssm_paths: appsync_ssm_paths(prefix)
+      })
+
+      const r_layer = new LiveLambdaLayerStack(scope, r_layer_id, {
+        api: r_appsync.api,
+        env: region_env,
+        ssm_parameter_path: layer_arn_ssm_path(prefix),
+        architectures: props?.architectures,
+        layer_version_name: layer_version_name(prefix)
+      })
+
+      regional_infra.set(region, { appsync_stack: r_appsync, layer_stack: r_layer })
+    }
 
     const aspect = new LiveLambdaLayerAspect({
       appsync_stack,
       layer_stack,
-      developer_principal_arns: props?.developer_principal_arns
+      regional_infra: regional_infra.size > 0 ? regional_infra : undefined,
+      developer_principal_arns: props?.developer_principal_arns,
+      exclude_patterns: props?.exclude_patterns,
     })
 
     if (!props?.skip_layer) {

@@ -29,11 +29,13 @@ vi.mock('fs', () => ({
   existsSync: mock_exists_sync,
   writeFileSync: mock_write_file_sync,
   unlinkSync: mock_unlink_sync,
+  readdirSync: vi.fn().mockReturnValue([]),
   default: {
     readFileSync: mock_read_file_sync,
     existsSync: mock_exists_sync,
     writeFileSync: mock_write_file_sync,
-    unlinkSync: mock_unlink_sync
+    unlinkSync: mock_unlink_sync,
+    readdirSync: vi.fn().mockReturnValue([]),
   }
 }))
 

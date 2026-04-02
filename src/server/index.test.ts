@@ -48,10 +48,16 @@ import { ServerConfig } from './types.js'
 
 describe('server index', () => {
   const mock_config: ServerConfig = {
-    region: 'us-east-1',
-    http: 'https://test-api.appsync-api.us-east-1.amazonaws.com/event',
-    realtime: 'wss://test-api.appsync-realtime-api.us-east-1.amazonaws.com/event/realtime',
-    layer_arn: 'arn:aws:lambda:us-east-1:123456789012:layer:live-lambda:1',
+    configs: [
+      {
+        region: 'us-east-1',
+        http: 'https://test-api.appsync-api.us-east-1.amazonaws.com/event',
+        realtime: 'wss://test-api.appsync-realtime-api.us-east-1.amazonaws.com/event/realtime',
+      }
+    ],
+    layer_arns: new Map([
+      ['us-east-1', 'arn:aws:lambda:us-east-1:123456789012:layer:live-lambda:1'],
+    ]),
     profile: 'test-profile'
   }
 
@@ -66,12 +72,12 @@ describe('server index', () => {
     it('should create AppSyncEventWebSocketClient with provided config', async () => {
       await serve(mock_config)
 
+      const regional = mock_config.configs[0]
       expect(mock_client_constructor).toHaveBeenCalledWith(
         expect.objectContaining({
-          region: mock_config.region,
-          http: mock_config.http,
-          realtime: mock_config.realtime,
-          layer_arn: mock_config.layer_arn
+          region: regional.region,
+          http: regional.http,
+          realtime: regional.realtime,
         })
       )
     })

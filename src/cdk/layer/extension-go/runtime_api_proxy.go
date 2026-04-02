@@ -59,7 +59,19 @@ func (p *RuntimeAPIProxy) handle_next(w http.ResponseWriter, r *http.Request) {
 		log.Printf("%s Warning: No request ID found in headers", http_proxy_print_prefix)
 	}
 
-	// 4. Check if we should use AppSync
+	// 4. Check if live-lambda proxying is enabled (per-invocation toggle)
+	if os.Getenv("LIVE_LAMBDA_ENABLED") != "true" {
+		log.Printf("%s LIVE_LAMBDA_ENABLED is not 'true', passing through to function runtime", http_proxy_print_prefix)
+		modified_body, modified_headers := process_request(r.Context(), request_id, body_bytes, resp.Header)
+		copy_headers(modified_headers, w.Header())
+		w.WriteHeader(resp.StatusCode)
+		if _, err := w.Write(modified_body); err != nil {
+			log.Printf("%s Error writing response: %v", http_proxy_print_prefix, err)
+		}
+		return
+	}
+
+	// 5. Check if we should use AppSync
 	if p.appsync_ws_client != nil && p.appsync_ws_client.IsConnected() && request_id != "" {
 		// Create a context with our timeout
 		ctx, cancel := context.WithTimeout(r.Context(), websocketTimeout)
@@ -219,7 +231,7 @@ func (p *RuntimeAPIProxy) handle_next(w http.ResponseWriter, r *http.Request) {
         }
     }
 
-    // 8. If we get here, either we're not using AppSync or there was an error
+    // 9. If we get here, either we're not using AppSync or there was an error
     // Just return the original Lambda response
     modified_body, modified_headers := process_request(r.Context(), request_id, body_bytes, resp.Header)
     copy_headers(modified_headers, w.Header())

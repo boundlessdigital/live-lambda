@@ -31,6 +31,9 @@ export const ENV_KEY_EXTENSION_NAME = 'AWS_LAMBDA_EXTENSION_NAME'
 export const ENV_KEY_APPSYNC_REGION = 'LIVE_LAMBDA_APPSYNC_REGION'
 export const ENV_KEY_APPSYNC_REALTIME_HOST = 'LIVE_LAMBDA_APPSYNC_REALTIME_HOST'
 export const ENV_KEY_APPSYNC_HTTP_HOST = 'LIVE_LAMBDA_APPSYNC_HTTP_HOST'
+export const ENV_KEY_LIVE_LAMBDA_ENABLED = 'LIVE_LAMBDA_ENABLED'
+
+export const ENV_LIVE_LAMBDA_ENABLED_DEFAULT = 'false'
 
 // All live-lambda env var keys for cleanup operations
 export const LIVE_LAMBDA_ENV_VARS = [
@@ -40,6 +43,7 @@ export const LIVE_LAMBDA_ENV_VARS = [
   ENV_KEY_APPSYNC_REGION,
   ENV_KEY_APPSYNC_REALTIME_HOST,
   ENV_KEY_APPSYNC_HTTP_HOST,
+  ENV_KEY_LIVE_LAMBDA_ENABLED,
 ] as const
 
 // Environment variable values set by the aspect
@@ -68,16 +72,40 @@ export function compute_prefix(app_name: string, environment: string, app_id?: s
  * Assembly patterns use `/` (e.g., `prefix/AppSyncStack`) for
  * CDK Toolkit's PATTERN_MATCH strategy which matches against `hierarchicalId`.
  */
-export function prefixed_stack_names(prefix: string) {
+export interface RegionalStackNames {
+  appsync: string
+  layer: string
+}
+
+export function prefixed_stack_names(prefix: string, additional_regions?: string[]) {
+  const regional = new Map<string, RegionalStackNames>()
+
+  for (const region of additional_regions ?? []) {
+    const region_short = region.replace(/-/g, '')
+    regional.set(region, {
+      appsync: `${prefix}-${APPSYNC_STACK_NAME}-${region_short}`,
+      layer: `${prefix}-${LAYER_STACK_NAME}-${region_short}`,
+    })
+  }
+
+  const regional_all = [...regional.values()].flatMap(r => [r.appsync, r.layer])
+  const regional_patterns = [...regional.values()].flatMap(r => [
+    r.appsync.replace(`${prefix}-`, `${prefix}/`),
+    r.layer.replace(`${prefix}-`, `${prefix}/`),
+  ])
+
   return {
-    /** CloudFormation stack name (for deployment results, outputs.json, cdk.list) */
     appsync: `${prefix}-${APPSYNC_STACK_NAME}`,
-    /** CloudFormation stack name (for deployment results, outputs.json, cdk.list) */
     layer: `${prefix}-${LAYER_STACK_NAME}`,
-    /** CloudFormation stack names */
-    all: INTERNAL_STACK_BASE_NAMES.map(name => `${prefix}-${name}`),
-    /** Assembly path patterns for PATTERN_MATCH (uses `/` separator for Stage nesting) */
-    patterns: INTERNAL_STACK_BASE_NAMES.map(name => `${prefix}/${name}`)
+    all: [
+      ...INTERNAL_STACK_BASE_NAMES.map(name => `${prefix}-${name}`),
+      ...regional_all,
+    ],
+    patterns: [
+      ...INTERNAL_STACK_BASE_NAMES.map(name => `${prefix}/${name}`),
+      ...regional_patterns,
+    ],
+    regional,
   }
 }
 

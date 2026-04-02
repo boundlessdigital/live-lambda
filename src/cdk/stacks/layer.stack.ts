@@ -21,6 +21,8 @@ interface LiveLambdaLayerStackProps extends cdk.StackProps {
   readonly layer_version_name: string
   /** Override asset path for testing. If not provided, uses the default dist directory. */
   readonly asset_path?: string
+  /** Architectures to include. Defaults to both x86_64 and arm64. */
+  readonly architectures?: ('x86_64' | 'arm64')[]
 }
 
 export class LiveLambdaLayerStack extends cdk.Stack {
@@ -39,15 +41,27 @@ export class LiveLambdaLayerStack extends cdk.Stack {
     // After refactoring, __dirname is '.../dist/cdk/stacks', so we go up two levels.
     const extension_path = props.asset_path ?? join(__dirname, '..', '..')
 
+    const arch_config = props.architectures ?? ['x86_64', 'arm64']
+    const compatible_architectures = arch_config.map(a =>
+      a === 'arm64' ? lambda.Architecture.ARM_64 : lambda.Architecture.X86_64
+    )
+
+    const exclude_binaries: string[] = []
+    if (!arch_config.includes('x86_64')) exclude_binaries.push('extensions/bin/live-lambda-extension-go-amd64')
+    if (!arch_config.includes('arm64')) exclude_binaries.push('extensions/bin/live-lambda-extension-go-arm64')
+
     this.layer = new lambda.LayerVersion(this, LAYER_LOGICAL_ID, {
       layerVersionName: props.layer_version_name,
-      code: lambda.Code.fromAsset(extension_path),
-      compatibleArchitectures: [
-        lambda.Architecture.ARM_64,
-        lambda.Architecture.X86_64
-      ],
-
-      description: LAYER_DESCRIPTION
+      code: lambda.Code.fromAsset(extension_path, {
+        exclude: [
+          '*.js', '*.d.ts', '*.js.map',
+          'cdk/**', 'cli/**', 'lib/**', 'server/**',
+          'go_extension.sha256',
+          ...exclude_binaries,
+        ],
+      }),
+      compatibleArchitectures: compatible_architectures,
+      description: LAYER_DESCRIPTION,
     })
 
     new cdk.CfnOutput(this, OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN, {

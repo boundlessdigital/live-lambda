@@ -18,6 +18,7 @@ import {
   ENV_KEY_APPSYNC_REGION,
   ENV_KEY_APPSYNC_REALTIME_HOST,
   ENV_KEY_APPSYNC_HTTP_HOST,
+  ENV_KEY_LIVE_LAMBDA_ENABLED,
   LIVE_LAMBDA_ENV_VARS,
   ENV_LAMBDA_EXEC_WRAPPER,
   ENV_LRAP_LISTENER_PORT,
@@ -97,14 +98,15 @@ describe('exported constants', () => {
   })
 
   describe('LIVE_LAMBDA_ENV_VARS', () => {
-    it('should contain all six env var keys', () => {
-      expect(LIVE_LAMBDA_ENV_VARS).toHaveLength(6)
+    it('should contain all env var keys including toggle', () => {
+      expect(LIVE_LAMBDA_ENV_VARS).toHaveLength(7)
       expect(LIVE_LAMBDA_ENV_VARS).toContain(ENV_KEY_LAMBDA_EXEC_WRAPPER)
       expect(LIVE_LAMBDA_ENV_VARS).toContain(ENV_KEY_LRAP_LISTENER_PORT)
       expect(LIVE_LAMBDA_ENV_VARS).toContain(ENV_KEY_EXTENSION_NAME)
       expect(LIVE_LAMBDA_ENV_VARS).toContain(ENV_KEY_APPSYNC_REGION)
       expect(LIVE_LAMBDA_ENV_VARS).toContain(ENV_KEY_APPSYNC_REALTIME_HOST)
       expect(LIVE_LAMBDA_ENV_VARS).toContain(ENV_KEY_APPSYNC_HTTP_HOST)
+      expect(LIVE_LAMBDA_ENV_VARS).toContain(ENV_KEY_LIVE_LAMBDA_ENABLED)
     })
   })
 

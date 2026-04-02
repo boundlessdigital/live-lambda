@@ -23,19 +23,23 @@ import {
   OUTPUT_EVENT_API_HTTP_HOST,
   OUTPUT_EVENT_API_REALTIME_HOST,
   compute_prefix,
-  prefixed_stack_names
+  prefixed_stack_names,
+  APPSYNC_STACK_NAME,
+  LAYER_STACK_NAME,
 } from '../lib/constants.js'
+import type { RegionalServerConfig } from '../server/types.js'
 import {
   CloudFormationClient,
-  DescribeStacksCommand
+  DescribeStacksCommand,
+  ListStacksCommand,
 } from '@aws-sdk/client-cloudformation'
 import { clean_lambda_functions, extract_region_from_arn } from './lambda_cleanup.js'
+import { set_live_lambda_enabled, type LayerArnByRegion } from './toggle.js'
 
 const CDK_OUTPUTS_FILE = 'cdk.out/outputs.json'
 const MAX_CONCURRENCY = 5
 
 export async function main(command: Command) {
-  // Suppress npm warnings from CDK bundling picking up pnpm-specific .npmrc settings
   process.env.NPM_CONFIG_LOGLEVEL ??= 'error'
 
   const parent_opts = command.parent?.opts() ?? {}
@@ -51,12 +55,23 @@ export async function main(command: Command) {
     ioHost: custom_io_host
   })
 
+  let active_layer_arns: LayerArnByRegion | undefined
+
   const cleanup_tasks = async () => {
     keypress.stop()
     custom_io_host.cleanup()
+
+    if (active_layer_arns && active_layer_arns.size > 0) {
+      logger.info('Disabling LiveLambda on all functions...')
+      try {
+        await set_live_lambda_enabled(active_layer_arns, false)
+      } catch (error) {
+        logger.error(`Failed to disable LiveLambda during cleanup: ${error}`)
+      }
+      active_layer_arns = undefined
+    }
   }
 
-  // Handle graceful shutdown
   process.on('SIGINT', async () => {
     await cleanup_tasks()
     process.exit(0)
@@ -74,32 +89,41 @@ export async function main(command: Command) {
 
     const command_name = command.name()
 
-    const cdk_json = JSON.parse(
-      fs.readFileSync('cdk.json', 'utf-8')
-    )
-    const { app: entrypoint, watch: watch_config, context } = cdk_json
+    // Commands that don't need CDK
+    if (command_name === 'serve') {
+      active_layer_arns = await run_serve(display)
+    } else if (command_name === 'enable' || command_name === 'disable') {
+      const { layer_arns } = resolve_all_server_configs_from_outputs()
+      await set_live_lambda_enabled(layer_arns, command_name === 'enable')
+    } else {
+      // Commands that need CDK context and assembly
+      const cdk_json = JSON.parse(
+        fs.readFileSync('cdk.json', 'utf-8')
+      )
+      const { app: entrypoint, watch: watch_config, context } = cdk_json
 
-    // Resolve the deployment prefix from cdk.json context
-    const prefix = resolve_prefix_from_context(context ?? {})
-    const stack_names = prefixed_stack_names(prefix)
+      const prefix = resolve_prefix_from_context(context ?? {})
+      const additional_regions = resolve_additional_regions(context ?? {})
+      const stack_names = prefixed_stack_names(prefix, additional_regions)
 
-    const assembly = await cdk.fromCdkApp(entrypoint)
+      const assembly = await cdk.fromCdkApp(entrypoint)
 
-    if (command_name === 'bootstrap') {
-      await run_bootstrap(cdk, assembly, stack_names)
-    }
+      if (command_name === 'bootstrap') {
+        await run_bootstrap(cdk, assembly, stack_names)
+      }
 
-    if (command_name === 'dev') {
-      await run_dev(cdk, assembly, watch_config, stack_names, display)
-    }
+      if (command_name === 'dev') {
+        active_layer_arns = await run_dev(cdk, assembly, watch_config, stack_names, display)
+      }
 
-    if (command_name === 'destroy') {
-      await run_destroy(cdk, assembly, stack_names)
-    }
+      if (command_name === 'destroy') {
+        await run_destroy(cdk, assembly, stack_names)
+      }
 
-    if (command_name === 'uninstall') {
-      const skip_cleanup = command.opts().skipCleanup ?? false
-      await run_uninstall(cdk, assembly, skip_cleanup, stack_names)
+      if (command_name === 'uninstall') {
+        const skip_cleanup = command.opts().skipCleanup ?? false
+        await run_uninstall(cdk, assembly, skip_cleanup, stack_names)
+      }
     }
   } catch (error) {
     if (error instanceof ConfigError) {
@@ -117,6 +141,7 @@ interface StackNames {
   layer: string
   all: string[]
   patterns: string[]
+  regional: Map<string, { appsync: string; layer: string }>
 }
 
 function resolve_prefix_from_context(context: Record<string, string>): string {
@@ -147,6 +172,12 @@ function resolve_prefix_from_context(context: Record<string, string>): string {
   return compute_prefix(app_name, environment, app_id)
 }
 
+function resolve_additional_regions(context: Record<string, unknown>): string[] {
+  const regions = context['live_lambda_additional_regions']
+  if (Array.isArray(regions)) return regions as string[]
+  return []
+}
+
 async function is_environment_bootstrapped(region: string): Promise<boolean> {
   try {
     const cfn = new CloudFormationClient({ region })
@@ -168,7 +199,6 @@ async function bootstrap_cdk_environment(cdk: Toolkit, assembly: ICloudAssemblyS
     stacks.map(s => `aws://${s.environment.account}/${s.environment.region}`)
   )]
 
-  // Check if all environments are already bootstrapped
   const regions = [...new Set(stacks.map(s => s.environment.region))]
   const checks = await Promise.all(regions.map(is_environment_bootstrapped))
   if (checks.every(Boolean)) {
@@ -191,32 +221,112 @@ async function run_bootstrap(cdk: Toolkit, assembly: ICloudAssemblySource, stack
 async function run_dev(
   cdk: Toolkit,
   assembly: ICloudAssemblySource,
-  watch_config: any,
+  watch_config: unknown,
   stack_names: StackNames,
   display?: TerminalDisplay
-): Promise<void> {
+): Promise<LayerArnByRegion> {
   await bootstrap_cdk_environment(cdk, assembly)
 
-  // Deploy ALL stacks to populate outputs.json with function ARNs, handlers, and asset paths.
-  // The server needs these outputs to resolve which local handler to execute for each Lambda.
   const deployment = await deploy_all_stacks(cdk, assembly)
 
-  const config = extract_server_config(deployment, stack_names)
-  await serve({ ...config, display })
+  const { configs, layer_arns } = extract_all_server_configs(deployment, stack_names)
+
+  logger.info('Enabling LiveLambda on all functions...')
+  await set_live_lambda_enabled(layer_arns, true)
+
+  await serve({ configs, layer_arns, display })
   await watch_and_deploy(cdk, assembly, watch_config)
+
+  return layer_arns
+}
+
+async function run_serve(
+  display?: TerminalDisplay
+): Promise<LayerArnByRegion> {
+  let result = resolve_all_server_configs_from_outputs()
+
+  if (result.configs.length === 0) {
+    logger.info('No outputs.json found — fetching LiveLambda stack outputs from CloudFormation...')
+    await fetch_outputs_from_cloudformation()
+    result = resolve_all_server_configs_from_outputs()
+  }
+
+  const { configs, layer_arns } = result
+
+  logger.info('Enabling LiveLambda on all functions...')
+  await set_live_lambda_enabled(layer_arns, true)
+
+  await serve({ configs, layer_arns, display })
+
+  return layer_arns
+}
+
+async function fetch_outputs_from_cloudformation(): Promise<void> {
+  const outputs: Record<string, Record<string, string>> = {}
+  const common_regions = ['us-east-1', 'us-east-2', 'eu-west-1', 'eu-central-1', 'us-west-2', 'ca-central-1']
+  const active_regions: string[] = []
+
+  for (const region of common_regions) {
+    try {
+      const cfn = new CloudFormationClient({ region })
+      const result = await cfn.send(new ListStacksCommand({
+        StackStatusFilter: ['CREATE_COMPLETE', 'UPDATE_COMPLETE', 'UPDATE_ROLLBACK_COMPLETE'],
+      }))
+
+      const stacks_with_outputs = (result.StackSummaries ?? [])
+        .filter(s => s.StackName && !s.StackName.includes('CDKToolkit'))
+
+      if (stacks_with_outputs.length === 0) continue
+      active_regions.push(region)
+
+      logger.info(`[${region}] Fetching outputs from ${stacks_with_outputs.length} stacks...`)
+
+      const batch_size = 10
+      for (let i = 0; i < stacks_with_outputs.length; i += batch_size) {
+        const batch = stacks_with_outputs.slice(i, i + batch_size)
+        const results = await Promise.allSettled(
+          batch.map(async (stack) => {
+            const detail = await cfn.send(new DescribeStacksCommand({ StackName: stack.StackName }))
+            const stack_outputs: Record<string, string> = {}
+            for (const o of detail.Stacks?.[0]?.Outputs ?? []) {
+              if (o.OutputKey && o.OutputValue) stack_outputs[o.OutputKey] = o.OutputValue
+            }
+            if (Object.keys(stack_outputs).length > 0) {
+              outputs[stack.StackName!] = stack_outputs
+            }
+          })
+        )
+
+        for (const r of results) {
+          if (r.status === 'rejected') {
+            logger.debug(`  Failed to fetch stack outputs: ${r.reason}`)
+          }
+        }
+      }
+    } catch {
+      // Region not accessible — skip
+    }
+  }
+
+  if (Object.keys(outputs).length === 0) {
+    throw new ServerConfigError(
+      'No stacks found in any region. Deploy with "live-lambda dev" or "cdk deploy" first.'
+    )
+  }
+
+  const outputs_path = path.join(process.cwd(), CDK_OUTPUTS_FILE)
+  fs.mkdirSync(path.dirname(outputs_path), { recursive: true })
+  fs.writeFileSync(outputs_path, JSON.stringify(outputs, null, 2))
+  logger.info(`Wrote outputs from ${Object.keys(outputs).length} stacks across ${active_regions.length} region(s)`)
 }
 
 async function run_destroy(cdk: Toolkit, assembly: ICloudAssemblySource, stack_names: StackNames) {
   const internal = new Set<string>(stack_names.all)
 
-  // List all stacks in the assembly to find consumer stacks
   const all_stacks = await cdk.list(assembly, {
     stacks: { strategy: StackSelectionStrategy.ALL_STACKS }
   })
 
-  // Filter out internal live-lambda stacks by CloudFormation name (s.name).
-  // Extract hierarchical IDs from s.id (format: "hierarchicalId (stackName)")
-  // because PATTERN_MATCH matches against hierarchicalId, not stackName.
   const consumer_patterns = all_stacks
     .filter((s) => !internal.has(s.name))
     .map((s) => extract_hierarchical_id(s.id))
@@ -235,10 +345,6 @@ async function run_destroy(cdk: Toolkit, assembly: ICloudAssemblySource, stack_n
   })
 }
 
-/**
- * Extract the hierarchical ID from a StackDetails.id string.
- * CDK displayName format: "hierarchicalId (stackName)" or just "stackId".
- */
 function extract_hierarchical_id(display_name: string): string {
   const paren_index = display_name.indexOf(' (')
   return paren_index >= 0 ? display_name.slice(0, paren_index) : display_name
@@ -253,10 +359,11 @@ async function run_uninstall(
   if (!skip_cleanup) {
     logger.info('Cleaning live-lambda configuration from Lambda functions...')
 
-    const layer_arn = resolve_layer_arn(stack_names)
-    if (layer_arn) {
-      const region = extract_region_from_arn(layer_arn)
-      await clean_lambda_functions(region, layer_arn)
+    const layer_arns = resolve_all_layer_arns(stack_names)
+    if (layer_arns.size > 0) {
+      for (const [region, layer_arn] of layer_arns) {
+        await clean_lambda_functions(region, layer_arn)
+      }
     } else {
       logger.warn(
         'Could not determine layer ARN from outputs.json. ' +
@@ -312,9 +419,10 @@ async function destroy_internal_stacks(cdk: Toolkit, assembly: ICloudAssemblySou
 async function watch_and_deploy(
   cdk: Toolkit,
   assembly: ICloudAssemblySource,
-  watch_config: any
+  watch_config: unknown
 ) {
   let latch: 'open' | 'deploying' | 'queued' = 'open'
+  const wc = watch_config as { exclude?: string[]; gitignore?: boolean } | undefined
 
   const deploy = async () => {
     latch = 'deploying'
@@ -336,15 +444,15 @@ async function watch_and_deploy(
   }
 
   const exclude_dirs = new Set(['node_modules', '.git', 'cdk.out', 'dist'])
-  const exclude_extensions = new Set(watch_config?.exclude
+  const exclude_extensions = new Set(wc?.exclude
     ?.filter((p: string) => p.startsWith('**/*.'))
     ?.map((p: string) => p.replace('**/*', '')) ?? [])
 
-  for (const entry of watch_config?.exclude ?? []) {
+  for (const entry of wc?.exclude ?? []) {
     if (!entry.includes('*') && !entry.includes('/')) exclude_dirs.add(entry)
   }
 
-  const use_gitignore = watch_config?.gitignore !== false
+  const use_gitignore = wc?.gitignore !== false
   const ig = ignore()
   if (use_gitignore) {
     try {
@@ -383,20 +491,69 @@ async function watch_and_deploy(
   })
 }
 
-function resolve_layer_arn(stack_names: StackNames): string | undefined {
+function resolve_all_server_configs_from_outputs(): ExtractedServerConfigs {
+  const outputs_path = path.join(process.cwd(), CDK_OUTPUTS_FILE)
+
+  if (fs.existsSync(outputs_path)) {
+    return parse_outputs_file(outputs_path)
+  }
+
+  return { configs: [], layer_arns: new Map() }
+}
+
+function parse_outputs_file(outputs_path: string): ExtractedServerConfigs {
+  const outputs = JSON.parse(fs.readFileSync(outputs_path, 'utf-8'))
+  const configs: RegionalServerConfig[] = []
+  const layer_arns: LayerArnByRegion = new Map()
+
+  for (const stack_name of Object.keys(outputs)) {
+    if (!stack_name.includes(APPSYNC_STACK_NAME)) continue
+
+    const stack_outputs = outputs[stack_name]
+    const http = stack_outputs?.[OUTPUT_EVENT_API_HTTP_HOST]
+    const realtime = stack_outputs?.[OUTPUT_EVENT_API_REALTIME_HOST]
+    if (!http || !realtime) continue
+
+    const layer_stack_name = stack_name.replace(APPSYNC_STACK_NAME, LAYER_STACK_NAME)
+    const layer_arn = outputs[layer_stack_name]?.[OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]
+    if (!layer_arn) continue
+
+    const region = extract_region_from_arn(layer_arn)
+    configs.push({ region, http, realtime })
+    layer_arns.set(region, layer_arn)
+  }
+
+  if (configs.length > 0) {
+    logger.info(`Resolved ${configs.length} region(s) from outputs: ${configs.map(c => c.region).join(', ')}`)
+  }
+
+  return { configs, layer_arns }
+}
+
+function resolve_all_layer_arns(stack_names: StackNames): LayerArnByRegion {
+  const layer_arns: LayerArnByRegion = new Map()
+
   try {
     const outputs_path = path.join(process.cwd(), CDK_OUTPUTS_FILE)
-    if (fs.existsSync(outputs_path)) {
-      const outputs = JSON.parse(fs.readFileSync(outputs_path, 'utf-8'))
-      const layer_stack = outputs[stack_names.layer]
-      if (layer_stack?.[OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]) {
-        return layer_stack[OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]
+    if (!fs.existsSync(outputs_path)) return layer_arns
+
+    const outputs = JSON.parse(fs.readFileSync(outputs_path, 'utf-8'))
+
+    // Scan all stacks in outputs for layer ARNs (handles both primary and regional)
+    for (const stack_name of Object.keys(outputs)) {
+      if (!stack_name.includes(LAYER_STACK_NAME)) continue
+
+      const arn = outputs[stack_name]?.[OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]
+      if (arn) {
+        const region = extract_region_from_arn(arn)
+        layer_arns.set(region, arn)
       }
     }
   } catch {
-    logger.debug('Could not read layer ARN from outputs.json')
+    logger.debug('Could not read layer ARNs from outputs.json')
   }
-  return undefined
+
+  return layer_arns
 }
 
 export class ConfigError extends Error {
@@ -413,50 +570,93 @@ export class ServerConfigError extends ConfigError {
   }
 }
 
-function extract_server_config(deployment: DeployResult, stack_names: StackNames) {
+interface ExtractedServerConfigs {
+  configs: RegionalServerConfig[]
+  layer_arns: LayerArnByRegion
+}
+
+function extract_region_config(
+  deployment: DeployResult,
+  appsync_stack_name: string,
+  layer_stack_name: string,
+): { config: RegionalServerConfig; layer_arn: string } | undefined {
   const events = deployment.stacks.find(
-    (stack) => stack.stackName === stack_names.appsync
+    (stack) => stack.stackName === appsync_stack_name
   )
-
   const layer = deployment.stacks.find(
-    (stack) => stack.stackName === stack_names.layer
+    (stack) => stack.stackName === layer_stack_name
   )
 
-  // Validate required stacks exist - use direct check for TypeScript narrowing
-  if (!events || !layer) {
-    const missing_stacks: string[] = []
-    if (!events) missing_stacks.push(stack_names.appsync)
-    if (!layer) missing_stacks.push(stack_names.layer)
-    throw new ServerConfigError(
-      `Missing required stacks: ${missing_stacks.join(', ')}. ` +
-        `Ensure 'LiveLambda.install(app)' is called in your CDK app and all stacks deployed successfully.`
-    )
-  }
+  if (!events || !layer) return undefined
 
-  // Extract values - events and layer are now guaranteed to be defined
   const region = events.environment?.region
   const http = events.outputs[OUTPUT_EVENT_API_HTTP_HOST]
   const realtime = events.outputs[OUTPUT_EVENT_API_REALTIME_HOST]
   const layer_arn = layer.outputs[OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN]
 
-  // Validate required outputs exist
-  const missing_outputs: string[] = []
-  if (!region) missing_outputs.push('region (from AppSync stack environment)')
-  if (!http) missing_outputs.push(OUTPUT_EVENT_API_HTTP_HOST)
-  if (!realtime) missing_outputs.push(OUTPUT_EVENT_API_REALTIME_HOST)
-  if (!layer_arn) missing_outputs.push(OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN)
+  if (!region || !http || !realtime || !layer_arn) return undefined
 
-  if (missing_outputs.length > 0) {
+  return {
+    config: { region, http, realtime },
+    layer_arn,
+  }
+}
+
+function extract_all_server_configs(
+  deployment: DeployResult,
+  stack_names: StackNames
+): ExtractedServerConfigs {
+  const configs: RegionalServerConfig[] = []
+  const layer_arns: LayerArnByRegion = new Map()
+
+  // Primary region
+  const primary = extract_region_config(
+    deployment,
+    stack_names.appsync,
+    stack_names.layer,
+  )
+
+  if (!primary) {
     throw new ServerConfigError(
-      `Missing required stack outputs: ${missing_outputs.join(', ')}. ` +
-        `This may indicate a partial deployment. Run 'live-lambda destroy' then 'live-lambda dev' to redeploy.`
+      `Missing required primary stacks (${stack_names.appsync}, ${stack_names.layer}). ` +
+      `Ensure 'LiveLambda.install(app)' is called in your CDK app and all stacks deployed successfully.`
     )
   }
 
-  return {
-    region,
-    http,
-    realtime,
-    layer_arn
+  configs.push(primary.config)
+  layer_arns.set(primary.config.region, primary.layer_arn)
+
+  // Discover additional regional stacks from deployment result.
+  // Regional stacks follow the naming pattern: {prefix}-LiveLambda-AppSyncStack-{regionshort}
+  const appsync_prefix = stack_names.appsync // e.g. "main-development-LiveLambda-AppSyncStack"
+  const layer_prefix = stack_names.layer     // e.g. "main-development-LiveLambda-LayerStack"
+
+  for (const stack of deployment.stacks) {
+    if (stack.stackName.startsWith(appsync_prefix + '-') && stack.stackName !== appsync_prefix) {
+      const region_suffix = stack.stackName.slice(appsync_prefix.length + 1)
+      const matching_layer_name = `${layer_prefix}-${region_suffix}`
+      const regional = extract_region_config(deployment, stack.stackName, matching_layer_name)
+
+      if (regional && !layer_arns.has(regional.config.region)) {
+        configs.push(regional.config)
+        layer_arns.set(regional.config.region, regional.layer_arn)
+        logger.info(`[${regional.config.region}] Additional region configured`)
+      }
+    }
   }
+
+  // Also check explicitly configured regional stacks
+  for (const [region, names] of stack_names.regional) {
+    if (layer_arns.has(region)) continue
+    const regional = extract_region_config(deployment, names.appsync, names.layer)
+    if (regional) {
+      configs.push(regional.config)
+      layer_arns.set(region, regional.layer_arn)
+      logger.info(`[${region}] Additional region configured`)
+    }
+  }
+
+  logger.info(`Server will connect to ${configs.length} region(s): ${configs.map(c => c.region).join(', ')}`)
+
+  return { configs, layer_arns }
 }

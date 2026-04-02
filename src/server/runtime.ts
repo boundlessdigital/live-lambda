@@ -124,6 +124,34 @@ function extract_source_from_sourcemap(
  * This function scans all keys to find one ending in 'Arn' whose value matches the function ARN,
  * then returns the prefix so we can look up the related Handler and CdkOutAssetPath keys.
  */
+function resolve_asset_path(raw_asset_path: string | undefined): string | undefined {
+  if (!raw_asset_path) return undefined
+
+  const normalized = raw_asset_path.startsWith('cdk.out/')
+    ? raw_asset_path
+    : path.join('cdk.out', raw_asset_path)
+
+  if (fs.existsSync(normalized)) return normalized
+
+  // When CDK deploys with --output cdk.out/<subdir>, assets end up in
+  // cdk.out/<subdir>/asset.xxx instead of cdk.out/asset.xxx.
+  const asset_dir = path.basename(normalized)
+  const cdk_out = path.dirname(normalized)
+
+  try {
+    const entries = fs.readdirSync(cdk_out, { withFileTypes: true })
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue
+      const candidate = path.join(cdk_out, entry.name, asset_dir)
+      if (fs.existsSync(candidate)) return candidate
+    }
+  } catch {
+    // cdk.out doesn't exist — fall through
+  }
+
+  return normalized
+}
+
 function find_function_output_prefix(
   stack_outputs: { [key: string]: string | undefined },
   function_arn: string
@@ -160,11 +188,7 @@ function resolve_handler_from_outputs(
 
     const handler_string = stack_outputs[`${prefix}Handler`]
     const raw_asset_path = stack_outputs[`${prefix}CdkOutAssetPath`]
-    // Ensure asset path includes cdk.out/ prefix. Older deployments or
-    // CDK Stage-related path resolution may omit it.
-    const asset_path = raw_asset_path?.startsWith('cdk.out/')
-      ? raw_asset_path
-      : raw_asset_path ? path.join('cdk.out', raw_asset_path) : undefined
+    const asset_path = resolve_asset_path(raw_asset_path)
 
     if (!handler_string || !asset_path) {
       logger.warn(

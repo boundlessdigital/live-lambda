@@ -5,13 +5,11 @@
 
 # Documentation: https://docs.aws.amazon.com/lambda/latest/dg/runtimes-modify.html#runtime-wrapper
 
-# The port our extension's proxy server (RuntimeApiProxy) is listening on.
-# This will be provided by the LRAP_LISTENER_PORT environment variable.
-# Default to 8082 if not set, to align with CDK default.
-LISTENER_PORT="${LRAP_LISTENER_PORT:-8082}"
+# Only redirect Runtime API when LiveLambda proxying is enabled.
+# When disabled, the function talks directly to the real Runtime API.
+if [ "$LIVE_LAMBDA_ENABLED" = "true" ]; then
+    LISTENER_PORT="${LRAP_LISTENER_PORT:-8082}"
+    export AWS_LAMBDA_RUNTIME_API="127.0.0.1:${LISTENER_PORT}"
+fi
 
-export AWS_LAMBDA_RUNTIME_API="127.0.0.1:${LISTENER_PORT}"
-
-# Execute the original handler command (e.g., node index.js)
-# "$@" contains the original command and arguments provided by AWS Lambda.
 exec "$@"

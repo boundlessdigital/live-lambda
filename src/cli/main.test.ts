@@ -30,6 +30,7 @@ const {
   mock_logger,
   mock_clean_lambda_functions,
   mock_extract_region_from_arn,
+  mock_set_live_lambda_enabled,
   mock_keypress_start,
   mock_keypress_stop,
   mock_display_info,
@@ -56,6 +57,7 @@ const {
   },
   mock_clean_lambda_functions: vi.fn(),
   mock_extract_region_from_arn: vi.fn(),
+  mock_set_live_lambda_enabled: vi.fn(),
   mock_keypress_start: vi.fn(),
   mock_keypress_stop: vi.fn(),
   mock_display_info: vi.fn(),
@@ -158,6 +160,12 @@ vi.mock('./lambda_cleanup.js', () => {
   return {
     clean_lambda_functions: mock_clean_lambda_functions,
     extract_region_from_arn: mock_extract_region_from_arn
+  }
+})
+
+vi.mock('./toggle.js', () => {
+  return {
+    set_live_lambda_enabled: mock_set_live_lambda_enabled
   }
 })
 
@@ -264,6 +272,7 @@ describe('main', () => {
     mock_list.mockResolvedValue([mock_stack('MockStack', { environment: { account: '123456789012', region: 'us-east-1' } })])
     mock_bootstrap.mockResolvedValue(undefined)
     mock_serve.mockResolvedValue(undefined)
+    mock_set_live_lambda_enabled.mockResolvedValue({ functions_toggled: 0, functions_scanned: 0, errors: [] })
     mock_clean_lambda_functions.mockResolvedValue({ functions_scanned: 0, functions_cleaned: 0, errors: [] })
     mock_extract_region_from_arn.mockReturnValue('us-east-1')
   })
@@ -388,7 +397,7 @@ describe('main', () => {
       })
     })
 
-    it('should start server after deployment', async () => {
+    it('should start server after deployment and enable toggle', async () => {
       const command = create_mock_command('dev')
       mock_deploy.mockResolvedValue(
         create_mock_deployment([
@@ -412,12 +421,20 @@ describe('main', () => {
 
       await main(command)
 
+      expect(mock_set_live_lambda_enabled).toHaveBeenCalledWith(
+        expect.any(Map),
+        true
+      )
       expect(mock_serve).toHaveBeenCalledWith(
         expect.objectContaining({
-          region: 'us-east-1',
-          http: 'http-host.appsync.aws',
-          realtime: 'realtime-host.appsync.aws',
-          layer_arn: 'arn:aws:lambda:us-east-1:123456789012:layer:LiveLambdaProxy:1',
+          configs: [
+            {
+              region: 'us-east-1',
+              http: 'http-host.appsync.aws',
+              realtime: 'realtime-host.appsync.aws',
+            }
+          ],
+          layer_arns: expect.any(Map),
           display: expect.any(Object)
         })
       )
@@ -615,16 +632,32 @@ describe('main', () => {
 
       expect(mock_serve).toHaveBeenCalledWith(
         expect.objectContaining({
-          region: 'eu-west-1',
-          http: 'abc123.appsync-api.eu-west-1.amazonaws.com',
-          realtime: 'abc123.appsync-realtime.eu-west-1.amazonaws.com',
-          layer_arn: 'arn:aws:lambda:eu-west-1:123456789012:layer:LiveLambdaProxy:5',
+          configs: [
+            {
+              region: 'eu-west-1',
+              http: 'abc123.appsync-api.eu-west-1.amazonaws.com',
+              realtime: 'abc123.appsync-realtime.eu-west-1.amazonaws.com',
+            }
+          ],
+          layer_arns: expect.any(Map),
           display: expect.any(Object)
         })
       )
     })
 
-    it('should throw ServerConfigError when AppSync stack outputs are missing', async () => {
+    it('should throw ServerConfigError when primary stacks are missing from deployment', async () => {
+      const command = create_mock_command('dev')
+      mock_deploy.mockResolvedValue(create_mock_deployment([]))
+
+      await main(command)
+
+      expect(mock_logger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Missing required primary stacks')
+      )
+      expect(mock_serve).not.toHaveBeenCalled()
+    })
+
+    it('should throw ServerConfigError when primary stacks have missing outputs', async () => {
       const command = create_mock_command('dev')
       mock_deploy.mockResolvedValue(
         create_mock_deployment([
@@ -636,55 +669,9 @@ describe('main', () => {
       await main(command)
 
       expect(mock_logger.error).toHaveBeenCalledWith(
-        expect.stringContaining('Missing required stack outputs')
+        expect.stringContaining('Missing required primary stacks')
       )
       expect(mock_serve).not.toHaveBeenCalled()
-    })
-
-    it('should throw ServerConfigError when stacks are missing from deployment', async () => {
-      const command = create_mock_command('dev')
-      mock_deploy.mockResolvedValue(create_mock_deployment([]))
-
-      await main(command)
-
-      expect(mock_logger.error).toHaveBeenCalledWith(
-        expect.stringContaining('Missing required stacks')
-      )
-      expect(mock_serve).not.toHaveBeenCalled()
-    })
-
-    it('should list all missing stacks in error message', async () => {
-      const command = create_mock_command('dev')
-      mock_deploy.mockResolvedValue(create_mock_deployment([]))
-
-      await main(command)
-
-      expect(mock_logger.error).toHaveBeenCalledWith(
-        expect.stringMatching(new RegExp(`${APPSYNC_STACK_NAME}.*${LAYER_STACK_NAME}|${LAYER_STACK_NAME}.*${APPSYNC_STACK_NAME}`))
-      )
-    })
-
-    it('should list all missing outputs in error message', async () => {
-      const command = create_mock_command('dev')
-      mock_deploy.mockResolvedValue(
-        create_mock_deployment([
-          {
-            stackName: TEST_STACK_NAMES.appsync,
-            environment: { region: 'us-east-1' },
-            outputs: { [OUTPUT_EVENT_API_HTTP_HOST]: 'http-host' }
-          },
-          { stackName: TEST_STACK_NAMES.layer, outputs: {} }
-        ])
-      )
-
-      await main(command)
-
-      const error_msg = mock_logger.error.mock.calls.find(
-        (call: any[]) => typeof call[0] === 'string' && call[0].includes('Missing required')
-      )
-      expect(error_msg).toBeDefined()
-      expect(error_msg![0]).toContain(OUTPUT_EVENT_API_REALTIME_HOST)
-      expect(error_msg![0]).toContain(OUTPUT_LIVE_LAMBDA_PROXY_LAYER_ARN)
     })
   })
 

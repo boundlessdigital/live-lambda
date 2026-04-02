@@ -77,9 +77,13 @@ describe('LiveLambdaLayerStack', () => {
     })
 
     it('should be compatible with ARM64 and X86_64 architectures', () => {
-      template.hasResourceProperties('AWS::Lambda::LayerVersion', {
-        CompatibleArchitectures: Match.arrayWith(['arm64', 'x86_64'])
-      })
+      const layer = template.toJSON().Resources
+      const layer_resource = Object.values(layer).find(
+        (r: unknown) => (r as { Type: string }).Type === 'AWS::Lambda::LayerVersion'
+      ) as { Properties: { CompatibleArchitectures: string[] } }
+      const archs = layer_resource.Properties.CompatibleArchitectures
+      expect(archs).toContain('arm64')
+      expect(archs).toContain('x86_64')
     })
   })
 
