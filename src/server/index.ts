@@ -1,10 +1,17 @@
 import { AppSyncEventWebSocketClient } from '@boundlessdigital/aws-appsync-events-websockets-client'
+import { fromIni, fromNodeProviderChain } from '@aws-sdk/credential-providers'
 import { APPSYNC_EVENTS_API_NAMESPACE } from '../constants.js'
 import { execute_handler } from './runtime.js'
 import { logger } from '../lib/logger.js'
 import type { TerminalDisplay } from '../lib/display/types.js'
 
 import type { ServerConfig, RegionalServerConfig } from './types.js'
+
+type CredentialProvider = () => Promise<{
+  accessKeyId: string
+  secretAccessKey: string
+  sessionToken?: string
+}>
 
 const RECONNECT_DELAY_MS = 2_000
 const MAX_RECONNECT_DELAY_MS = 30_000
@@ -19,9 +26,20 @@ export async function serve(config: ServerConfig): Promise<void> {
     throw new Error('No regional server configs provided')
   }
 
+  // Resolve developer credentials ONCE at startup before any handler execution
+  // can pollute process.env. The credential provider is passed to each AppSync
+  // client via the `credentials` option so signing is isolated from env changes.
+  const base_provider = aws_profile
+    ? fromIni({ profile: aws_profile })
+    : fromNodeProviderChain()
+  const dev_credentials = await base_provider()
+  logger.info(`Resolved developer credentials: ${dev_credentials.accessKeyId.substring(0, 10)}...`)
+
+  const static_credential_provider: CredentialProvider = async () => dev_credentials
+
   await Promise.all(
     configs.map((regional_config) =>
-      connect_region(regional_config, aws_profile, display)
+      connect_region(regional_config, static_credential_provider, display)
     )
   )
 
@@ -30,7 +48,7 @@ export async function serve(config: ServerConfig): Promise<void> {
 
 async function connect_region(
   regional_config: RegionalServerConfig,
-  profile: string | undefined,
+  credential_provider: CredentialProvider,
   display?: TerminalDisplay
 ): Promise<void> {
   const { region } = regional_config
@@ -40,8 +58,9 @@ async function connect_region(
   async function connect_and_subscribe() {
     const client = new AppSyncEventWebSocketClient({
       ...regional_config,
-      ...(profile && { profile }),
+      credentials: credential_provider,
       debug: !display,
+      auto_reconnect: false,
       on_error: (error: unknown) => {
         logger.error(`[${region}] WebSocket error: ${JSON.stringify(error)}`)
       },

@@ -350,10 +350,16 @@ export async function execute_module_handler(
       AWS_ACCESS_KEY_ID: creds.accessKeyId,
       AWS_SECRET_ACCESS_KEY: creds.secretAccessKey,
       AWS_SESSION_TOKEN: creds.sessionToken,
-      // AWS_REGION is set by the Lambda runtime automatically, not as a
-      // configured env var. We must set it explicitly for local execution.
       AWS_REGION: region,
-      AWS_DEFAULT_REGION: region
+      AWS_DEFAULT_REGION: region,
+      // Lambda runtime env vars — set by the Lambda service, not in
+      // Environment.Variables. Required for runtime code that checks
+      // if it's running in Lambda (e.g. config loaders, tracing).
+      AWS_LAMBDA_FUNCTION_NAME: context.function_name,
+      AWS_LAMBDA_FUNCTION_VERSION: context.function_version,
+      AWS_LAMBDA_FUNCTION_MEMORY_SIZE: context.memory_size_mb,
+      AWS_LAMBDA_LOG_GROUP_NAME: context.log_group_name,
+      AWS_LAMBDA_LOG_STREAM_NAME: context.log_stream_name,
     })
 
     /* ---------- 4 · load & run the handler ------------ */

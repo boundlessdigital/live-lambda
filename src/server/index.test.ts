@@ -30,6 +30,19 @@ vi.mock('./runtime.js', () => ({
   execute_handler: mock_execute_handler
 }))
 
+vi.mock('@aws-sdk/credential-providers', () => ({
+  fromIni: () => async () => ({
+    accessKeyId: 'AKIATEST',
+    secretAccessKey: 'testSecret',
+    sessionToken: 'testToken',
+  }),
+  fromNodeProviderChain: () => async () => ({
+    accessKeyId: 'AKIATEST',
+    secretAccessKey: 'testSecret',
+    sessionToken: 'testToken',
+  }),
+}))
+
 vi.mock('../lib/logger.js', () => ({
   logger: {
     trace: vi.fn(),

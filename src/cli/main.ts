@@ -258,6 +258,12 @@ async function run_serve(
 
   await serve({ configs, layer_arns, display })
 
+  // Keep the process alive until SIGINT/SIGTERM
+  await new Promise<void>((resolve) => {
+    process.once('SIGINT', resolve)
+    process.once('SIGTERM', resolve)
+  })
+
   return layer_arns
 }
 
