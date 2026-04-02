@@ -87,6 +87,14 @@ describe('LiveLambdaLayerStack', () => {
     })
   })
 
+  describe('Layer content hash', () => {
+    it('should expose layer_content_hash property', () => {
+      expect(stack.layer_content_hash).toBeDefined()
+      expect(typeof stack.layer_content_hash).toBe('string')
+      expect(stack.layer_content_hash.length).toBeGreaterThan(0)
+    })
+  })
+
   describe('SSM Parameter', () => {
     it('should create SSM StringParameter', () => {
       template.resourceCountIs('AWS::SSM::Parameter', 1)

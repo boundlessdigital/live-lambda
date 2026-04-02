@@ -5,6 +5,7 @@ import * as ssm from 'aws-cdk-lib/aws-ssm'
 import { Construct } from 'constructs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { readFileSync, existsSync } from 'node:fs'
 import {
   LAYER_LOGICAL_ID,
   LAYER_DESCRIPTION,
@@ -28,18 +29,22 @@ interface LiveLambdaLayerStackProps extends cdk.StackProps {
 export class LiveLambdaLayerStack extends cdk.Stack {
   public readonly layer_arn_ssm_parameter: string
   public readonly layer: lambda.LayerVersion
+  public readonly layer_content_hash: string
 
   constructor(scope: Construct, id: string, props: LiveLambdaLayerStackProps) {
     super(scope, id, props)
 
     this.layer_arn_ssm_parameter = props.ssm_parameter_path
 
-    // Artifacts are prepared by scripts/build-extension-artifacts.sh in the dist/ directory
-    // The root 'dist' directory will contain the necessary 'extensions/' subdirectory
-    // and 'live-lambda-runtime-wrapper.sh' for the layer.
-    // The asset for the layer is the entire compiled 'dist' directory.
-    // After refactoring, __dirname is '.../dist/cdk/stacks', so we go up two levels.
     const extension_path = props.asset_path ?? join(__dirname, '..', '..')
+
+    // Read the Go extension content hash computed during build.
+    // This hash changes when the extension binary changes, enabling
+    // consumer stacks to detect layer updates via an environment variable.
+    const hash_file = join(extension_path, 'go_extension.sha256')
+    this.layer_content_hash = existsSync(hash_file)
+      ? readFileSync(hash_file, 'utf-8').trim()
+      : 'unknown'
 
     const arch_config = props.architectures ?? ['x86_64', 'arm64']
     const compatible_architectures = arch_config.map(a =>

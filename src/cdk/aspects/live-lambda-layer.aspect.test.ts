@@ -60,6 +60,7 @@ class TestableAppSyncStack extends cdk.Stack {
 class TestableLayerStack extends cdk.Stack {
   public readonly layer_arn_ssm_parameter: string
   public readonly layer: lambda.LayerVersion
+  public readonly layer_content_hash: string = 'test-hash-abc123'
 
   constructor(
     scope: Construct,
@@ -312,6 +313,18 @@ describe('LiveLambdaLayerAspect', () => {
             LIVE_LAMBDA_APPSYNC_REGION: Match.anyValue(),
             LIVE_LAMBDA_APPSYNC_REALTIME_HOST: Match.anyValue(),
             LIVE_LAMBDA_APPSYNC_HTTP_HOST: Match.anyValue()
+          })
+        }
+      })
+    })
+
+    it('should set LIVE_LAMBDA_LAYER_HASH env var for layer version drift detection', () => {
+      const { template } = create_test_setup()
+
+      template.hasResourceProperties('AWS::Lambda::Function', {
+        Environment: {
+          Variables: Match.objectLike({
+            LIVE_LAMBDA_LAYER_HASH: Match.anyValue()
           })
         }
       })

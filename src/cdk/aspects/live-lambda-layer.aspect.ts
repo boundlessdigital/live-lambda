@@ -17,6 +17,7 @@ import {
   ENV_KEY_APPSYNC_REALTIME_HOST,
   ENV_KEY_APPSYNC_HTTP_HOST,
   ENV_KEY_LIVE_LAMBDA_ENABLED,
+  ENV_KEY_LIVE_LAMBDA_LAYER_HASH,
   ENV_LAMBDA_EXEC_WRAPPER,
   ENV_LRAP_LISTENER_PORT,
   ENV_EXTENSION_NAME,
@@ -175,6 +176,7 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
       node.addEnvironment(ENV_KEY_LRAP_LISTENER_PORT, ENV_LRAP_LISTENER_PORT)
       node.addEnvironment(ENV_KEY_EXTENSION_NAME, ENV_EXTENSION_NAME)
       node.addEnvironment(ENV_KEY_LIVE_LAMBDA_ENABLED, ENV_LIVE_LAMBDA_ENABLED_DEFAULT)
+      node.addEnvironment(ENV_KEY_LIVE_LAMBDA_LAYER_HASH, infra.layer_stack.layer_content_hash)
 
       // Add AppSync configuration as environment variables for the extension.
       // httpDns and realtimeDns are read from SSM to avoid cross-stack exports.
