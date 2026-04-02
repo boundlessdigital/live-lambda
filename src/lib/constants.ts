@@ -33,6 +33,11 @@ export const ENV_KEY_APPSYNC_REALTIME_HOST = 'LIVE_LAMBDA_APPSYNC_REALTIME_HOST'
 export const ENV_KEY_APPSYNC_HTTP_HOST = 'LIVE_LAMBDA_APPSYNC_HTTP_HOST'
 export const ENV_KEY_LIVE_LAMBDA_ENABLED = 'LIVE_LAMBDA_ENABLED'
 export const ENV_KEY_LIVE_LAMBDA_LAYER_HASH = 'LIVE_LAMBDA_LAYER_HASH'
+export const ENV_KEY_LIVE_LAMBDA_HEARTBEAT_SSM_PATH = 'LIVE_LAMBDA_HEARTBEAT_SSM_PATH'
+
+export function heartbeat_ssm_path(prefix: string): string {
+  return `${LAYER_ARN_SSM_PARAMETER_BASE}/${prefix}/heartbeat`
+}
 
 export const ENV_LIVE_LAMBDA_ENABLED_DEFAULT = 'false'
 
@@ -46,6 +51,7 @@ export const LIVE_LAMBDA_ENV_VARS = [
   ENV_KEY_APPSYNC_HTTP_HOST,
   ENV_KEY_LIVE_LAMBDA_ENABLED,
   ENV_KEY_LIVE_LAMBDA_LAYER_HASH,
+  ENV_KEY_LIVE_LAMBDA_HEARTBEAT_SSM_PATH,
 ] as const
 
 // Environment variable values set by the aspect

@@ -155,6 +155,7 @@ export class LiveLambda {
       regional_infra: regional_infra.size > 0 ? regional_infra : undefined,
       developer_principal_arns: props?.developer_principal_arns,
       exclude_patterns: props?.exclude_patterns,
+      prefix,
     })
 
     if (!props?.skip_layer) {

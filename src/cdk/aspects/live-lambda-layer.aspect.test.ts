@@ -171,7 +171,8 @@ describe('LiveLambdaLayerAspect', () => {
       appsync_stack: appsync_stack as any,
       include_patterns: options?.include_patterns,
       exclude_patterns: options?.exclude_patterns,
-      developer_principal_arns: options?.developer_principal_arns
+      developer_principal_arns: options?.developer_principal_arns,
+      prefix: 'test-app-dev',
     }
 
     const aspect = new LiveLambdaLayerAspect(aspect_props)
@@ -397,6 +398,7 @@ describe('LiveLambdaLayerAspect', () => {
       })
 
       const aspect = new LiveLambdaLayerAspect({
+      prefix: 'test-app-dev',
         layer_stack: layer_stack as any,
         appsync_stack: appsync_stack as any
       })
@@ -516,6 +518,7 @@ describe('LiveLambdaLayerAspect', () => {
       })
 
       const aspect = new LiveLambdaLayerAspect({
+      prefix: 'test-app-dev',
         layer_stack: layer_stack as any,
         appsync_stack: appsync_stack as any,
         include_patterns: ['ApiHandler', 'ProcessorFunction'] // OtherFunction not in list
@@ -571,6 +574,7 @@ describe('LiveLambdaLayerAspect', () => {
       })
 
       const aspect = new LiveLambdaLayerAspect({
+      prefix: 'test-app-dev',
         layer_stack: layer_stack as any,
         appsync_stack: appsync_stack as any,
         exclude_patterns: ['Admin'] // AdminHandler matches this
@@ -640,6 +644,7 @@ describe('LiveLambdaLayerAspect', () => {
       })
 
       const aspect = new LiveLambdaLayerAspect({
+      prefix: 'test-app-dev',
         layer_stack: layer_stack as any,
         appsync_stack: appsync_stack as any,
         include_patterns: ['Api'], // Include functions with Api
@@ -720,6 +725,7 @@ describe('LiveLambdaLayerAspect', () => {
       })
 
       const aspect = new LiveLambdaLayerAspect({
+      prefix: 'test-app-dev',
         layer_stack: layer_stack as any,
         appsync_stack: appsync_stack as any
       })

@@ -18,10 +18,12 @@ import {
   ENV_KEY_APPSYNC_HTTP_HOST,
   ENV_KEY_LIVE_LAMBDA_ENABLED,
   ENV_KEY_LIVE_LAMBDA_LAYER_HASH,
+  ENV_KEY_LIVE_LAMBDA_HEARTBEAT_SSM_PATH,
   ENV_LAMBDA_EXEC_WRAPPER,
   ENV_LRAP_LISTENER_PORT,
   ENV_EXTENSION_NAME,
   ENV_LIVE_LAMBDA_ENABLED_DEFAULT,
+  heartbeat_ssm_path,
 } from '../../lib/constants.js'
 
 export interface RegionalInfra {
@@ -47,6 +49,8 @@ export interface LiveLambdaLayerAspectProps {
    * Example: ['arn:aws:iam::OTHER_ACCOUNT:user/developer']
    */
   developer_principal_arns?: string[]
+  /** Deployment prefix for computing SSM paths. */
+  readonly prefix: string
 }
 
 interface LiveLambdaMapEntryForCDK {
@@ -177,6 +181,16 @@ export class LiveLambdaLayerAspect implements cdk.IAspect {
       node.addEnvironment(ENV_KEY_EXTENSION_NAME, ENV_EXTENSION_NAME)
       node.addEnvironment(ENV_KEY_LIVE_LAMBDA_ENABLED, ENV_LIVE_LAMBDA_ENABLED_DEFAULT)
       node.addEnvironment(ENV_KEY_LIVE_LAMBDA_LAYER_HASH, infra.layer_stack.layer_content_hash)
+
+      const hb_path = heartbeat_ssm_path(this.props.prefix)
+      node.addEnvironment(ENV_KEY_LIVE_LAMBDA_HEARTBEAT_SSM_PATH, hb_path)
+
+      node.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ['ssm:GetParameter'],
+          resources: [`arn:aws:ssm:${stack.region}:${stack.account}:parameter${hb_path}`]
+        })
+      )
 
       // Add AppSync configuration as environment variables for the extension.
       // httpDns and realtimeDns are read from SSM to avoid cross-stack exports.

@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	appsyncwsclient "github.com/boundlessdigital/aws-appsync-events-websockets-client-go"
-	// Old proxy import removed, http_proxy_handlers.go and extensions_api_client.go are now part of package main
 )
 
 // Environment variables for configuration
@@ -37,6 +37,7 @@ type RuntimeAPIProxy struct {
 	appsync_realtime_url string // Corresponds to ClientOptions.AppSyncRealtimeHost
 	aws_region           string // For AWS config
 	appsync_ws_client    *appsyncwsclient.Client
+	heartbeat_reader     *HeartbeatReader
 }
 
 // NewRuntimeAPIProxy constructor (ensure this is defined or updated)
@@ -84,12 +85,16 @@ func NewRuntimeAPIProxy(ctx context.Context, actual_runtime_api string, appsync_
 		return nil, fmt.Errorf("failed to create AppSync WebSocket client: %w", err)
 	}
 
+	ssm_client := ssm.NewFromConfig(aws_cfg)
+	heartbeat_reader := NewHeartbeatReader(ssm_client)
+
 	return &RuntimeAPIProxy{
 		ctx:                  ctx,
 		appsync_http_url:     appsync_http_url,
 		appsync_realtime_url: appsync_realtime_url,
 		aws_region:           aws_region,
 		appsync_ws_client:    client,
+		heartbeat_reader:     heartbeat_reader,
 	}, nil
 }
 

@@ -16,7 +16,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -60,30 +59,10 @@ func (p *RuntimeAPIProxy) handle_next(w http.ResponseWriter, r *http.Request) {
 		log.Printf("%s Warning: No request ID found in headers", http_proxy_print_prefix)
 	}
 
-	// 4. Check if live-lambda proxying is enabled (per-invocation toggle)
-	// LIVE_LAMBDA_ENABLED is either "false", "true" (legacy), or a Unix timestamp.
-	// When set to a timestamp, the extension checks if it's within the heartbeat
-	// window (5 minutes). If the serve command stops without cleanup, the heartbeat
-	// expires and proxying auto-disables.
-	live_lambda_value := os.Getenv("LIVE_LAMBDA_ENABLED")
-	proxy_enabled := false
-	if live_lambda_value == "true" {
-		proxy_enabled = true
-	} else if live_lambda_value != "" && live_lambda_value != "false" {
-		// Try parsing as Unix timestamp
-		if ts, err := strconv.ParseInt(live_lambda_value, 10, 64); err == nil {
-			heartbeat_window := int64(5 * 60) // 5 minutes
-			if time.Now().Unix()-ts < heartbeat_window {
-				proxy_enabled = true
-			} else {
-				log.Printf("%s LiveLambda heartbeat expired (set %ds ago, window %ds), passing through",
-					http_proxy_print_prefix, time.Now().Unix()-ts, heartbeat_window)
-			}
-		}
-	}
-
-	if !proxy_enabled {
-		log.Printf("%s LIVE_LAMBDA_ENABLED=%s, passing through to function runtime", http_proxy_print_prefix, live_lambda_value)
+	// 4. Check if live-lambda proxying is enabled
+	live_lambda_enabled := os.Getenv("LIVE_LAMBDA_ENABLED")
+	if live_lambda_enabled != "true" {
+		log.Printf("%s LIVE_LAMBDA_ENABLED=%s, passing through to function runtime", http_proxy_print_prefix, live_lambda_enabled)
 		modified_body, modified_headers := process_request(r.Context(), request_id, body_bytes, resp.Header)
 		copy_headers(modified_headers, w.Header())
 		w.WriteHeader(resp.StatusCode)
@@ -91,6 +70,21 @@ func (p *RuntimeAPIProxy) handle_next(w http.ResponseWriter, r *http.Request) {
 			log.Printf("%s Error writing response: %v", http_proxy_print_prefix, err)
 		}
 		return
+	}
+
+	// 4b. Check SSM heartbeat if path is configured
+	heartbeat_ssm_path := os.Getenv("LIVE_LAMBDA_HEARTBEAT_SSM_PATH")
+	if heartbeat_ssm_path != "" && p.heartbeat_reader != nil {
+		if !p.heartbeat_reader.is_heartbeat_active(r.Context(), heartbeat_ssm_path) {
+			log.Printf("%s Heartbeat inactive, passing through to function runtime", http_proxy_print_prefix)
+			modified_body, modified_headers := process_request(r.Context(), request_id, body_bytes, resp.Header)
+			copy_headers(modified_headers, w.Header())
+			w.WriteHeader(resp.StatusCode)
+			if _, err := w.Write(modified_body); err != nil {
+				log.Printf("%s Error writing response: %v", http_proxy_print_prefix, err)
+			}
+			return
+		}
 	}
 
 	// 5. Check if we should use AppSync

@@ -57,6 +57,7 @@
     "@aws-sdk/client-cloudformation": "^3.993.0",
     "@aws-sdk/client-lambda": "^3.806.0",
     "@aws-sdk/client-sqs": "^3.806.0",
+    "@aws-sdk/client-ssm": "^3.993.0",
     "@aws-sdk/client-sts": "^3.817.0",
     "@aws-sdk/credential-provider-ini": "^3.808.0",
     "@aws-sdk/credential-provider-node": "^3.804.0",

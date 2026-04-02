@@ -20,6 +20,7 @@ import {
   ENV_KEY_APPSYNC_HTTP_HOST,
   ENV_KEY_LIVE_LAMBDA_ENABLED,
   ENV_KEY_LIVE_LAMBDA_LAYER_HASH,
+  ENV_KEY_LIVE_LAMBDA_HEARTBEAT_SSM_PATH,
   LIVE_LAMBDA_ENV_VARS,
   ENV_LAMBDA_EXEC_WRAPPER,
   ENV_LRAP_LISTENER_PORT,
@@ -99,8 +100,8 @@ describe('exported constants', () => {
   })
 
   describe('LIVE_LAMBDA_ENV_VARS', () => {
-    it('should contain all env var keys including toggle and layer hash', () => {
-      expect(LIVE_LAMBDA_ENV_VARS).toHaveLength(8)
+    it('should contain all env var keys including toggle, layer hash, and heartbeat path', () => {
+      expect(LIVE_LAMBDA_ENV_VARS).toHaveLength(9)
       expect(LIVE_LAMBDA_ENV_VARS).toContain(ENV_KEY_LAMBDA_EXEC_WRAPPER)
       expect(LIVE_LAMBDA_ENV_VARS).toContain(ENV_KEY_LRAP_LISTENER_PORT)
       expect(LIVE_LAMBDA_ENV_VARS).toContain(ENV_KEY_EXTENSION_NAME)
@@ -109,6 +110,7 @@ describe('exported constants', () => {
       expect(LIVE_LAMBDA_ENV_VARS).toContain(ENV_KEY_APPSYNC_HTTP_HOST)
       expect(LIVE_LAMBDA_ENV_VARS).toContain(ENV_KEY_LIVE_LAMBDA_ENABLED)
       expect(LIVE_LAMBDA_ENV_VARS).toContain(ENV_KEY_LIVE_LAMBDA_LAYER_HASH)
+      expect(LIVE_LAMBDA_ENV_VARS).toContain(ENV_KEY_LIVE_LAMBDA_HEARTBEAT_SSM_PATH)
     })
   })
 

@@ -34,8 +34,10 @@ import {
   DescribeStacksCommand,
   ListStacksCommand,
 } from '@aws-sdk/client-cloudformation'
+import { SSMClient, PutParameterCommand, DeleteParameterCommand } from '@aws-sdk/client-ssm'
 import { clean_lambda_functions, extract_region_from_arn } from './lambda_cleanup.js'
 import { set_live_lambda_enabled, type LayerArnByRegion } from './toggle.js'
+import { heartbeat_ssm_path } from '../lib/constants.js'
 
 const CDK_OUTPUTS_FILE = SYNTH_CDK_OUTPUTS_FILE
 const MAX_CONCURRENCY = 5
@@ -260,13 +262,15 @@ async function run_serve(
   logger.info('Enabling LiveLambda on all functions...')
   await set_live_lambda_enabled(layer_arns, true)
 
-  // Heartbeat: refresh the timestamp every 2 minutes so the Go extension
-  // knows the server is still alive. If the server dies without cleanup,
-  // the heartbeat expires after 5 minutes and proxying auto-disables.
+  // Write SSM heartbeat in each region so the Go extension knows the server is alive
+  const regions = [...layer_arns.keys()]
+  await write_heartbeat(regions)
+
+  // Refresh heartbeat every 2 minutes (2 SSM writes, one per region)
   const HEARTBEAT_INTERVAL_MS = 2 * 60 * 1000
   const heartbeat_timer = setInterval(async () => {
     try {
-      await set_live_lambda_enabled(layer_arns, true)
+      await write_heartbeat(regions)
       logger.debug('Heartbeat refreshed')
     } catch (error) {
       logger.debug(`Heartbeat refresh failed: ${error}`)
@@ -284,8 +288,67 @@ async function run_serve(
     process.once('SIGTERM', resolve)
   })
 
+  // Cleanup heartbeat
+  await delete_heartbeat(regions)
+
   clearInterval(heartbeat_timer)
   return layer_arns
+}
+
+function get_heartbeat_prefix(): string {
+  try {
+    const cdk_json = JSON.parse(fs.readFileSync('cdk.json', 'utf-8'))
+    const context = cdk_json.context ?? {}
+    const app_name = context['app_name'] ?? ''
+    const environment = context['environment'] ?? ''
+    const app_id = context['app_id'] ?? ''
+    return [app_name, environment, app_id].filter(Boolean).join('-')
+  } catch {
+    return ''
+  }
+}
+
+async function write_heartbeat(regions: string[]): Promise<void> {
+  const prefix = get_heartbeat_prefix()
+  if (!prefix) {
+    logger.debug('No prefix for heartbeat — skipping')
+    return
+  }
+
+  const param_path = heartbeat_ssm_path(prefix)
+  const timestamp = String(Math.floor(Date.now() / 1000))
+
+  await Promise.all(regions.map(async (region) => {
+    try {
+      const ssm = new SSMClient({ region })
+      await ssm.send(new PutParameterCommand({
+        Name: param_path,
+        Value: timestamp,
+        Type: 'String',
+        Overwrite: true,
+      }))
+      logger.debug(`[${region}] Heartbeat written to ${param_path}`)
+    } catch (error) {
+      logger.debug(`[${region}] Failed to write heartbeat: ${error}`)
+    }
+  }))
+}
+
+async function delete_heartbeat(regions: string[]): Promise<void> {
+  const prefix = get_heartbeat_prefix()
+  if (!prefix) return
+
+  const param_path = heartbeat_ssm_path(prefix)
+
+  await Promise.all(regions.map(async (region) => {
+    try {
+      const ssm = new SSMClient({ region })
+      await ssm.send(new DeleteParameterCommand({ Name: param_path }))
+      logger.debug(`[${region}] Heartbeat deleted`)
+    } catch {
+      // Parameter may not exist — fine
+    }
+  }))
 }
 
 function watch_and_synth(): void {
