@@ -1,0 +1,290 @@
+{
+  "main-development-LiveLambda-LayerStack-useast1": {
+    "LiveLambdaProxyLayerArn": "arn:aws:lambda:us-east-1:180294196665:layer:main-development-live-lambda-proxy:4"
+  },
+  "main-development-LiveLambda-AppSyncStack-useast1": {
+    "LiveLambdaEventApiId": "hzubwpywhncd3n7r2m25styhi4",
+    "LiveLambdaEventApiWebSocketEndpoint": "wss://jnnbxzpzuneh5hwtmvyfklszyu.appsync-realtime-api.us-east-1.amazonaws.com/event/realtime",
+    "LiveLambdaEventApiHttpHost": "jnnbxzpzuneh5hwtmvyfklszyu.appsync-api.us-east-1.amazonaws.com",
+    "LiveLambdaEventApiRealtimeHost": "jnnbxzpzuneh5hwtmvyfklszyu.appsync-realtime-api.us-east-1.amazonaws.com",
+    "LiveLambdaEventApiHttpEndpoint": "https://jnnbxzpzuneh5hwtmvyfklszyu.appsync-api.us-east-1.amazonaws.com/event"
+  },
+  "bng-platform-development-platform-app-sync-certificate": {
+    "outappsynccertificatearn": "arn:aws:acm:us-east-1:180294196665:certificate/6b3cc5d8-3e8f-46ce-9c95-3f7844101832"
+  },
+  "bng-platform-development-platform-platform-table": {
+    "outplatformtablestreamarn": "arn:aws:dynamodb:us-east-2:180294196665:table/main-development-platform/stream/2026-03-28T01:24:00.074",
+    "outplatformtablename": "main-development-platform",
+    "outplatformtablearn": "arn:aws:dynamodb:us-east-2:180294196665:table/main-development-platform"
+  },
+  "bng-platform-development-frontegg-webhook": {
+    "WebhookProviderDeployTaskProviderHandlerRoleArn": "arn:aws:iam::180294196665:role/bng-platform-development--WebhookProviderDeployTask-Ag1aHWuxkBiJ",
+    "WebhookProviderDeployTaskProviderHandlerArn": "arn:aws:lambda:us-east-1:180294196665:function:bng-platform-development--WebhookProviderDeployTas-llETFq0FNife",
+    "WebhookProviderDeployTaskProviderHandlerCdkOutAssetPath": "cdk.out/asset.1b6ed41bf261ab1b915dd339e2d76d57ca635658b4fbb45df6ebfaba2076309d",
+    "WebhookProviderDeployTaskProviderHandlerHandler": "index.handler"
+  },
+  "bng-platform-development-frontegg-application": {
+    "ApplicationProviderDeployTaskProviderHandlerCdkOutAssetPath": "cdk.out/asset.fad3a2f9c3bb8a87c014952e1efd3e0abd1ddffee1f414a9130fb9afcf52f38c",
+    "ApplicationProviderDeployTaskProviderHandlerRoleArn": "arn:aws:iam::180294196665:role/bng-platform-development--ApplicationProviderDeploy-GYofWbhIHO3B",
+    "outfronteggappid": "fa01cb05-c9d6-4cbd-b9d8-325665ae7e7f",
+    "outfronteggclientsecret": "7a2303dc-5e31-4d51-8738-880aea914ed7",
+    "ApplicationProviderDeployTaskProviderHandlerHandler": "index.handler",
+    "ApplicationProviderDeployTaskProviderHandlerArn": "arn:aws:lambda:us-east-1:180294196665:function:bng-platform-development--ApplicationProviderDeplo-BITBD7Y4olWl"
+  },
+  "bng-platform-development-deployment-web": {
+    "outfrontendbucketarn": "arn:aws:s3:::main-development-frontend-180294196665-us-east-1-an",
+    "outwebdistributionid": "EOMY4QQD0LY23",
+    "outwebcustomdomain": "https://main.sidney.development.dashboard.boundlessdigital.ai",
+    "outwebtrpccustomdomain": "https://main.sidney.development.dashboard.boundlessdigital.ai/trpc",
+    "outwebbucketname": "main-development-frontend-180294196665-us-east-1-an",
+    "outfrontendbucketname": "main-development-frontend-180294196665-us-east-1-an",
+    "outwebcloudfronturl": "https://digt8obcyuath.cloudfront.net"
+  },
+  "bng-platform-development-authorization-authorization-sync": {
+    "HandlerRoleArn": "arn:aws:iam::180294196665:role/bng-platform-development--HandlerServiceRoleFCDC14A-t2WjX0G0Eg7j",
+    "HandlerCdkOutAssetPath": "cdk.out/asset.9553c4aeeef569eb0fd169821115cacb1e325499e2bdb0f4f0c5666d14882396",
+    "HandlerArn": "arn:aws:lambda:us-east-1:180294196665:function:main-development-authorization-sync",
+    "HandlerHandler": "index.handler"
+  },
+  "bng-platform-development-webhooks-webhooks-api": {
+    "WebhookHandlerFunctionRoleArn": "arn:aws:iam::180294196665:role/bng-platform-development-webhooks-w-ApiRole1873F438-keVoPGfrxo9n",
+    "outwebhooksfunctionurl": "https://zdd4d3yxe5d4jnnuzs2w6jgscy0vmmad.lambda-url.us-east-1.on.aws/",
+    "WebhookHandlerFunctionCdkOutAssetPath": "cdk.out/asset.cc27725d4dfc4f76e239f22ef266b587ec7a2adc19d3dc1f024fac5ca9565e48",
+    "WebhookHandlerFunctionArn": "arn:aws:lambda:us-east-1:180294196665:function:main-development-webhook_handler",
+    "WebhookHandlerFunctionHandler": "index.handler"
+  },
+  "bng-platform-development-platform-idempotency-table": {
+    "outidempotencytablename": "main-development-idempotency",
+    "outidempotencytablestreamarn": "arn:aws:dynamodb:us-east-2:180294196665:table/main-development-idempotency/stream/2026-03-29T09:24:56.360",
+    "outidempotencytablearn": "arn:aws:dynamodb:us-east-2:180294196665:table/main-development-idempotency"
+  },
+  "bng-platform-development-ai-guardrails": {
+    "outbedrockguardrailid": "caoj7vbyr0c4",
+    "outbedrockguardrailversion": "1"
+  },
+  "ParameterStack": {
+    "BngPlatformDevSidneyFunctionName": "ParameterStack-BngPlatformDevSidneyNewfunction07C3-2wwGjnhCzmr5",
+    "BngPlatformDevSidneyFunctionArn": "arn:aws:lambda:us-east-1:180294196665:function:ParameterStack-BngPlatformDevSidneyNewfunction07C3-2wwGjnhCzmr5",
+    "BngPlatformDevSidneyFunctionUrl": "https://s6aurniyf6b2pln74mhypmk7xq0luagh.lambda-url.us-east-1.on.aws/"
+  },
+  "bng-platform-development-platform-dns": {
+    "outdnsid": "Z099341422BC08HCKS8MB",
+    "outdnsname": "main.sidney.development.dashboard.boundlessdigital.ai",
+    "outdnsdomainname": "main.sidney.development.dashboard.boundlessdigital.ai"
+  },
+  "bng-platform-development-authorization-authorization-table": {
+    "outauthorizationtablename": "main-development-authorization",
+    "outauthorizationtablestreamarn": "arn:aws:dynamodb:us-east-1:180294196665:table/main-development-authorization/stream/2026-03-28T01:11:07.333",
+    "outauthorizationtablearn": "arn:aws:dynamodb:us-east-1:180294196665:table/main-development-authorization"
+  },
+  "bng-platform-development-platform-account-log-bucket": {
+    "outs3accesslogsuseast2bucketname": "boundless-s3-access-logs-180294196665-us-east-2-an",
+    "outs3accesslogsuseast2bucketarn": "arn:aws:s3:::boundless-s3-access-logs-180294196665-us-east-2-an"
+  },
+  "SSTBootstrap": {
+    "BucketName": "sstbootstrap-useast124d14e4b-7eve0bwtajd5",
+    "Version": "7.3"
+  },
+  "DnsTenantZone-sidney-development": {
+    "ZoneName": "sidney.development.dashboard.boundlessdigital.ai",
+    "HostedZoneId": "Z07061861BJLNYNTN5TAT",
+    "NS0": "ns-592.awsdns-10.net",
+    "NS2": "ns-190.awsdns-23.com",
+    "NS1": "ns-1795.awsdns-32.co.uk",
+    "NS3": "ns-1058.awsdns-04.org"
+  },
+  "RegionalStage-us-east-1-Configurations": {
+    "TenantOverrideSecretArn": "arn:aws:secretsmanager:us-east-1:619071345469:secret:application-override-180294196665",
+    "ApplicationCommonSecretArn": "arn:aws:secretsmanager:us-east-1:619071345469:secret:application-common-secret",
+    "TenantAccessRoleArn": "arn:aws:iam::619071345469:role/TenantSecretAccessRole-180294196665",
+    "BuildSecretArn": "arn:aws:secretsmanager:us-east-1:619071345469:secret:build-secret"
+  },
+  "RegionalStage-us-east-1-EventBus": {
+    "EventBusArn": "arn:aws:events:us-east-1:180294196665:event-bus/bng-platform"
+  },
+  "GlobalStage-Waf": {
+    "ExportsOutputFnGetAttWAFWebACLArnEB7508C6": "arn:aws:wafv2:us-east-1:180294196665:global/webacl/WAFWebACL-P12C48DrI5ca/ca58ce34-acb1-4228-9532-a176928da2ef"
+  },
+  "GlobalStage-CloudFrontLoggingBucket": {
+    "ExportsOutputFnGetAttCloudFrontLoggingBucketA622080DRegionalDomainName16277F2B": "globalstage-cloudfrontlog-cloudfrontloggingbucketa-6mgk1brtsjjm.s3.us-east-1.amazonaws.com"
+  },
+  "GlobalStage-Configurations": {
+    "TenantOverrideSecretArn": "arn:aws:secretsmanager:us-east-1:619071345469:secret:application-override-180294196665",
+    "ApplicationCommonSecretArn": "arn:aws:secretsmanager:us-east-1:619071345469:secret:application-common-secret",
+    "TenantAccessRoleArn": "arn:aws:iam::619071345469:role/TenantSecretAccessRole-180294196665",
+    "BuildSecretArn": "arn:aws:secretsmanager:us-east-1:619071345469:secret:build-secret"
+  },
+  "GlobalStage-CloudFront": {
+    "StaticAssetsBucketName": "globalstage-cloudfront-staticassetsbucket37ba3f96-4us7ubvy7rcz",
+    "ExportsOutputFnGetAttDistribution830FAC52DomainNameBEB09E30": "d182lw22zparsq.cloudfront.net",
+    "ExportsOutputRefDistribution830FAC524DF81588": "E12EFE7W4VFBGE",
+    "StaticAssetsBucketArn": "arn:aws:s3:::globalstage-cloudfront-staticassetsbucket37ba3f96-4us7ubvy7rcz",
+    "ExportsOutputRefStaticAssetsBucket37BA3F9673B5AD3A": "globalstage-cloudfront-staticassetsbucket37ba3f96-4us7ubvy7rcz",
+    "ExportsOutputFnGetAttStaticAssetsBucket37BA3F96ArnFB75E398": "arn:aws:s3:::globalstage-cloudfront-staticassetsbucket37ba3f96-4us7ubvy7rcz"
+  },
+  "GlobalStage-StaticAssetsBucket": {
+    "StaticAssetsBucketName": "globalstage-staticassetsb-staticassetsbucket37ba3f-jkwoi1xhmnmo",
+    "StaticAssetsBucketArn": "arn:aws:s3:::globalstage-staticassetsb-staticassetsbucket37ba3f-jkwoi1xhmnmo",
+    "ExportsOutputRefStaticAssetsBucket37BA3F9673B5AD3A": "globalstage-staticassetsb-staticassetsbucket37ba3f-jkwoi1xhmnmo",
+    "ExportsOutputFnGetAttStaticAssetsBucket37BA3F96WebsiteURL82A0628D": "http://globalstage-staticassetsb-staticassetsbucket37ba3f-jkwoi1xhmnmo.s3-website-us-east-1.amazonaws.com",
+    "ExportsOutputFnGetAttStaticAssetsBucket37BA3F96ArnFB75E398": "arn:aws:s3:::globalstage-staticassetsb-staticassetsbucket37ba3f-jkwoi1xhmnmo"
+  },
+  "GlobalStage-AcmCertificate": {
+    "ExportsOutputRefCertificate4E7ABB08F7C8AF50": "arn:aws:acm:us-east-1:180294196665:certificate/54e99d96-af29-4336-9b2e-2f54811e5f9c",
+    "CertificateArn": "arn:aws:acm:us-east-1:180294196665:certificate/54e99d96-af29-4336-9b2e-2f54811e5f9c"
+  },
+  "main-development-LiveLambda-LayerStack": {
+    "LiveLambdaProxyLayerArn": "arn:aws:lambda:us-east-2:180294196665:layer:main-development-live-lambda-proxy:4"
+  },
+  "main-development-LiveLambda-AppSyncStack": {
+    "LiveLambdaEventApiId": "ofbefxx3fbah7ledemkr5zazsi",
+    "LiveLambdaEventApiWebSocketEndpoint": "wss://6xyqw35qknhxxf5ot2i7eafuzi.appsync-realtime-api.us-east-2.amazonaws.com/event/realtime",
+    "LiveLambdaEventApiHttpHost": "6xyqw35qknhxxf5ot2i7eafuzi.appsync-api.us-east-2.amazonaws.com",
+    "LiveLambdaEventApiRealtimeHost": "6xyqw35qknhxxf5ot2i7eafuzi.appsync-realtime-api.us-east-2.amazonaws.com",
+    "LiveLambdaEventApiHttpEndpoint": "https://6xyqw35qknhxxf5ot2i7eafuzi.appsync-api.us-east-2.amazonaws.com/event"
+  },
+  "bng-platform-development-safeguard-safeguard-organization-resource-removed": {
+    "OrganizationResourceRemovedFunctionArn": "arn:aws:lambda:us-east-2:180294196665:function:main-development-ORGANIZATION_RESOURCE_DELETED",
+    "OrganizationResourceRemovedFunctionHandler": "index.handler",
+    "OrganizationResourceRemovedFunctionRoleArn": "arn:aws:iam::180294196665:role/bng-platform-development-safeguard--ApiRole1873F438-RStwX7pKYtN2",
+    "OrganizationResourceRemovedFunctionCdkOutAssetPath": "cdk.out/asset.cb24b4e08ae414ebcff4d448def71c746be6f78b66af9cca36a58f226e7f1f60"
+  },
+  "bng-platform-development-real-time-notifications-platform-notifications": {
+    "AppSyncAuthorizerFunctionCdkOutAssetPath": "cdk.out/asset.61fe3ba06844b2221ad079794e9340d4afb974bb3faaa230b0b9357f66282acf",
+    "outappsyncurl": "https://lrxmvnqtqjb2bcnjkeewjpwc5u.appsync-api.us-east-2.amazonaws.com",
+    "AppSyncAuthorizerFunctionRoleArn": "arn:aws:iam::180294196665:role/bng-platform-development-real-time--ApiRole1873F438-VWedO1VDuBoE",
+    "AppSyncAuthorizerFunctionHandler": "index.handler",
+    "outappsynccustomurl": "https://appsync.us-east-2.main.sidney.development.dashboard.boundlessdigital.ai",
+    "AppSyncAuthorizerFunctionArn": "arn:aws:lambda:us-east-2:180294196665:function:main-development-AppSyncAuthorizer"
+  },
+  "bng-platform-development-meraki-meraki-poller-queue": {
+    "PollerQueueHandlerFunctionHandler": "index.handler",
+    "PollerQueueHandlerFunctionRoleArn": "arn:aws:iam::180294196665:role/bng-platform-development-meraki-mer-ApiRole1873F438-G4sxrKztIT0w",
+    "outmerakipollerqueueurl": "https://sqs.us-east-2.amazonaws.com/180294196665/bng-platform-development-meraki-meraki-pol-PollerQueue6E1B7752-MWkSh06zyVuR.fifo",
+    "outmerakipollerdlqurl": "https://sqs.us-east-2.amazonaws.com/180294196665/bng-platform-development-meraki-meraki--PollerQueueDlq8CC04FAC-rkpRm6zc4EwB.fifo",
+    "PollerQueueHandlerFunctionCdkOutAssetPath": "cdk.out/asset.e492bac8e5994b65cebebcd84276c99d7d37cb32c7e232a7811f92f4427838f0",
+    "PollerQueueHandlerFunctionArn": "arn:aws:lambda:us-east-2:180294196665:function:main-development-meraki_poller"
+  },
+  "bng-platform-development-safeguard-safeguard-management-event-processor-queue": {
+    "safeguardmgmteventprocessorhandlerFunctionCdkOutAssetPath": "cdk.out/asset.323e300af943038eae3961df68b0a42c3d98d3fa65f2ccdf24f2a7270646e26e",
+    "outsafeguardmanagementeventprocessordlqurl": "https://sqs.us-east-2.amazonaws.com/180294196665/bng-platform-development-safegu-safeguardmanagementeventproces-5jRjA7QM7vuY.fifo",
+    "safeguardmgmteventprocessorhandlerFunctionRoleArn": "arn:aws:iam::180294196665:role/bng-platform-development-safeguard--ApiRole1873F438-aNSuFXO3XWKO",
+    "safeguardmgmteventprocessorhandlerFunctionHandler": "index.default",
+    "outsafeguardmanagementeventprocessorqueueurl": "https://sqs.us-east-2.amazonaws.com/180294196665/bng-platform-development-safegu-safeguardmanagementeventproces-weInXnKNwGHK.fifo",
+    "safeguardmgmteventprocessorhandlerFunctionArn": "arn:aws:lambda:us-east-2:180294196665:function:main-development-safeguard_mgmt_event_processor"
+  },
+  "bng-platform-development-platform-platform-events": {
+    "platformeventlistenerFunctionRoleArn": "arn:aws:iam::180294196665:role/bng-platform-development-platform-p-ApiRole1873F438-GVqkcowKqeKY",
+    "platformeventlistenerFunctionHandler": "index.handler",
+    "platformeventlistenerFunctionArn": "arn:aws:lambda:us-east-2:180294196665:function:main-development-platform-event-listener",
+    "platformeventlistenerFunctionCdkOutAssetPath": "cdk.out/asset.3aac4e6e537d3458e53edbd683af705a845caca14c9d97b2f2bdf3c597e82289"
+  },
+  "bng-platform-development-platform-platform-event-bus": {
+    "outeventbusname": "main-development-platform-event-bus",
+    "outs3serversideencryption": "AES256",
+    "outeventbusarn": "arn:aws:events:us-east-2:180294196665:event-bus/main-development-platform-event-bus"
+  },
+  "bng-platform-development-safeguard-safeguard-job-operations-queue": {
+    "JobOperationsHandlerFunctionCdkOutAssetPath": "cdk.out/asset.ad7c06edcb006236b2391125ab674dd22ec255915e5f09dcb99a6148fd78e517",
+    "JobOperationsHandlerFunctionHandler": "index.default",
+    "JobOperationsHandlerFunctionArn": "arn:aws:lambda:us-east-2:180294196665:function:main-development-job_operations_handler",
+    "JobOperationsHandlerFunctionRoleArn": "arn:aws:iam::180294196665:role/bng-platform-development-safeguard--ApiRole1873F438-bsrz0BVz2xit",
+    "outjoboperationsqueueurl": "https://sqs.us-east-2.amazonaws.com/180294196665/bng-platform-development-safeguard--JobOperationsQueue7C2D6CD6-lvxhUzM0g5mc.fifo",
+    "outjoboperationsdlqurl": "https://sqs.us-east-2.amazonaws.com/180294196665/bng-platform-development-safegua-JobOperationsQueueDlq46B2E438-M5VqSy8SHjTH.fifo"
+  },
+  "bng-platform-development-safeguard-safeguard-storage": {
+    "outsafeguardbucketarn": "arn:aws:s3:::main-development-safeguard-180294196665-us-east-2-an",
+    "outsafeguardbucketname": "main-development-safeguard-180294196665-us-east-2-an"
+  },
+  "bng-platform-development-notifications-notifications-table": {
+    "outnotificationstablearn": "arn:aws:dynamodb:us-east-2:180294196665:table/main-development-notifications",
+    "StreamProcessorListenerHandlerFunctionCdkOutAssetPath": "cdk.out/asset.c3f35407dd6d5976c62eedda5d33489ed9169d47405d00ce961db647acdb0d68",
+    "StreamProcessorListenerHandlerFunctionArn": "arn:aws:lambda:us-east-2:180294196665:function:main-development-notifications_dynamodb_stream_processor",
+    "StreamProcessorListenerHandlerFunctionHandler": "index.processor",
+    "StreamProcessorListenerHandlerFunctionRoleArn": "arn:aws:iam::180294196665:role/bng-platform-development-notificati-ApiRole1873F438-oVEZjrET2O2Z",
+    "outnotificationstablestreamarn": "arn:aws:dynamodb:us-east-2:180294196665:table/main-development-notifications/stream/2026-03-28T01:34:24.494",
+    "outnotificationstablename": "main-development-notifications"
+  },
+  "bng-platform-development-safeguard-safeguard-scheduled-compliance-alert-emails": {
+    "ScheduledComplianceAlertEmailsFunctionHandler": "index.lambda_handler",
+    "ScheduledComplianceAlertEmailsFunctionCdkOutAssetPath": "cdk.out/asset.afbe29294a18eb0d232396c5aef278adfbc9e377f7fd8edbb0a4feac77656d0a",
+    "ScheduledComplianceAlertEmailsFunctionArn": "arn:aws:lambda:us-east-2:180294196665:function:main-development-scheduled_compl_alert_emails",
+    "ScheduledComplianceAlertEmailsFunctionRoleArn": "arn:aws:iam::180294196665:role/bng-platform-development-safeguard--ApiRole1873F438-wsf6mg7vueuc"
+  },
+  "bng-platform-development-safeguard-safeguard-backup-job-processor-queue": {
+    "BackupJobProcessorHandlerFunctionCdkOutAssetPath": "cdk.out/asset.f71cdf66cf00e58919646fa22a1ec3f0d58dbef346cb17dae8f7dd3ade8e98f5",
+    "BackupJobProcessorHandlerFunctionArn": "arn:aws:lambda:us-east-2:180294196665:function:main-development-backup_job_processor",
+    "BackupJobProcessorHandlerFunctionRoleArn": "arn:aws:iam::180294196665:role/bng-platform-development-safeguard--ApiRole1873F438-0fFN3PNmUZAl",
+    "outbackupjobprocessordlqurl": "https://sqs.us-east-2.amazonaws.com/180294196665/bng-platform-development-safegu-BackupJobProcessorQueueDlq6F18-OSgwkWuJRFUk.fifo",
+    "outbackupjobprocessorqueueurl": "https://sqs.us-east-2.amazonaws.com/180294196665/bng-platform-development-safegu-BackupJobProcessorQueueB0F3E56-oURJ1PuLt0lc.fifo",
+    "BackupJobProcessorHandlerFunctionHandler": "index.default"
+  },
+  "bng-platform-development-safeguard-safeguard-migration-runner": {
+    "MigrationRunnerFunctionHandler": "index.handler",
+    "MigrationRunnerFunctionRoleArn": "arn:aws:iam::180294196665:role/bng-platform-development-safeguard--ApiRole1873F438-houtdSyS3Lz5",
+    "MigrationRunnerFunctionArn": "arn:aws:lambda:us-east-2:180294196665:function:main-development-MIGRATION_RUNNER",
+    "MigrationRunnerFunctionCdkOutAssetPath": "cdk.out/asset.cfa0d03d4f573a8a67b95976849f5a15ca26e7c9058ddb59406f4e8a55de79c1"
+  },
+  "bng-platform-development-safeguard-safeguard-table": {
+    "StreamProcessorListenerHandlerFunctionCdkOutAssetPath": "cdk.out/asset.df17b115931a0dec646b757266fd76ee46e31ef7eec473939caaaf64ff0c0d60",
+    "outsafeguardtablename": "main-development-safeguard",
+    "StreamProcessorListenerHandlerFunctionArn": "arn:aws:lambda:us-east-2:180294196665:function:main-development-safeguard_dynamodb_stream_processor",
+    "StreamProcessorListenerHandlerFunctionHandler": "index.default",
+    "outsafeguardtablestreamarn": "arn:aws:dynamodb:us-east-2:180294196665:table/main-development-safeguard/stream/2026-03-28T09:05:48.583",
+    "StreamProcessorListenerHandlerFunctionRoleArn": "arn:aws:iam::180294196665:role/bng-platform-development-safeguard--ApiRole1873F438-BdcJhueQiiHO",
+    "outsafeguardtablearn": "arn:aws:dynamodb:us-east-2:180294196665:table/main-development-safeguard"
+  },
+  "bng-platform-development-safeguard-safeguard-backup-job-producer-queue": {
+    "BackupJobProducerHandlerFunctionHandler": "index.default",
+    "BackupJobProducerHandlerFunctionRoleArn": "arn:aws:iam::180294196665:role/bng-platform-development-safeguard--ApiRole1873F438-gSOYUG5nbJnS",
+    "BackupJobProducerHandlerFunctionCdkOutAssetPath": "cdk.out/asset.cb0c3f7d47d871fec24c2d33712dc7f57ac8284b869ea3334c2db3965053350a",
+    "outbackupjobproducerqueueurl": "https://sqs.us-east-2.amazonaws.com/180294196665/bng-platform-development-safegu-BackupJobProducerQueue280664E0-ei3Tw56drA9p.fifo",
+    "BackupJobProducerHandlerFunctionArn": "arn:aws:lambda:us-east-2:180294196665:function:main-development-backup_job_producer",
+    "outbackupjobproducerdlqurl": "https://sqs.us-east-2.amazonaws.com/180294196665/bng-platform-development-safegu-BackupJobProducerQueueDlq33D34-ZvbNFIZaJFST.fifo"
+  },
+  "bng-platform-development-ai-ai-streaming-lambda": {
+    "AiStreamChatFunctionArn": "arn:aws:lambda:us-east-2:180294196665:function:main-development-ai_stream_chat",
+    "AiStreamChatFunctionHandler": "index.handler",
+    "AiStreamChatFunctionCdkOutAssetPath": "cdk.out/asset.e94c9fd2d88f5c0d6fb456c866b17ac1d727b290ec2b07f2651e47a200fcabe6",
+    "outaistreamingurl": "https://qz2vmv4ntwqymjwmrc4ymi2g5i0icsuk.lambda-url.us-east-2.on.aws/",
+    "AiStreamChatFunctionRoleArn": "arn:aws:iam::180294196665:role/bng-platform-development-ai-ai-stre-ApiRole1873F438-v0nWdm5unMhU"
+  },
+  "bng-platform-development-meraki-meraki-o-auth-kms": {
+    "outoauthkmskeyarn": "arn:aws:kms:us-east-2:180294196665:key/8643caad-3598-4276-9c77-bae6d9c4a285"
+  },
+  "bng-platform-development-meraki-meraki-poller-events-topic": {
+    "outmerakipollereventstopictopicarn": "arn:aws:sns:us-east-2:180294196665:main-development-meraki-poller-events.fifo"
+  },
+  "bng-platform-development-meraki-meraki-storage": {
+    "outmerakibucketname": "main-development-meraki-180294196665-us-east-2-an",
+    "MetadataGeneratorFunctionRoleArn": "arn:aws:iam::180294196665:role/bng-platform-development-meraki-mer-ApiRole1873F438-1JacBERkGQ2g",
+    "outmerakibucketarn": "arn:aws:s3:::main-development-meraki-180294196665-us-east-2-an",
+    "MetadataGeneratorFunctionHandler": "index.handler",
+    "MetadataGeneratorFunctionCdkOutAssetPath": "cdk.out/asset.6ec8516d5966a4155b0e0441933a896a04fd3c945e1c1cfdae46675ec463d1b0",
+    "MetadataGeneratorFunctionArn": "arn:aws:lambda:us-east-2:180294196665:function:main-development-MERAKI_METADATA_GENERATOR"
+  },
+  "bng-platform-development-platform-trpc-api": {
+    "outtrpcapifunctionurl": "https://pq45h2kfkfwfudbfdyspcqxwee0ibcji.lambda-url.us-east-2.on.aws/",
+    "TrpcHandlerFunctionHandler": "index.handler",
+    "TrpcHandlerFunctionCdkOutAssetPath": "cdk.out/asset.93a9b41d4ee78ae56dd8d7df31a43d68cc086671028824df2169e90ef9414850",
+    "TrpcHandlerFunctionArn": "arn:aws:lambda:us-east-2:180294196665:function:main-development-trpc_handler",
+    "TrpcHandlerFunctionRoleArn": "arn:aws:iam::180294196665:role/bng-platform-development-platform-t-ApiRole1873F438-cpa0ycIZ5Cqs"
+  },
+  "bng-platform-development-meraki-meraki-table": {
+    "StreamProcessorListenerHandlerFunctionCdkOutAssetPath": "cdk.out/asset.b730597c4873a2d65bcef449ac0183261df2cd4caa2877bd0c1c1b4cf584df56",
+    "StreamProcessorListenerHandlerFunctionArn": "arn:aws:lambda:us-east-2:180294196665:function:main-development-meraki_dynamodb_stream_processor",
+    "StreamProcessorListenerHandlerFunctionHandler": "index.processor",
+    "outmerakitablearn": "arn:aws:dynamodb:us-east-2:180294196665:table/main-development-meraki",
+    "outmerakitablestreamarn": "arn:aws:dynamodb:us-east-2:180294196665:table/main-development-meraki/stream/2026-03-28T01:33:24.631",
+    "StreamProcessorListenerHandlerFunctionRoleArn": "arn:aws:iam::180294196665:role/bng-platform-development-meraki-mer-ApiRole1873F438-2mutUpVvIp4Y",
+    "outmerakitablename": "main-development-meraki"
+  },
+  "bng-platform-development-sidney-platform-account-log-bucket": {
+    "outbucketss3accesslogsuswest2name": "boundless-s3-access-logs-180294196665-us-west-2-an",
+    "outbucketss3accesslogsuswest2arn": "arn:aws:s3:::boundless-s3-access-logs-180294196665-us-west-2-an"
+  },
+  "bng-platform-development-sidney-ai-guardrails": {
+    "outbedrockguardrailid": "ssh9vquwjex9",
+    "outbedrockguardrailversion": "1"
+  }
+}

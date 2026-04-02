@@ -16,6 +16,18 @@ type CredentialProvider = () => Promise<{
 const RECONNECT_DELAY_MS = 2_000
 const MAX_RECONNECT_DELAY_MS = 30_000
 
+// Mutex to serialize handler execution. execute_handler mutates process.env
+// (injects Lambda role credentials), which can corrupt concurrent operations
+// like AppSync publish signing if they read from process.env.
+let handler_lock: Promise<void> = Promise.resolve()
+
+function with_lock<T>(fn: () => Promise<T>): Promise<T> {
+  const prev = handler_lock
+  let resolve_lock: () => void
+  handler_lock = new Promise<void>((r) => { resolve_lock = r })
+  return prev.then(fn).finally(() => resolve_lock!())
+}
+
 export async function serve(config: ServerConfig): Promise<void> {
   logger.start('Starting LiveLambda server...')
 
@@ -106,6 +118,7 @@ async function handle_request(
   payload: string,
   display?: TerminalDisplay
 ): Promise<void> {
+  return with_lock(async () => {
   let request_id: string | undefined
   try {
     const parsed = JSON.parse(payload)
@@ -117,7 +130,9 @@ async function handle_request(
     logger.debug(`Handler returned response for request: ${request_id}`)
 
     const response_channel = `/${APPSYNC_EVENTS_API_NAMESPACE}/response/${request_id}`
-    await client.publish(response_channel, [response])
+    // Ensure the response is a valid JSON value — undefined/null produces
+    // invalid JSON strings that AppSync rejects during publish validation.
+    await client.publish(response_channel, [response ?? null])
     logger.debug(`Published response to ${response_channel}`)
   } catch (error) {
     logger.error(`Error in handle_request: ${error}`)
@@ -137,4 +152,5 @@ async function handle_request(
       }
     }
   }
+  })
 }

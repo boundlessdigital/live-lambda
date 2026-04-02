@@ -59,6 +59,13 @@ vi.mock('../lib/logger.js', () => ({
 import { serve } from './index.js'
 import { ServerConfig } from './types.js'
 
+// handle_request uses a mutex (with_lock) and is fire-and-forget from the
+// subscribe callback, so we need to drain the microtask queue after triggering
+// a request to ensure the handler + publish chain completes before assertions.
+function flush_microtasks(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0))
+}
+
 describe('server index', () => {
   const mock_config: ServerConfig = {
     configs: [
@@ -178,7 +185,8 @@ describe('server index', () => {
       expect(subscribe_callback).toBeDefined()
 
       // Simulate receiving a message
-      await subscribe_callback!(mock_payload)
+      subscribe_callback!(mock_payload)
+      await flush_microtasks()
 
       // Verify execute_handler was called with correct arguments
       expect(mock_execute_handler).toHaveBeenCalledWith(mock_event, mock_context, undefined)
@@ -208,7 +216,8 @@ describe('server index', () => {
       })
 
       await serve(mock_config)
-      await subscribe_callback!(mock_payload)
+      subscribe_callback!(mock_payload)
+      await flush_microtasks()
 
       expect(mock_publish).toHaveBeenCalledWith(
         `/live-lambda/response/${request_id}`,
@@ -235,7 +244,8 @@ describe('server index', () => {
       await serve(mock_config)
 
       // Errors are caught internally in handle_request, should not propagate
-      await subscribe_callback!(mock_payload)
+      subscribe_callback!(mock_payload)
+      await flush_microtasks()
     })
 
     it('should handle multiple concurrent requests', async () => {
@@ -258,12 +268,11 @@ describe('server index', () => {
 
       await serve(mock_config)
 
-      // Process all requests concurrently
-      await Promise.all(
-        requests.map(req => subscribe_callback!(JSON.stringify(req)))
-      )
+      // Fire all requests — the mutex serializes execution sequentially
+      requests.forEach(req => subscribe_callback!(JSON.stringify(req)))
+      await flush_microtasks()
 
-      // Verify each request was handled
+      // Verify each request was handled (sequentially due to mutex)
       expect(mock_execute_handler).toHaveBeenCalledTimes(3)
 
       // Verify responses were published to correct channels
@@ -368,7 +377,8 @@ describe('server index', () => {
       })
 
       await serve(mock_config)
-      await subscribe_callback!(payload)
+      subscribe_callback!(payload)
+      await flush_microtasks()
 
       expect(mock_execute_handler).toHaveBeenCalledWith(complex_event, complex_context, undefined)
     })
@@ -389,13 +399,41 @@ describe('server index', () => {
       })
 
       await serve(mock_config)
-      await subscribe_callback!(mock_payload)
+      subscribe_callback!(mock_payload)
+      await flush_microtasks()
 
-      // Should still publish even if response is undefined
+      // undefined response is coalesced to null before publishing
       expect(mock_publish).toHaveBeenCalledWith(
         '/live-lambda/response/null-response-req',
-        [undefined]
+        [null]
       )
+    })
+
+    it('should coalesce undefined response to null before publishing', async () => {
+      const mock_payload = JSON.stringify({
+        request_id: 'coalesce-test-req',
+        event_payload: { test: 'event' },
+        context: { function_name: 'test' }
+      })
+
+      mock_execute_handler.mockResolvedValue(undefined)
+
+      let subscribe_callback: ((payload: string) => Promise<any>) | undefined
+      mock_subscribe.mockImplementation((channel: string, callback: (payload: string) => Promise<any>) => {
+        subscribe_callback = callback
+        return Promise.resolve()
+      })
+
+      await serve(mock_config)
+      subscribe_callback!(mock_payload)
+      await flush_microtasks()
+
+      expect(mock_publish).toHaveBeenCalledTimes(1)
+      const publish_args = mock_publish.mock.calls[0]
+      expect(publish_args[0]).toBe('/live-lambda/response/coalesce-test-req')
+      expect(publish_args[1]).toEqual([null])
+      expect(publish_args[1][0]).toBeNull()
+      expect(publish_args[1][0]).not.toBeUndefined()
     })
   })
 
@@ -412,7 +450,8 @@ describe('server index', () => {
       await serve(mock_config)
 
       // Errors are caught internally in handle_request
-      await subscribe_callback!(malformed_payload)
+      subscribe_callback!(malformed_payload)
+      await flush_microtasks()
     })
 
     it('should handle payload missing request_id field', async () => {
@@ -430,7 +469,8 @@ describe('server index', () => {
       })
 
       await serve(mock_config)
-      await subscribe_callback!(payload_without_request_id)
+      subscribe_callback!(payload_without_request_id)
+      await flush_microtasks()
 
       // Should still call execute_handler
       expect(mock_execute_handler).toHaveBeenCalled()
@@ -452,7 +492,8 @@ describe('server index', () => {
       await serve(mock_config)
 
       // Errors are caught internally in handle_request
-      await subscribe_callback!('')
+      subscribe_callback!('')
+      await flush_microtasks()
     })
   })
 
@@ -484,7 +525,8 @@ describe('server index', () => {
       })
 
       await serve(mock_config)
-      await subscribe_callback!(mock_payload)
+      subscribe_callback!(mock_payload)
+      await flush_microtasks()
 
       // The response channel should follow the pattern /live-lambda/response/{request_id}
       expect(mock_publish).toHaveBeenCalledWith(
@@ -515,7 +557,8 @@ describe('server index', () => {
       await serve(mock_config)
 
       // Errors are caught internally in handle_request
-      await subscribe_callback!(mock_payload)
+      subscribe_callback!(mock_payload)
+      await flush_microtasks()
     })
 
     it('should handle rapid sequential requests without race conditions', async () => {
@@ -539,13 +582,11 @@ describe('server index', () => {
 
       await serve(mock_config)
 
-      // Fire all requests rapidly without awaiting each individually
-      const promises = requests.map(req => subscribe_callback!(JSON.stringify(req)))
+      // Fire all requests rapidly — the mutex serializes execution
+      requests.forEach(req => subscribe_callback!(JSON.stringify(req)))
+      await flush_microtasks()
 
-      // Wait for all to complete
-      await Promise.all(promises)
-
-      // Verify all requests were handled
+      // Verify all requests were handled (sequentially due to mutex)
       expect(mock_execute_handler).toHaveBeenCalledTimes(request_count)
 
       // Verify all responses were published to correct channels
@@ -579,7 +620,8 @@ describe('server index', () => {
       })
 
       await serve(mock_config)
-      await subscribe_callback!(large_payload)
+      subscribe_callback!(large_payload)
+      await flush_microtasks()
 
       // Verify the large event was passed to the handler
       expect(mock_execute_handler).toHaveBeenCalledWith(
